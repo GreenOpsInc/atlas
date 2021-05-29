@@ -1,6 +1,6 @@
 # You can connect to redis using the following steps:
 # 1. minikube service redis-master --url
-# 2. You can use the redis-cli CLI to connect to the host given by command #1
+# 2. You can use the redis-cli CLI to connect to the host given by command #1 redis-cli -h <host IP> -p <port #>
 ---
 apiVersion: apps/v1  # API version
 kind: Deployment
