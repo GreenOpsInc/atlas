@@ -1,7 +1,7 @@
 package com.greenops.workflowtrigger.api;
 
-import com.greenops.workflowtrigger.api.model.GitCredOpen;
-import com.greenops.workflowtrigger.api.model.GitRepoSchema;
+import com.greenops.workflowtrigger.api.model.git.GitCredOpen;
+import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
 import com.greenops.workflowtrigger.dbclient.MockDbClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

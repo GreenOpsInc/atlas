@@ -1,6 +1,6 @@
 package com.greenops.workflowtrigger.dbclient.redis;
 
-import com.greenops.workflowtrigger.api.model.GitRepoSchema;
+import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
 import com.greenops.workflowtrigger.dbclient.DbClient;
 import com.lambdaworks.redis.RedisClient;
 import com.lambdaworks.redis.RedisURI;
@@ -16,8 +16,8 @@ public class RedisDbClient implements DbClient {
     private RedisClient client;
 
     public RedisDbClient() {
-        var host = "192.168.64.3";//System.getenv(REDIS_HOST_VARIABLE);
-        var port = "32288";//System.getenv(REDIS_PORT_VARIABLE);
+        var host = System.getenv(REDIS_HOST_VARIABLE);
+        var port = System.getenv(REDIS_PORT_VARIABLE);
         client = new RedisClient(RedisURI.create("redis://" + host + ":" + port)); //Pattern is redis://password@host:port
     }
 

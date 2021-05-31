@@ -1,6 +1,6 @@
 package com.greenops.workflowtrigger.api;
 
-import com.greenops.workflowtrigger.api.model.GitRepoSchema;
+import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
 import com.greenops.workflowtrigger.dbclient.DbClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

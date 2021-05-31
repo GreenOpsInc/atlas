@@ -1,4 +1,4 @@
-package com.greenops.workflowtrigger.api.model;
+package com.greenops.workflowtrigger.api.model.git;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import org.json.JSONException;

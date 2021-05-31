@@ -1,4 +1,4 @@
-package com.greenops.workflowtrigger.api.model;
+package com.greenops.workflowtrigger.api.model.git;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;

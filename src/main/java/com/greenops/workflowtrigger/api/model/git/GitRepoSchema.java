@@ -1,4 +1,4 @@
-package com.greenops.workflowtrigger.api.model;
+package com.greenops.workflowtrigger.api.model.git;
 
 import org.json.JSONException;
 import org.json.JSONObject;
