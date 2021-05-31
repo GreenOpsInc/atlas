@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CommandBuilder {
+    private static final String GIT_SUFFIX = ".git";
     private List<String> commands;
 
     CommandBuilder() {
@@ -16,6 +17,23 @@ public class CommandBuilder {
         var newCommand = new ArrayList<String>();
         newCommand.add("git clone");
         newCommand.add(gitRepoSchema.getGitCred().convertGitCredToString(gitRepoSchema.getGitRepo()));
+        commands.add(String.join(" ", newCommand));
+        return this;
+    }
+
+    CommandBuilder deleteFolder(GitRepoSchema gitRepoSchema) {
+        var newCommand = new ArrayList<String>();
+        newCommand.add("rm -rf");
+        var splitLink = gitRepoSchema.getGitRepo().split("/");
+        int idx = splitLink.length - 1;
+        while (idx >= 0) {
+            if (splitLink[idx].equals("")) {
+                idx--;
+            } else {
+                break;
+            }
+        }
+        newCommand.add(splitLink[idx].replace(".git", ""));
         commands.add(String.join(" ", newCommand));
         return this;
     }

@@ -13,7 +13,7 @@ public class PipelineRepoApi {
     private final String orgName = "Temporary"; //TODO: Needs to be updated when we decide how to configure organization
     private final RepoManager repoManager = new RepoManagerImpl();
 
-    @PostMapping(value = "clone")
+    @PostMapping()
     ResponseEntity<Void> cloneRepo(@RequestBody GitRepoSchema gitRepoSchema) {
         if (repoManager.clone(gitRepoSchema)) {
             return ResponseEntity.ok().build();
@@ -22,7 +22,7 @@ public class PipelineRepoApi {
         }
     }
 
-    @DeleteMapping(value = "delete")
+    @DeleteMapping()
     ResponseEntity<Void> deleteRepo(@RequestBody GitRepoSchema gitRepoSchema) {
         if (repoManager.delete(gitRepoSchema)) {
             return ResponseEntity.ok().build();
