@@ -4,17 +4,17 @@ import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
 
 public class PipelineSchemaImpl implements PipelineSchema {
 
-    private String name;
+    private String pipelineName;
     private GitRepoSchema gitRepoSchema;
 
-    public PipelineSchemaImpl(String name, GitRepoSchema gitRepoSchema) {
-        this.name = name;
+    public PipelineSchemaImpl(String pipelineName, GitRepoSchema gitRepoSchema) {
+        this.pipelineName = pipelineName;
         this.gitRepoSchema = gitRepoSchema;
     }
 
     @Override
     public String getPipelineName() {
-        return name;
+        return pipelineName;
     }
 
     @Override
@@ -23,8 +23,8 @@ public class PipelineSchemaImpl implements PipelineSchema {
     }
 
     @Override
-    public void setPipelineName(String name) {
-        this.name = name;
+    public void setPipelineName(String pipelineName) {
+        this.pipelineName = pipelineName;
     }
 
     @Override

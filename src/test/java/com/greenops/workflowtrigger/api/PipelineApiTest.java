@@ -22,21 +22,21 @@ public class PipelineApiTest {
 
     @Test
     public void createPipelineReturnsOk() {
-        assertEquals(pipelineApi.createPipeline(gitRepoSchema), ResponseEntity.ok().build());
+        assertEquals(pipelineApi.createPipeline("team0", "pipeline1", gitRepoSchema), ResponseEntity.ok().build());
     }
 
     @Test
     public void getPipelineReturnsOk() {
-        assertEquals(pipelineApi.getPipeline("getPipelineTest"), ResponseEntity.ok().build());
+        assertEquals(pipelineApi.getPipeline("team1", "getPipelineTest"), ResponseEntity.ok().build());
     }
 
     @Test
     public void updatePipelineReturnsOk() {
-        assertEquals(pipelineApi.updatePipeline("updatePipelineTest", gitRepoSchema), ResponseEntity.ok().build());
+        assertEquals(pipelineApi.updatePipeline("team2", "updatePipelineTest", gitRepoSchema), ResponseEntity.ok().build());
     }
 
     @Test
     public void deletePipelineReturnsOk() {
-        assertEquals(pipelineApi.deletePipeline("deletePipelineTest", gitRepoSchema), ResponseEntity.ok().build());
+        assertEquals(pipelineApi.deletePipeline("team3", "deletePipelineTest", gitRepoSchema), ResponseEntity.ok().build());
     }
 }

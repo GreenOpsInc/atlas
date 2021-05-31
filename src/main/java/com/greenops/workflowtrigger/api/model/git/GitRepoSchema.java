@@ -41,14 +41,4 @@ public class GitRepoSchema {
     public String getPathToRoot() {
         return pathToRoot;
     }
-
-    public JSONObject convertToJson() {
-        try {
-            return new JSONObject().put(gitRepoName, gitRepo)
-                    .put(rootName, pathToRoot)
-                    .put(gitCredName, gitCred.convertToJson());
-        } catch (JSONException e) {
-            throw new RuntimeException("Git repo information could not be stored as a JSON object");
-        }
-    }
 }

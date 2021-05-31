@@ -2,7 +2,6 @@ package com.greenops.workflowtrigger.api.model.git;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import org.json.JSONObject;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(
@@ -11,6 +10,4 @@ import org.json.JSONObject;
                 @JsonSubTypes.Type(value = GitCredOpen.class, name = "open")
         }
 )
-public interface GitCred {
-    JSONObject convertToJson();
-}
+public interface GitCred {}

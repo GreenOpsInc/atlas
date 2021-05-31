@@ -13,27 +13,28 @@ public class PipelineApi {
     @Autowired
     private DbClient dbClient;
 
-    @PostMapping()
-    public ResponseEntity<Void> createPipeline(@RequestBody GitRepoSchema gitRepo) {
+    @PostMapping(value = "/{teamName}/{pipelineName}")
+    public ResponseEntity<Void> createPipeline(@PathVariable("teamName") String teamName,
+                                               @PathVariable("pipelineName") String pipelineName,
+                                               @RequestBody GitRepoSchema gitRepo) {
         // TODO: implement pipeline creation logic
-        dbClient.store(gitRepo);
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping(value = "{name}")
-    public ResponseEntity<GitRepoSchema> getPipeline(@PathVariable("name") String name) {
+    @GetMapping(value = "/{teamName}/{pipelineName}")
+    public ResponseEntity<GitRepoSchema> getPipeline(@PathVariable("teamName") String teamName, @PathVariable("pipelineName") String pipelineName) {
         // TODO: implement pipeline fetch logic
         return ResponseEntity.ok().build();
     }
 
-    @PutMapping(value = "{name}")
-    public ResponseEntity<Void> updatePipeline(@PathVariable("name") String name, @RequestBody(required = false) GitRepoSchema gitRepo) {
+    @PutMapping(value = "/{teamName}/{pipelineName}")
+    public ResponseEntity<Void> updatePipeline(@PathVariable("teamName") String teamName, @PathVariable("pipelineName") String pipelineName, @RequestBody(required = false) GitRepoSchema gitRepo) {
         // TODO: implement pipeline update logic
         return ResponseEntity.ok().build();
     }
 
-    @DeleteMapping(value = "{name}")
-    public ResponseEntity<Void> deletePipeline(@PathVariable("name") String name, @RequestBody GitRepoSchema gitRepo) {
+    @DeleteMapping(value = "/{teamName}/{pipelineName}")
+    public ResponseEntity<Void> deletePipeline(@PathVariable("teamName") String teamName, @PathVariable("pipelineName") String pipelineName, @RequestBody GitRepoSchema gitRepo) {
         // TODO: implement pipeline deletion logic
         return ResponseEntity.ok().build();
     }

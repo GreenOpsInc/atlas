@@ -18,6 +18,12 @@ public class TeamSchemaImpl implements TeamSchema {
         this.pipelines = new ArrayList<>();
     }
 
+    private TeamSchemaImpl(String teamName, String parentTeam, List<PipelineSchema> pipelines) {
+        this.teamName = teamName;
+        this.parentTeam = parentTeam;
+        this.pipelines = pipelines;
+    }
+
     @Override
     public void setTeamName(String teamName) {
         this.teamName = teamName;
