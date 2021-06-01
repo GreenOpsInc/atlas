@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/repo")
 public class PipelineRepoApi {
-    private final String orgName = "Temporary"; //TODO: Needs to be updated when we decide how to configure organization
+
     private final RepoManager repoManager = new RepoManagerImpl();
 
     @PostMapping()
@@ -22,7 +22,7 @@ public class PipelineRepoApi {
         }
     }
 
-    @DeleteMapping()
+    @PostMapping(value = "delete")
     ResponseEntity<Void> deleteRepo(@RequestBody GitRepoSchema gitRepoSchema) {
         if (repoManager.delete(gitRepoSchema)) {
             return ResponseEntity.ok().build();

@@ -13,6 +13,16 @@ public class CommandBuilder {
         commands = new ArrayList<>();
     }
 
+    CommandBuilder mkdir(String directory) {
+        commands.add("mkdir " + directory);
+        return this;
+    }
+
+    CommandBuilder cd(String directory) {
+        commands.add("cd " + directory);
+        return this;
+    }
+
     CommandBuilder gitClone(GitRepoSchema gitRepoSchema) {
         var newCommand = new ArrayList<String>();
         newCommand.add("git clone");
