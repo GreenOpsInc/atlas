@@ -1,6 +1,7 @@
 package com.greenops.workflowtrigger.api;
 
 import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
+import com.greenops.workflowtrigger.api.reposerver.RepoManagerApi;
 import com.greenops.workflowtrigger.dbclient.DbClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +13,9 @@ public class PipelineApi {
 
     @Autowired
     private DbClient dbClient;
+
+    @Autowired
+    private RepoManagerApi repoManagerApi;
 
     @PostMapping(value = "/{teamName}/{pipelineName}")
     public ResponseEntity<Void> createPipeline(@PathVariable("teamName") String teamName,
