@@ -1,0 +1,40 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: workflow-trigger
+  labels:
+    app: workflow-trigger
+spec:
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: LoadBalancer
+  selector:
+    app: workflow-trigger
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workflow-trigger
+  labels:
+    app: workflow-trigger
+spec:
+  selector:
+    matchLabels:
+      app: workflow-trigger
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: workflow-trigger
+    spec:
+      containers:
+        - name: workflow-trigger
+          image: workflow-trigger
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
+          ports:
+            - containerPort: 8080
