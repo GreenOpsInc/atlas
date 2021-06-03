@@ -14,9 +14,11 @@ import com.greenops.workflowtrigger.api.model.pipeline.TeamSchemaImpl;
 import com.greenops.workflowtrigger.dbclient.DbClient;
 import com.lambdaworks.redis.RedisClient;
 import com.lambdaworks.redis.RedisURI;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
 public class RedisDbClient implements DbClient {
     //TODO: Write Redis IT
@@ -38,6 +40,7 @@ public class RedisDbClient implements DbClient {
     public boolean store(TeamSchema teamSchema) {
         //TODO: The key is wrong. It should be updated when we know how org names are going to be defined
         try {
+            log.info("Storing schema for team {}", teamSchema.getTeamName());
             var connection= client.connect();
             var result = connection.set(teamSchema.getTeamName(), objectMapper.writeValueAsString(teamSchema));
             connection.close();
@@ -50,6 +53,7 @@ public class RedisDbClient implements DbClient {
     @Override
     public TeamSchema fetch(String teamName) {
         try {
+            log.info("Fetching schema for team {}", teamName);
             var connection= client.connect();
             //TODO: The key is wrong. It should be updated when we know how org names are going to be defined
             var result = connection.get(teamName);

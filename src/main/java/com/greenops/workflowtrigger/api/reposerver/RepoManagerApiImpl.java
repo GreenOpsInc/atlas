@@ -6,6 +6,7 @@ import com.greenops.workflowtrigger.api.model.git.GitCredMachineUser;
 import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
 import com.greenops.workflowtrigger.api.model.mixin.git.GitCredMachineUserMixin;
 import com.greenops.workflowtrigger.api.model.mixin.git.GitRepoSchemaMixin;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ContentType;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
+@Slf4j
 @Component
 public class RepoManagerApiImpl implements RepoManagerApi {
 
@@ -38,10 +40,13 @@ public class RepoManagerApiImpl implements RepoManagerApi {
             var request = new HttpPost(serverEndpoint);
             request.setEntity(new StringEntity(requestBody, ContentType.APPLICATION_JSON));
             var response = httpClient.execute(request);
+            log.info("Clone request for repo {} returned with status code {}", gitRepoSchema.getGitRepo(), response.getStatusLine().getStatusCode());
             return response.getStatusLine().getStatusCode() == 200;
         } catch (JsonProcessingException e) {
+            log.error("Object mapper could not convert Git repo schema for repo: {}", gitRepoSchema.getGitRepo(), e);
             return false;
         } catch (IOException e) {
+            log.error("HTTP request failed for repo: {}", gitRepoSchema.getGitRepo(), e);
             return false;
         }
         //TODO: Catch branches left separate for future processing, logic, and logging.
@@ -54,10 +59,13 @@ public class RepoManagerApiImpl implements RepoManagerApi {
             var request = new HttpPost(serverEndpoint + "/delete");
             request.setEntity(new StringEntity(requestBody, ContentType.APPLICATION_JSON));
             var response = httpClient.execute(request);
+            log.info("Delete folder request for repo {} returned with status code {}", gitRepoSchema.getGitRepo(), response.getStatusLine().getStatusCode());
             return response.getStatusLine().getStatusCode() == 200;
         } catch (JsonProcessingException e) {
+            log.error("Object mapper could not convert Git repo schema for repo: {}", gitRepoSchema.getGitRepo(), e);
             return false;
         } catch (IOException e) {
+            log.error("HTTP request failed for repo: {}", gitRepoSchema.getGitRepo(), e);
             return false;
         }
         //TODO: Catch branches left separate for future processing, logic, and logging.
