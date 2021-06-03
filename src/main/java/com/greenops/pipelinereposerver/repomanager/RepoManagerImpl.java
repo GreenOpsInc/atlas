@@ -1,12 +1,16 @@
 package com.greenops.pipelinereposerver.repomanager;
 
 import com.greenops.pipelinereposerver.api.model.git.GitRepoSchema;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 
+@Slf4j
+@Component
 public class RepoManagerImpl implements RepoManager {
 
     private final String orgName = "temporary"; //TODO: Needs to be updated when we decide how to configure organization
@@ -35,12 +39,15 @@ public class RepoManagerImpl implements RepoManager {
                     .start();
             int exitCode = process.waitFor();
             if (exitCode == 0) {
+                log.info("Cloning repo {} was successful.", gitRepoSchema.getGitRepo());
                 return true;
             } else {
+                log.info("Cloning repo {} was not successful. Cleaning up...", gitRepoSchema.getGitRepo());
                 delete(gitRepoSchema);
                 return false;
             }
         } catch (IOException | InterruptedException e) {
+            log.error("An error was thrown when attempting to clone the repo {}", gitRepoSchema.getGitRepo(), e);
             delete(gitRepoSchema);
             return false;
         }
@@ -57,9 +64,10 @@ public class RepoManagerImpl implements RepoManager {
                     .directory(new File(orgName + "/" + directory))
                     .start();
             int exitCode = process.waitFor();
+            log.info("Deletion of repo {} finished with exit code {}", gitRepoSchema.getGitRepo(), exitCode);
             return exitCode == 0;
         } catch (IOException | InterruptedException e) {
-            delete(gitRepoSchema);
+            log.error("An error was thrown when attempting to delete the repo {}", gitRepoSchema.getGitRepo(), e);
             return false;
         }
     }
