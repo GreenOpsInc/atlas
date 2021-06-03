@@ -1,10 +1,13 @@
 package com.greenops.workflowtrigger.api;
 
 import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
+import com.greenops.workflowtrigger.api.model.pipeline.TeamSchemaImpl;
 import com.greenops.workflowtrigger.api.reposerver.RepoManagerApi;
 import com.greenops.workflowtrigger.dbclient.DbClient;
+import com.greenops.workflowtrigger.dbclient.DbKey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,8 +26,17 @@ public class PipelineApi {
     public ResponseEntity<Void> createTeam(@PathVariable("orgName") String orgName,
                                            @PathVariable("parentTeamName") String parentTeamName,
                                            @PathVariable("teamName") String teamName) {
-        // TODO: implement team creation logic
-        return ResponseEntity.ok().build();
+        var key = DbKey.makeDbTeamKey(orgName, teamName);
+        if (dbClient.fetch(key) == null) {
+            var newTeam = new TeamSchemaImpl(teamName, parentTeamName, orgName);
+            if (dbClient.store(key, newTeam)) {
+                log.info("Created new team {}", newTeam.getTeamName());
+                return ResponseEntity.ok().build();
+            } else {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            }
+        }
+        return ResponseEntity.badRequest().build();
     }
 
     @GetMapping(value = "/team/{orgName}/{teamName}")

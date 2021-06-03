@@ -4,6 +4,6 @@ import com.greenops.workflowtrigger.api.model.pipeline.TeamSchema;
 
 public interface DbClient {
 
-    public boolean store(TeamSchema teamSchema);
-    public TeamSchema fetch(String teamName);
+    public boolean store(String key, TeamSchema teamSchema);
+    public TeamSchema fetch(String key);
 }

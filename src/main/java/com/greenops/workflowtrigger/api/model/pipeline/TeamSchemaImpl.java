@@ -10,17 +10,20 @@ public class TeamSchemaImpl implements TeamSchema {
 
     private String teamName;
     private String parentTeam;
+    private String orgName;
     private List<PipelineSchema> pipelines;
 
-    public TeamSchemaImpl(String teamName, String parentTeam) {
+    public TeamSchemaImpl(String teamName, String parentTeam, String orgName) {
         this.teamName = teamName;
         this.parentTeam = parentTeam;
+        this.orgName = orgName;
         this.pipelines = new ArrayList<>();
     }
 
-    private TeamSchemaImpl(String teamName, String parentTeam, List<PipelineSchema> pipelines) {
+    private TeamSchemaImpl(String teamName, String parentTeam, String orgName, List<PipelineSchema> pipelines) {
         this.teamName = teamName;
         this.parentTeam = parentTeam;
+        this.orgName = orgName;
         this.pipelines = pipelines;
     }
 
@@ -59,6 +62,11 @@ public class TeamSchemaImpl implements TeamSchema {
     @Override
     public String getParentTeam() {
         return parentTeam;
+    }
+
+    @Override
+    public String getOrgName() {
+        return orgName;
     }
 
     @Override

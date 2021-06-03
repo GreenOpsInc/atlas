@@ -14,7 +14,7 @@ public class TeamAndPipelineSchemaTest {
 
     @BeforeEach
     void beforeEach() {
-        teamSchema = new TeamSchemaImpl("team1", TeamSchema.ROOT_TEAM);
+        teamSchema = new TeamSchemaImpl("team1", TeamSchema.ROOT_TEAM, "org name");
     }
 
     @Test

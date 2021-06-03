@@ -8,11 +8,11 @@ import java.util.List;
 @JsonDeserialize(as = TeamSchemaImpl.class)
 public interface TeamSchema {
 
-    final static String ORG_NAME = "Temporary"; //TODO: This should be updated once we know how users are going to specify the org name
     final static String ROOT_TEAM = "Root";
 
     String getTeamName();
     String getParentTeam();
+    String getOrgName();
     List<String> getPipelineNames();
     void setTeamName(String teamName);
     void setParentTeam(String parentTeam);

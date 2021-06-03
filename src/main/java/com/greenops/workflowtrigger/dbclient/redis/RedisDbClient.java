@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class RedisDbClient implements DbClient {
     //TODO: Write Redis IT
-    private static String REDIS_SUCCESS_MESSAGE = "OK";
+    private static final String REDIS_SUCCESS_MESSAGE = "OK";
     //TODO: Eventually we should have a configuration factory/file which will choose which component to pick. For now this is fine.
     private RedisClient client;
     private ObjectMapper objectMapper;
@@ -37,12 +37,11 @@ public class RedisDbClient implements DbClient {
     }
 
     @Override
-    public boolean store(TeamSchema teamSchema) {
-        //TODO: The key is wrong. It should be updated when we know how org names are going to be defined
+    public boolean store(String key, TeamSchema teamSchema) {
         try {
             log.info("Storing schema for team {}", teamSchema.getTeamName());
             var connection= client.connect();
-            var result = connection.set(teamSchema.getTeamName(), objectMapper.writeValueAsString(teamSchema));
+            var result = connection.set(key, objectMapper.writeValueAsString(teamSchema));
             connection.close();
             return result.equals(REDIS_SUCCESS_MESSAGE);
         } catch (JsonProcessingException e) {
@@ -51,14 +50,14 @@ public class RedisDbClient implements DbClient {
     }
 
     @Override
-    public TeamSchema fetch(String teamName) {
+    public TeamSchema fetch(String key) {
         try {
-            log.info("Fetching schema for team {}", teamName);
+            log.info("Fetching schema for team {}", key);
             var connection= client.connect();
-            //TODO: The key is wrong. It should be updated when we know how org names are going to be defined
-            var result = connection.get(teamName);
+            var result = connection.get(key);
             connection.close();
-            return objectMapper.readValue(result, TeamSchema.class);
+            //If the key doesn't exist, Redis will return null
+            return result != null ? objectMapper.readValue(result, TeamSchema.class) : null;
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Jackson object mapping/serialization failed.");
         }
