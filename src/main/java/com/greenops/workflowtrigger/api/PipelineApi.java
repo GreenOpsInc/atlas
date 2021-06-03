@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
-@RequestMapping("/pipeline")
+@RequestMapping("/")
 public class PipelineApi {
 
     @Autowired
@@ -19,7 +19,37 @@ public class PipelineApi {
     @Autowired
     private RepoManagerApi repoManagerApi;
 
-    @PostMapping(value = "/{teamName}/{pipelineName}")
+    @PostMapping(value = "/team/{orgName}/{parentTeamName}/{teamName}")
+    public ResponseEntity<Void> createTeam(@PathVariable("orgName") String orgName,
+                                           @PathVariable("parentTeamName") String parentTeamName,
+                                           @PathVariable("teamName") String teamName) {
+        // TODO: implement team creation logic
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping(value = "/team/{orgName}/{teamName}")
+    public ResponseEntity<Void> readTeam(@PathVariable("orgName") String orgName,
+                                         @PathVariable("teamName") String teamName) {
+        // TODO: implement team creation logic
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping(value = "/team/{orgName}/{teamName}")
+    public ResponseEntity<Void> updateTeam(@PathVariable("orgName") String orgName,
+                                           @PathVariable("teamName") String teamName,
+                                           @RequestBody UpdateTeamRequest updateTeamRequest) {
+        // TODO: implement team creation logic
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping(value = "/team/{orgName}/{teamName}")
+    public ResponseEntity<Void> deleteTeam(@PathVariable("orgName") String orgName,
+                                           @PathVariable("teamName") String teamName) {
+        // TODO: implement team creation logic
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping(value = "/pipeline/{teamName}/{pipelineName}")
     public ResponseEntity<Void> createPipeline(@PathVariable("teamName") String teamName,
                                                @PathVariable("pipelineName") String pipelineName,
                                                @RequestBody GitRepoSchema gitRepo) {
@@ -27,19 +57,19 @@ public class PipelineApi {
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping(value = "/{teamName}/{pipelineName}")
+    @GetMapping(value = "/pipeline/{teamName}/{pipelineName}")
     public ResponseEntity<GitRepoSchema> getPipeline(@PathVariable("teamName") String teamName, @PathVariable("pipelineName") String pipelineName) {
         // TODO: implement pipeline fetch logic
         return ResponseEntity.ok().build();
     }
 
-    @PutMapping(value = "/{teamName}/{pipelineName}")
+    @PutMapping(value = "/pipeline/{teamName}/{pipelineName}")
     public ResponseEntity<Void> updatePipeline(@PathVariable("teamName") String teamName, @PathVariable("pipelineName") String pipelineName, @RequestBody(required = false) GitRepoSchema gitRepo) {
         // TODO: implement pipeline update logic
         return ResponseEntity.ok().build();
     }
 
-    @DeleteMapping(value = "/{teamName}/{pipelineName}")
+    @DeleteMapping(value = "/pipeline/{teamName}/{pipelineName}")
     public ResponseEntity<Void> deletePipeline(@PathVariable("teamName") String teamName, @PathVariable("pipelineName") String pipelineName, @RequestBody GitRepoSchema gitRepo) {
         // TODO: implement pipeline deletion logic
         return ResponseEntity.ok().build();
@@ -47,5 +77,23 @@ public class PipelineApi {
 
     public PipelineApi(DbClient dbClient) {
         this.dbClient = dbClient;
+    }
+
+    private static class UpdateTeamRequest {
+        private final String teamName;
+        private final String parentTeamName;
+
+        UpdateTeamRequest(String teamName, String parentTeamName) {
+            this.teamName = teamName;
+            this.parentTeamName = parentTeamName;
+        }
+
+        String getNewTeamName() {
+            return teamName;
+        }
+
+        String getNewParentTeamName() {
+            return parentTeamName;
+        }
     }
 }
