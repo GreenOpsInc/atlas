@@ -14,22 +14,19 @@ import com.greenops.workflowtrigger.api.model.pipeline.TeamSchemaImpl;
 import com.greenops.workflowtrigger.dbclient.DbClient;
 import com.lambdaworks.redis.RedisClient;
 import com.lambdaworks.redis.RedisURI;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
 public class RedisDbClient implements DbClient {
     //TODO: Write Redis IT
-    private static String REDIS_HOST_VARIABLE = "REDIS_HOST";
-    private static String REDIS_PORT_VARIABLE = "REDIS_PORT";
     private static String REDIS_SUCCESS_MESSAGE = "OK";
     //TODO: Eventually we should have a configuration factory/file which will choose which component to pick. For now this is fine.
     private RedisClient client;
     private ObjectMapper objectMapper;
 
-    public RedisDbClient() {
-        var host = System.getenv(REDIS_HOST_VARIABLE);
-        var port = System.getenv(REDIS_PORT_VARIABLE);
-        client = new RedisClient(RedisURI.create("redis://" + host + ":" + port)); //Pattern is redis://password@host:port
+    public RedisDbClient(@Value("${application.redis-url}") String redisUrl) {
+        client = new RedisClient(RedisURI.create("redis://" + redisUrl)); //Pattern is redis://password@host:port
         objectMapper = new ObjectMapper()
                 .addMixIn(TeamSchemaImpl.class, TeamSchemaMixin.class)
                 .addMixIn(PipelineSchemaImpl.class, PipelineSchemaMixin.class)

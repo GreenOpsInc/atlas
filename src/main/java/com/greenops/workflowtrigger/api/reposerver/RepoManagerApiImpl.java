@@ -11,6 +11,7 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -22,8 +23,8 @@ public class RepoManagerApiImpl implements RepoManagerApi {
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
 
-    public RepoManagerApiImpl(String serverEndpoint) {
-        this.serverEndpoint = serverEndpoint;
+    public RepoManagerApiImpl(@Value("${application.repo-server-url}") String serverEndpoint) {
+        this.serverEndpoint = serverEndpoint.endsWith("/") ? serverEndpoint + "repo" : serverEndpoint + "/repo";
         httpClient = HttpClientBuilder.create().build();
         objectMapper = new ObjectMapper()
                 .addMixIn(GitRepoSchema.class, GitRepoSchemaMixin.class)
@@ -50,7 +51,7 @@ public class RepoManagerApiImpl implements RepoManagerApi {
     public boolean deleteRepo(GitRepoSchema gitRepoSchema) {
         try {
             var requestBody = objectMapper.writeValueAsString(gitRepoSchema);
-            var request = serverEndpoint.endsWith("/") ? new HttpPost(serverEndpoint + "delete") : new HttpPost(serverEndpoint + "/delete");
+            var request = new HttpPost(serverEndpoint + "/delete");
             request.setEntity(new StringEntity(requestBody, ContentType.APPLICATION_JSON));
             var response = httpClient.execute(request);
             return response.getStatusLine().getStatusCode() == 200;

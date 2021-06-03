@@ -1,0 +1,31 @@
+version: "3.9"
+services:
+  workflowtrigger:
+    image: atlasworkflowtrigger
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redisserver
+      - reposerver
+    links:
+      - "redisserver"
+      - "reposerver"
+    environment:
+      - REPO_SERVER_ENDPOINT=http://reposerver:8081
+      - REDIS_ENDPOINT=redisserver:6379
+
+  reposerver:
+    image: atlasreposerver
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redisserver
+    links:
+      - "redisserver"
+    environment:
+      - REDIS_ENDPOINT=redisserver:6379
+
+  redisserver:
+    image: redis
+    ports:
+      - "6379:6379"

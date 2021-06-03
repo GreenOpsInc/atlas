@@ -1,0 +1,3 @@
+application:
+  repo-server-url: ${REPO_SERVER_ENDPOINT:http://localhost:8081}
+  redis-url: ${REDIS_ENDPOINT:localhost:6379}
