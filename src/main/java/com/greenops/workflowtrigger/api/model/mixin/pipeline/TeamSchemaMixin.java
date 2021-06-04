@@ -15,11 +15,17 @@ public abstract class TeamSchemaMixin {
     @JsonProperty("parentTeam")
     String parentTeam;
 
+    @JsonProperty("orgName")
+    String orgName;
+
     @JsonProperty("pipelines")
     List<PipelineSchema> pipelines;
 
     @JsonCreator
-    private TeamSchemaMixin(@JsonProperty("teamName") String teamName, @JsonProperty("parentTeam") String parentTeam, @JsonProperty("pipelines") List<PipelineSchema> pipelines) {}
+    private TeamSchemaMixin(@JsonProperty("teamName") String teamName,
+                            @JsonProperty("parentTeam") String parentTeam,
+                            @JsonProperty("orgName") String orgName,
+                            @JsonProperty("pipelines") List<PipelineSchema> pipelines) {}
 
     @JsonIgnore
     abstract List<String> getPipelineNames();

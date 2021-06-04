@@ -17,7 +17,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
-	implementation 'biz.paluch.redis:lettuce:3.2.Final'
+	implementation 'io.lettuce:lettuce-core:6.1.2.RELEASE'
 	// https://mvnrepository.com/artifact/org.json/json
 	implementation 'org.json:json:20090211'
 	implementation 'org.projectlombok:lombok:1.18.20'

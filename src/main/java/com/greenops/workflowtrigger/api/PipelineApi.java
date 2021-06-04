@@ -27,7 +27,7 @@ public class PipelineApi {
                                            @PathVariable("parentTeamName") String parentTeamName,
                                            @PathVariable("teamName") String teamName) {
         var key = DbKey.makeDbTeamKey(orgName, teamName);
-        if (dbClient.fetch(key) == null) {
+        if (dbClient.fetchTeamSchema(key) == null) {
             var newTeam = new TeamSchemaImpl(teamName, parentTeamName, orgName);
             if (dbClient.store(key, newTeam)) {
                 log.info("Created new team {}", newTeam.getTeamName());
@@ -50,8 +50,16 @@ public class PipelineApi {
     public ResponseEntity<Void> updateTeam(@PathVariable("orgName") String orgName,
                                            @PathVariable("teamName") String teamName,
                                            @RequestBody UpdateTeamRequest updateTeamRequest) {
-        // TODO: implement team creation logic
-        return ResponseEntity.ok().build();
+        var key = DbKey.makeDbTeamKey(orgName, teamName);
+        var teamSchema= dbClient.fetchTeamSchema(key);
+        if (teamSchema != null) {
+            if (dbClient.store(key, null)) {
+                return createTeam(teamSchema.getOrgName(), updateTeamRequest.getNewParentTeamName(), updateTeamRequest.getNewTeamName());
+            } else {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            }
+        }
+        return createTeam(orgName, updateTeamRequest.getNewParentTeamName(), updateTeamRequest.getNewTeamName());
     }
 
     @DeleteMapping(value = "/team/{orgName}/{teamName}")
