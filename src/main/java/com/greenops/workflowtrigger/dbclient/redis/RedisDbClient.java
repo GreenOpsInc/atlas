@@ -64,7 +64,8 @@ public class RedisDbClient implements DbClient {
                 redisCommands.set(key, objectMapper.writeValueAsString(schema));
             }
             var result = redisCommands.exec();
-            return !result.wasDiscarded() && result.get(0).equals(REDIS_SUCCESS_MESSAGE);
+            //Either all of the transaction is processed or all of it is discarded
+            return !result.wasDiscarded();
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Jackson object mapping/serialization failed.");
         }

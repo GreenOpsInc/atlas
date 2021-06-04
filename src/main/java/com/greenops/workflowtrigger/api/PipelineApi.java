@@ -1,6 +1,7 @@
 package com.greenops.workflowtrigger.api;
 
 import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
+import com.greenops.workflowtrigger.api.model.pipeline.PipelineSchema;
 import com.greenops.workflowtrigger.api.model.pipeline.TeamSchemaImpl;
 import com.greenops.workflowtrigger.api.reposerver.RepoManagerApi;
 import com.greenops.workflowtrigger.dbclient.DbClient;
@@ -10,6 +11,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -25,11 +30,16 @@ public class PipelineApi {
     @PostMapping(value = "/team/{orgName}/{parentTeamName}/{teamName}")
     public ResponseEntity<Void> createTeam(@PathVariable("orgName") String orgName,
                                            @PathVariable("parentTeamName") String parentTeamName,
-                                           @PathVariable("teamName") String teamName) {
+                                           @PathVariable("teamName") String teamName,
+                                           @RequestBody(required = false) List<PipelineSchema> pipelineSchemas) {
         var key = DbKey.makeDbTeamKey(orgName, teamName);
         if (dbClient.fetchTeamSchema(key) == null) {
             var newTeam = new TeamSchemaImpl(teamName, parentTeamName, orgName);
+            if (pipelineSchemas != null) {
+                pipelineSchemas.forEach(newTeam::addPipeline);
+            }
             if (dbClient.store(key, newTeam)) {
+                addTeamToOrgList(newTeam.getOrgName(), newTeam.getTeamName());
                 log.info("Created new team {}", newTeam.getTeamName());
                 return ResponseEntity.ok().build();
             } else {
@@ -53,13 +63,19 @@ public class PipelineApi {
         var key = DbKey.makeDbTeamKey(orgName, teamName);
         var teamSchema= dbClient.fetchTeamSchema(key);
         if (teamSchema != null) {
-            if (dbClient.store(key, null)) {
-                return createTeam(teamSchema.getOrgName(), updateTeamRequest.getNewParentTeamName(), updateTeamRequest.getNewTeamName());
+            if (dbClient.store(key,null)) {
+                removeTeamFromOrgList(orgName, teamName);
+                return createTeam(
+                        teamSchema.getOrgName(),
+                        updateTeamRequest.getNewParentTeamName(),
+                        updateTeamRequest.getNewTeamName(),
+                        teamSchema.getPipelineSchemas()
+                );
             } else {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
             }
         }
-        return createTeam(orgName, updateTeamRequest.getNewParentTeamName(), updateTeamRequest.getNewTeamName());
+        return createTeam(orgName, updateTeamRequest.getNewParentTeamName(), updateTeamRequest.getNewTeamName(), null);
     }
 
     @DeleteMapping(value = "/team/{orgName}/{teamName}")
@@ -93,6 +109,33 @@ public class PipelineApi {
     public ResponseEntity<Void> deletePipeline(@PathVariable("teamName") String teamName, @PathVariable("pipelineName") String pipelineName, @RequestBody GitRepoSchema gitRepo) {
         // TODO: implement pipeline deletion logic
         return ResponseEntity.ok().build();
+    }
+
+    private void removeTeamFromOrgList(String orgName, String teamName) {
+        var key = DbKey.makeDbListOfTeamsKey(orgName);
+        var status = false;
+        while (!status) {
+            var listOfTeams = dbClient.fetchList(key);
+            if (listOfTeams == null) listOfTeams = new ArrayList<>();
+            listOfTeams = listOfTeams.stream().filter(name -> !name.equals(teamName)).collect(Collectors.toList());
+            status = dbClient.store(key, listOfTeams);
+        }
+    }
+
+    private void addTeamToOrgList(String orgName, String teamName) {
+        var key = DbKey.makeDbListOfTeamsKey(orgName);
+        var status = false;
+        while (!status) {
+            var listOfTeams = dbClient.fetchList(key);
+            if (listOfTeams == null) listOfTeams = new ArrayList<>();
+            if (listOfTeams.stream().noneMatch(name -> name.equals(teamName))) {
+                listOfTeams.add(teamName);
+                status = dbClient.store(key, listOfTeams);
+
+            } else {
+                status = true;
+            }
+        }
     }
 
     public PipelineApi(DbClient dbClient) {

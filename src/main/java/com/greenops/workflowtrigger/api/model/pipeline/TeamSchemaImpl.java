@@ -73,4 +73,9 @@ public class TeamSchemaImpl implements TeamSchema {
     public List<String> getPipelineNames() {
         return pipelines.stream().map(PipelineSchema::getPipelineName).collect(Collectors.toList());
     }
+
+    @Override
+    public List<PipelineSchema> getPipelineSchemas() {
+        return pipelines;
+    }
 }
