@@ -32,6 +32,7 @@ public class RedisDbClient implements DbClient {
     private final StatefulRedisConnection<String, String> redisConnection;
     private final RedisCommands<String, String> redisCommands;
     private final ObjectMapper objectMapper;
+    private String currentWatchedKey;
 
     public RedisDbClient(@Value("${application.redis-url}") String redisUrl) {
         redisClient = RedisClient.create("redis://" + redisUrl); //Pattern is redis://password@host:port
@@ -56,6 +57,10 @@ public class RedisDbClient implements DbClient {
     public boolean store(String key, Object schema) {
         try {
             log.info("Storing schema for key {}", key);
+            if (!key.equals(currentWatchedKey)) {
+                redisCommands.unwatch();
+                currentWatchedKey = null;
+            }
             redisCommands.multi();
             //Passing in a null means the key should be deleted
             if (schema == null) {
@@ -87,6 +92,7 @@ public class RedisDbClient implements DbClient {
             //This will ensure that the list of watched keys is kept to one, so no leakage will happen.
             redisCommands.unwatch();
             redisCommands.watch(key);
+            currentWatchedKey = key;
             var result = redisCommands.get(key);
             //If the key doesn't exist, Redis will return null
             if (result == null) {

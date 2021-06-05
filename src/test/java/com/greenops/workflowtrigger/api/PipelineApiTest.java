@@ -2,9 +2,11 @@ package com.greenops.workflowtrigger.api;
 
 import com.greenops.workflowtrigger.api.model.git.GitCredOpen;
 import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
-import com.greenops.workflowtrigger.dbclient.MockDbClient;
+import com.greenops.workflowtrigger.api.reposerver.RepoManagerApi;
+import com.greenops.workflowtrigger.dbclient.DbClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.http.ResponseEntity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -16,7 +18,7 @@ public class PipelineApiTest {
 
     @BeforeEach
     void beforeEach() {
-        pipelineApi = new PipelineApi(new MockDbClient());
+        pipelineApi = new PipelineApi(Mockito.mock(DbClient.class), Mockito.mock(RepoManagerApi.class));
         gitRepoSchema = new GitRepoSchema("https://github.com/argoproj/argocd-example-apps.git", "guestbook/", new GitCredOpen());
     }
 

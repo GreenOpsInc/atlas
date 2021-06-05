@@ -29,4 +29,7 @@ public abstract class TeamSchemaMixin {
 
     @JsonIgnore
     abstract List<String> getPipelineNames();
+
+    @JsonIgnore
+    abstract List<String> getPipelineSchemas();
 }

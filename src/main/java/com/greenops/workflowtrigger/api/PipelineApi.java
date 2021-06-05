@@ -1,7 +1,16 @@
 package com.greenops.workflowtrigger.api;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.greenops.workflowtrigger.api.model.git.GitCredMachineUser;
+import com.greenops.workflowtrigger.api.model.git.GitCredOpen;
 import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
+import com.greenops.workflowtrigger.api.model.mixin.git.GitCredMachineUserMixin;
+import com.greenops.workflowtrigger.api.model.mixin.git.GitRepoSchemaMixin;
+import com.greenops.workflowtrigger.api.model.mixin.pipeline.PipelineSchemaMixin;
+import com.greenops.workflowtrigger.api.model.mixin.pipeline.TeamSchemaMixin;
 import com.greenops.workflowtrigger.api.model.pipeline.PipelineSchema;
+import com.greenops.workflowtrigger.api.model.pipeline.PipelineSchemaImpl;
 import com.greenops.workflowtrigger.api.model.pipeline.TeamSchemaImpl;
 import com.greenops.workflowtrigger.api.reposerver.RepoManagerApi;
 import com.greenops.workflowtrigger.dbclient.DbClient;
@@ -9,6 +18,7 @@ import com.greenops.workflowtrigger.dbclient.DbKey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,11 +31,20 @@ import java.util.stream.Collectors;
 @RequestMapping("/")
 public class PipelineApi {
 
-    @Autowired
-    private DbClient dbClient;
+    private final DbClient dbClient;
+    private final RepoManagerApi repoManagerApi;
+    private final ObjectMapper objectMapper;
 
     @Autowired
-    private RepoManagerApi repoManagerApi;
+    public PipelineApi(DbClient dbClient, RepoManagerApi repoManagerApi) {
+        this.dbClient = dbClient;
+        this.repoManagerApi = repoManagerApi;
+        objectMapper = new ObjectMapper()
+                .addMixIn(TeamSchemaImpl.class, TeamSchemaMixin.class)
+                .addMixIn(PipelineSchemaImpl.class, PipelineSchemaMixin.class)
+                .addMixIn(GitRepoSchema.class, GitRepoSchemaMixin.class)
+                .addMixIn(GitCredMachineUser.class, GitCredMachineUserMixin.class);
+    }
 
     @PostMapping(value = "/team/{orgName}/{parentTeamName}/{teamName}")
     public ResponseEntity<Void> createTeam(@PathVariable("orgName") String orgName,
@@ -50,10 +69,19 @@ public class PipelineApi {
     }
 
     @GetMapping(value = "/team/{orgName}/{teamName}")
-    public ResponseEntity<Void> readTeam(@PathVariable("orgName") String orgName,
-                                         @PathVariable("teamName") String teamName) {
-        // TODO: implement team creation logic
-        return ResponseEntity.ok().build();
+    public ResponseEntity<String> readTeam(@PathVariable("orgName") String orgName,
+                                           @PathVariable("teamName") String teamName) {
+        var key = DbKey.makeDbTeamKey(orgName, teamName);
+        var teamSchema = dbClient.fetchTeamSchema(key);
+        if (teamSchema == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        for (var pipelineSchema : teamSchema.getPipelineSchemas()) {
+            pipelineSchema.getGitRepoSchema().setGitCred(new GitCredOpen());
+        }
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(schemaToResponsePayload(teamSchema));
     }
 
     @PutMapping(value = "/team/{orgName}/{teamName}")
@@ -62,7 +90,7 @@ public class PipelineApi {
                                            @RequestBody UpdateTeamRequest updateTeamRequest) {
         var key = DbKey.makeDbTeamKey(orgName, teamName);
         var teamSchema= dbClient.fetchTeamSchema(key);
-        var response = deleteTeam(orgName, teamName);
+        var response= deleteTeam(orgName, teamName);
         if (!response.getStatusCode().is2xxSuccessful()) {
             return response;
         }
@@ -139,8 +167,12 @@ public class PipelineApi {
         }
     }
 
-    public PipelineApi(DbClient dbClient) {
-        this.dbClient = dbClient;
+    private String schemaToResponsePayload(Object schema) {
+        try {
+            return objectMapper.writeValueAsString(schema);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Could not convert schema into response payload.", e);
+        }
     }
 
     private static class UpdateTeamRequest {
