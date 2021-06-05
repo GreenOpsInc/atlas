@@ -62,27 +62,28 @@ public class PipelineApi {
                                            @RequestBody UpdateTeamRequest updateTeamRequest) {
         var key = DbKey.makeDbTeamKey(orgName, teamName);
         var teamSchema= dbClient.fetchTeamSchema(key);
-        if (teamSchema != null) {
-            if (dbClient.store(key,null)) {
-                removeTeamFromOrgList(orgName, teamName);
-                return createTeam(
-                        teamSchema.getOrgName(),
-                        updateTeamRequest.getNewParentTeamName(),
-                        updateTeamRequest.getNewTeamName(),
-                        teamSchema.getPipelineSchemas()
-                );
-            } else {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            }
+        var response = deleteTeam(orgName, teamName);
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            return response;
         }
-        return createTeam(orgName, updateTeamRequest.getNewParentTeamName(), updateTeamRequest.getNewTeamName(), null);
+        return createTeam(
+                teamSchema.getOrgName(),
+                updateTeamRequest.getNewParentTeamName(),
+                updateTeamRequest.getNewTeamName(),
+                teamSchema.getPipelineSchemas()
+        );
     }
 
     @DeleteMapping(value = "/team/{orgName}/{teamName}")
     public ResponseEntity<Void> deleteTeam(@PathVariable("orgName") String orgName,
                                            @PathVariable("teamName") String teamName) {
-        // TODO: implement team creation logic
-        return ResponseEntity.ok().build();
+        var key = DbKey.makeDbTeamKey(orgName, teamName);
+        if (dbClient.store(key,null)) {
+            removeTeamFromOrgList(orgName, teamName);
+            return ResponseEntity.ok().build();
+        } else {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @PostMapping(value = "/pipeline/{teamName}/{pipelineName}")
