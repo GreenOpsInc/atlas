@@ -11,6 +11,9 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
+
+import static com.greenops.pipelinereposerver.repomanager.CommandBuilder.getFolderName;
 
 @Slf4j
 @Component
@@ -35,7 +38,7 @@ public class RepoManagerImpl implements RepoManager {
 
     @Override
     public boolean clone(GitRepoSchema gitRepoSchema) {
-        if (gitRepos.stream().anyMatch(gitRepoSchema1 -> gitRepoSchema1.getGitRepo().equals(gitRepoSchema.getGitRepo()))) {
+        if (containsGitRepoSchema(gitRepoSchema)) {
             return true;
         }
         try {
@@ -49,6 +52,7 @@ public class RepoManagerImpl implements RepoManager {
             int exitCode = process.waitFor();
             if (exitCode == 0) {
                 log.info("Cloning repo {} was successful.", gitRepoSchema.getGitRepo());
+                gitRepos.add(gitRepoSchema);
                 return true;
             } else {
                 log.info("Cloning repo {} was not successful. Cleaning up...", gitRepoSchema.getGitRepo());
@@ -58,6 +62,22 @@ public class RepoManagerImpl implements RepoManager {
         } catch (IOException | InterruptedException e) {
             log.error("An error was thrown when attempting to clone the repo {}", gitRepoSchema.getGitRepo(), e);
             delete(gitRepoSchema);
+            return false;
+        }
+    }
+
+    @Override
+    public boolean update(GitRepoSchema gitRepoSchema) {
+        //There should only be one answer that fits the filter for oldGitRepoSchema
+        var oldGitRepoSchema = gitRepos.stream().filter(gitRepoSchema1 -> gitRepoSchema1.getGitRepo().equals(gitRepoSchema.getGitRepo())).findFirst().orElse(null);
+
+        gitRepos = gitRepos.stream().filter(gitRepoSchema1 -> !gitRepoSchema1.getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toSet());
+        gitRepos.add(gitRepoSchema);
+        if (sync(gitRepoSchema)) {
+            return true;
+        } else {
+            gitRepos.remove(gitRepoSchema);
+            gitRepos.add(oldGitRepoSchema);
             return false;
         }
     }
@@ -74,11 +94,53 @@ public class RepoManagerImpl implements RepoManager {
                     .start();
             int exitCode = process.waitFor();
             log.info("Deletion of repo {} finished with exit code {}", gitRepoSchema.getGitRepo(), exitCode);
-            return exitCode == 0;
+            if (exitCode == 0) {
+                gitRepos.remove(gitRepoSchema);
+                return true;
+            } else {
+                return false;
+            }
         } catch (IOException | InterruptedException e) {
             log.error("An error was thrown when attempting to delete the repo {}", gitRepoSchema.getGitRepo(), e);
             return false;
         }
+    }
+
+    @Override
+    public boolean sync(GitRepoSchema gitRepoSchema) {
+        var listOfGitRepos = gitRepos.stream().filter(gitRepoSchema1 ->
+                gitRepoSchema1.getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toList());
+        if (listOfGitRepos.size() != 1) {
+            //The size should never be greater than 1
+            return false;
+        }
+        var cachedGitRepoSchema = listOfGitRepos.get(0);
+        try {
+            var command = new CommandBuilder()
+                    .gitPull(cachedGitRepoSchema)
+                    .build();
+            var process = new ProcessBuilder()
+                    .command("/bin/bash", "-c", command)
+                    .directory(new File(orgName + "/" + directory + "/" + getFolderName(cachedGitRepoSchema.getGitRepo())))
+                    .start();
+            int exitCode = process.waitFor();
+            if (exitCode == 0) {
+                log.info("Pulling repo {} was successful.", cachedGitRepoSchema.getGitRepo());
+                return true;
+            } else {
+                log.info("Pulling repo {} was not successful.", cachedGitRepoSchema.getGitRepo());
+                return false;
+            }
+        } catch (IOException | InterruptedException e) {
+            log.error("An error was thrown when attempting to clone the repo {}", cachedGitRepoSchema.getGitRepo(), e);
+            delete(cachedGitRepoSchema);
+            return false;
+        }
+    }
+
+    @Override
+    public boolean containsGitRepoSchema(GitRepoSchema gitRepoSchema) {
+        return gitRepos.stream().anyMatch(gitRepoSchema1 -> gitRepoSchema1.getGitRepo().equals(gitRepoSchema.getGitRepo()));
     }
 
     private boolean setupGitCli() {

@@ -6,10 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
@@ -25,10 +22,18 @@ public class PipelineRepoApi {
 
     @PostMapping()
     ResponseEntity<Void> cloneRepo(@RequestBody GitRepoSchema gitRepoSchema) {
-        if (repoManager.clone(gitRepoSchema)) {
-            return ResponseEntity.ok().build();
+        if (repoManager.containsGitRepoSchema(gitRepoSchema)) {
+            if (repoManager.update(gitRepoSchema)) {
+                return ResponseEntity.ok().build();
+            } else {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            }
         } else {
-            return ResponseEntity.status(HttpStatus.FAILED_DEPENDENCY).build();
+            if (repoManager.clone(gitRepoSchema)) {
+                return ResponseEntity.ok().build();
+            } else {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            }
         }
     }
 
@@ -37,7 +42,16 @@ public class PipelineRepoApi {
         if (repoManager.delete(gitRepoSchema)) {
             return ResponseEntity.ok().build();
         } else {
-            return ResponseEntity.status(HttpStatus.FAILED_DEPENDENCY).build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PostMapping(value = "sync")
+    ResponseEntity<Void> syncRepo(@RequestBody GitRepoSchema gitRepoSchema) {
+        if (repoManager.sync(gitRepoSchema)) {
+            return ResponseEntity.ok().build();
+        } else {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 }

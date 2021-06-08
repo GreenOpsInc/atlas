@@ -31,10 +31,28 @@ public class CommandBuilder {
         return this;
     }
 
+    CommandBuilder gitPull(GitRepoSchema gitRepoSchema) {
+        var newCommand = new ArrayList<String>();
+        newCommand.add("git pull");
+        newCommand.add(gitRepoSchema.getGitCred().convertGitCredToString(gitRepoSchema.getGitRepo()));
+        commands.add(String.join(" ", newCommand));
+        return this;
+    }
+
     CommandBuilder deleteFolder(GitRepoSchema gitRepoSchema) {
         var newCommand = new ArrayList<String>();
         newCommand.add("rm -rf");
-        var splitLink = gitRepoSchema.getGitRepo().split("/");
+        newCommand.add(getFolderName(gitRepoSchema.getGitRepo()));
+        commands.add(String.join(" ", newCommand));
+        return this;
+    }
+
+    String build() {
+        return String.join("; ", commands);
+    }
+
+    public static String getFolderName(String gitRepo) {
+        var splitLink = gitRepo.split("/");
         int idx = splitLink.length - 1;
         while (idx >= 0) {
             if (splitLink[idx].equals("")) {
@@ -43,12 +61,6 @@ public class CommandBuilder {
                 break;
             }
         }
-        newCommand.add(splitLink[idx].replace(".git", ""));
-        commands.add(String.join(" ", newCommand));
-        return this;
-    }
-
-    String build() {
-        return String.join("; ", commands);
+        return splitLink[idx].replace(".git", "");
     }
 }
