@@ -1,7 +1,10 @@
 package com.greenops.pipelinereposerver.repomanager;
 
 import com.greenops.pipelinereposerver.api.model.git.GitRepoSchema;
+import com.greenops.pipelinereposerver.dbclient.DbClient;
+import com.greenops.pipelinereposerver.dbclient.DbKey;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
@@ -15,13 +18,19 @@ public class RepoManagerImpl implements RepoManager {
 
     private final String orgName = "temporary"; //TODO: Needs to be updated when we decide how to configure organization
     private final String directory = "tmp";
+
     private Set<GitRepoSchema> gitRepos;
 
-    public RepoManagerImpl() {
+    @Autowired
+    public RepoManagerImpl(DbClient dbClient) {
         this.gitRepos = new HashSet<>();
         if (!setupGitCli()) {
             throw new RuntimeException("Git could not be installed. Something may be wrong with the configuration.");
         }
+        if (!setupRepoCache(dbClient)) {
+            throw new RuntimeException("The org's repos could not be cloned correctly. Please restart to try again.");
+        }
+        dbClient.shutdown();
     }
 
     @Override
@@ -72,7 +81,7 @@ public class RepoManagerImpl implements RepoManager {
         }
     }
 
-    public boolean setupGitCli() {
+    private boolean setupGitCli() {
         //TODO: This method is absolutely temporary. In no way should this be the de-facto way of installing tools going forward.
         //Jib is a little weird in the sense that it doesn't allow traditional docker builds and doesn't allow RUN commands.
         //Jib can take a custom base image, which we will have to configure going forwards.
@@ -93,5 +102,29 @@ public class RepoManagerImpl implements RepoManager {
         } catch (IOException | InterruptedException e) {
             return false;
         }
+    }
+
+    private boolean setupRepoCache(DbClient dbClient) {
+        var listOfTeams = dbClient.fetchList(DbKey.makeDbListOfTeamsKey(orgName));
+        if (listOfTeams == null) {
+            log.info("No teams in org {}", orgName);
+            return true;
+        }
+        log.info("Fetched all teams and cloning pipeline repos for org {}", orgName);
+        for (var teamName : listOfTeams) {
+            var teamSchema= dbClient.fetchTeamSchema(DbKey.makeDbTeamKey(orgName, teamName));
+            if (teamSchema == null) {
+                log.error("The team {} doesn't exist, so cloning will be skipped", teamName);
+                continue;
+            }
+            for (var pipelineSchema : teamSchema.getPipelineSchemas()) {
+                if (!clone(pipelineSchema.getGitRepoSchema())) {
+                    return false;
+                }
+                gitRepos.add(pipelineSchema.getGitRepoSchema());
+            }
+            log.info("Finished cloning pipeline repos for team {}", teamName);
+        }
+        return true;
     }
 }
