@@ -1,8 +1,5 @@
 package com.greenops.workflowtrigger.api.model.git;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-
 public class GitRepoSchema {
     // TODO: The Git repo connection should start with machine accounts (usrname/pass), but then extend to other
     //  methods...this will probably become an interface

@@ -1,5 +1,6 @@
 package com.greenops.workflowtrigger.api;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.workflowtrigger.api.model.git.GitCredOpen;
 import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
 import com.greenops.workflowtrigger.api.reposerver.RepoManagerApi;
@@ -18,7 +19,7 @@ public class PipelineApiTest {
 
     @BeforeEach
     void beforeEach() {
-        pipelineApi = new PipelineApi(Mockito.mock(DbClient.class), Mockito.mock(RepoManagerApi.class));
+        pipelineApi = new PipelineApi(Mockito.mock(DbClient.class), Mockito.mock(RepoManagerApi.class), Mockito.mock(ObjectMapper.class));
         gitRepoSchema = new GitRepoSchema("https://github.com/argoproj/argocd-example-apps.git", "guestbook/", new GitCredOpen());
     }
 

@@ -2,15 +2,9 @@ package com.greenops.workflowtrigger.api;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.greenops.workflowtrigger.api.model.git.GitCredMachineUser;
 import com.greenops.workflowtrigger.api.model.git.GitCredOpen;
 import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
-import com.greenops.workflowtrigger.api.model.mixin.git.GitCredMachineUserMixin;
-import com.greenops.workflowtrigger.api.model.mixin.git.GitRepoSchemaMixin;
-import com.greenops.workflowtrigger.api.model.mixin.pipeline.PipelineSchemaMixin;
-import com.greenops.workflowtrigger.api.model.mixin.pipeline.TeamSchemaMixin;
 import com.greenops.workflowtrigger.api.model.pipeline.PipelineSchema;
-import com.greenops.workflowtrigger.api.model.pipeline.PipelineSchemaImpl;
 import com.greenops.workflowtrigger.api.model.pipeline.TeamSchemaImpl;
 import com.greenops.workflowtrigger.api.reposerver.RepoManagerApi;
 import com.greenops.workflowtrigger.dbclient.DbClient;
@@ -36,14 +30,10 @@ public class PipelineApi {
     private final ObjectMapper objectMapper;
 
     @Autowired
-    public PipelineApi(DbClient dbClient, RepoManagerApi repoManagerApi) {
+    public PipelineApi(DbClient dbClient, RepoManagerApi repoManagerApi, ObjectMapper objectMapper) {
         this.dbClient = dbClient;
         this.repoManagerApi = repoManagerApi;
-        objectMapper = new ObjectMapper()
-                .addMixIn(TeamSchemaImpl.class, TeamSchemaMixin.class)
-                .addMixIn(PipelineSchemaImpl.class, PipelineSchemaMixin.class)
-                .addMixIn(GitRepoSchema.class, GitRepoSchemaMixin.class)
-                .addMixIn(GitCredMachineUser.class, GitCredMachineUserMixin.class);
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping(value = "/team/{orgName}/{parentTeamName}/{teamName}")

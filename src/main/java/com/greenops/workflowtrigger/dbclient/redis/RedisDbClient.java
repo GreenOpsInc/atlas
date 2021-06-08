@@ -2,20 +2,13 @@ package com.greenops.workflowtrigger.dbclient.redis;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.greenops.workflowtrigger.api.model.git.GitCredMachineUser;
-import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
-import com.greenops.workflowtrigger.api.model.mixin.git.GitCredMachineUserMixin;
-import com.greenops.workflowtrigger.api.model.mixin.git.GitRepoSchemaMixin;
-import com.greenops.workflowtrigger.api.model.mixin.pipeline.PipelineSchemaMixin;
-import com.greenops.workflowtrigger.api.model.mixin.pipeline.TeamSchemaMixin;
-import com.greenops.workflowtrigger.api.model.pipeline.PipelineSchemaImpl;
 import com.greenops.workflowtrigger.api.model.pipeline.TeamSchema;
-import com.greenops.workflowtrigger.api.model.pipeline.TeamSchemaImpl;
 import com.greenops.workflowtrigger.dbclient.DbClient;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -34,15 +27,12 @@ public class RedisDbClient implements DbClient {
     private final ObjectMapper objectMapper;
     private String currentWatchedKey;
 
-    public RedisDbClient(@Value("${application.redis-url}") String redisUrl) {
+    @Autowired
+    public RedisDbClient(@Value("${application.redis-url}") String redisUrl, ObjectMapper objectMapper) {
         redisClient = RedisClient.create("redis://" + redisUrl); //Pattern is redis://password@host:port
         redisConnection = redisClient.connect();
         redisCommands = redisConnection.sync();
-        objectMapper = new ObjectMapper()
-                .addMixIn(TeamSchemaImpl.class, TeamSchemaMixin.class)
-                .addMixIn(PipelineSchemaImpl.class, PipelineSchemaMixin.class)
-                .addMixIn(GitRepoSchema.class, GitRepoSchemaMixin.class)
-                .addMixIn(GitCredMachineUser.class, GitCredMachineUserMixin.class);
+        this.objectMapper = objectMapper;
     }
 
     @PreDestroy

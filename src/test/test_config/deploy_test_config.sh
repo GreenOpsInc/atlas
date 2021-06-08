@@ -1,7 +1,7 @@
 docker compose down
-cd ../
+cd ../../../
 ./gradlew jibDockerBuild --image=atlasworkflowtrigger
 cd ../PipelineRepoServer/
 ./gradlew jibDockerBuild --image=atlasreposerver
-cd ../WorkflowTrigger/test_config/
+cd ../WorkflowTrigger/src/test/test_config
 docker compose up #-d
