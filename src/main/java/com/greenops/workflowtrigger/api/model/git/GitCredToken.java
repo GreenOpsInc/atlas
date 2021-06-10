@@ -2,11 +2,10 @@ package com.greenops.workflowtrigger.api.model.git;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
-@JsonDeserialize(as = GitCredMachineUser.class)
-public class GitCredMachineUser implements GitCred {
+@JsonDeserialize(as = GitCredToken.class)
+public class GitCredToken implements GitCred {
 
-    private String username;
-    private String password;
+    private String token;
 
     /**
      * This is a private constructor meant solely to let Jackson
@@ -14,11 +13,10 @@ public class GitCredMachineUser implements GitCred {
      * to keep the code consistent across all of different types of these
      * objects. A Dev should not be calling this at all.
      */
-    private GitCredMachineUser() {
+    private GitCredToken() {
     }
 
-    public GitCredMachineUser(String username, String password) {
-        this.username = username;
-        this.password = password;
+    public GitCredToken(String token) {
+        this.token = token;
     }
 }

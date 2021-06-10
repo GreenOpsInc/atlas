@@ -3,8 +3,10 @@ package com.greenops.workflowtrigger.api.reposerver;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.workflowtrigger.api.model.git.GitCredMachineUser;
+import com.greenops.workflowtrigger.api.model.git.GitCredToken;
 import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
 import com.greenops.workflowtrigger.api.model.mixin.git.GitCredMachineUserMixin;
+import com.greenops.workflowtrigger.api.model.mixin.git.GitCredTokenMixin;
 import com.greenops.workflowtrigger.api.model.mixin.git.GitRepoSchemaMixin;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.HttpClient;
@@ -30,7 +32,8 @@ public class RepoManagerApiImpl implements RepoManagerApi {
         httpClient = HttpClientBuilder.create().build();
         objectMapper = new ObjectMapper()
                 .addMixIn(GitRepoSchema.class, GitRepoSchemaMixin.class)
-                .addMixIn(GitCredMachineUser.class, GitCredMachineUserMixin.class);
+                .addMixIn(GitCredMachineUser.class, GitCredMachineUserMixin.class)
+                .addMixIn(GitCredToken.class, GitCredTokenMixin.class);
     }
 
     @Override

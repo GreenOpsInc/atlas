@@ -2,8 +2,10 @@ package com.greenops.workflowtrigger.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.workflowtrigger.api.model.git.GitCredMachineUser;
+import com.greenops.workflowtrigger.api.model.git.GitCredToken;
 import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
 import com.greenops.workflowtrigger.api.model.mixin.git.GitCredMachineUserMixin;
+import com.greenops.workflowtrigger.api.model.mixin.git.GitCredTokenMixin;
 import com.greenops.workflowtrigger.api.model.mixin.git.GitRepoSchemaMixin;
 import com.greenops.workflowtrigger.api.model.mixin.pipeline.PipelineSchemaMixin;
 import com.greenops.workflowtrigger.api.model.mixin.pipeline.TeamSchemaMixin;
@@ -21,6 +23,7 @@ public class SpringConfiguration {
                 .addMixIn(TeamSchemaImpl.class, TeamSchemaMixin.class)
                 .addMixIn(PipelineSchemaImpl.class, PipelineSchemaMixin.class)
                 .addMixIn(GitRepoSchema.class, GitRepoSchemaMixin.class)
-                .addMixIn(GitCredMachineUser.class, GitCredMachineUserMixin.class);
+                .addMixIn(GitCredMachineUser.class, GitCredMachineUserMixin.class)
+                .addMixIn(GitCredToken.class, GitCredTokenMixin.class);
     }
 }
