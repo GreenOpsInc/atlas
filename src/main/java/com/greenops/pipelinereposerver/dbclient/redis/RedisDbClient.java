@@ -2,7 +2,15 @@ package com.greenops.pipelinereposerver.dbclient.redis;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.greenops.pipelinereposerver.api.model.git.GitCredMachineUser;
+import com.greenops.pipelinereposerver.api.model.git.GitCredToken;
+import com.greenops.pipelinereposerver.api.model.mixin.git.GitCredMachineUserMixin;
+import com.greenops.pipelinereposerver.api.model.mixin.git.GitCredTokenMixin;
+import com.greenops.pipelinereposerver.api.model.mixin.pipeline.PipelineSchemaMixin;
+import com.greenops.pipelinereposerver.api.model.mixin.pipeline.TeamSchemaMixin;
+import com.greenops.pipelinereposerver.api.model.pipeline.PipelineSchemaImpl;
 import com.greenops.pipelinereposerver.api.model.pipeline.TeamSchema;
+import com.greenops.pipelinereposerver.api.model.pipeline.TeamSchemaImpl;
 import com.greenops.pipelinereposerver.dbclient.DbClient;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
@@ -27,7 +35,11 @@ public class RedisDbClient implements DbClient {
         redisClient = RedisClient.create("redis://" + redisUrl); //Pattern is redis://password@host:port
         redisConnection = redisClient.connect();
         redisCommands = redisConnection.sync();
-        objectMapper = new ObjectMapper();
+        objectMapper = new ObjectMapper()
+                .addMixIn(TeamSchemaImpl.class, TeamSchemaMixin.class)
+                .addMixIn(PipelineSchemaImpl.class, PipelineSchemaMixin.class)
+                .addMixIn(GitCredMachineUser.class, GitCredMachineUserMixin.class)
+                .addMixIn(GitCredToken.class, GitCredTokenMixin.class);
     }
 
     @PreDestroy
