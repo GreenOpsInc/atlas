@@ -39,7 +39,7 @@ public class RedisDbClient implements DbClient {
                 .addMixIn(TeamSchemaImpl.class, TeamSchemaMixin.class)
                 .addMixIn(PipelineSchemaImpl.class, PipelineSchemaMixin.class)
                 .addMixIn(GitCredMachineUser.class, GitCredMachineUserMixin.class)
-                .addMixIn(GitCredToken.class, GitCredTokenMixin.class);;
+                .addMixIn(GitCredToken.class, GitCredTokenMixin.class);
     }
 
     @PreDestroy
