@@ -3,5 +3,5 @@
 FROM golang:1.13
 WORKDIR /ClientWrapper
 COPY . .
-RUN go build ./k8sdriver/KubernetesClient.go
-CMD ["./KubernetesClient"]
+RUN go build -i -v ./k8sdriver/kubernetes_driver.go
+CMD ["./kubernetes_driver"]

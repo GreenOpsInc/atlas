@@ -3,8 +3,8 @@ kind: ClusterRole
 metadata:
   name: prom-admin
 rules:
-  # Just an example, feel free to change it
-  - apiGroups: [""]
+  # Small scope, feel free to change it
+  - apiGroups: ["networking.istio.io", "apps"]
     resources: ["*"] #"pods", "nodes"
     verbs: ["*"] #"get", "watch", "list"
 
