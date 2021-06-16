@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/runtime"
 	"log"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -21,7 +23,7 @@ type KubernetesClient interface {
 	//TODO: Add parameters for Deploy
 	Deploy(configPayload string) bool
 	//TODO: Add parameters for Delete
-	Delete() bool
+	Delete(configPayload string) bool
 	//TODO: Update parameters & return type for CheckStatus
 	CheckStatus() bool
 	//TODO: Update parameters for ExecInPod
@@ -31,12 +33,6 @@ type KubernetesClient interface {
 type KubernetesClientDriver struct {
 	client        *kubernetes.Clientset
 	dynamicClient dynamic.Interface
-}
-
-//var kindResourceMap map[string]string
-var kindResourceMap = map[string]string{
-	//TODO: This list is obviously not complete. As we do more testing with CRDs, more items should be added to the list.
-	"VirtualService": "virtualservices",
 }
 
 //TODO: ALL functions should have a callee tag on them
@@ -61,17 +57,9 @@ func New() KubernetesClient {
 
 func (k KubernetesClientDriver) Deploy(configPayload string) bool {
 	//TODO: This method currently expects only one object per file. Add in support for separate YAML files combined into one. This can be done by splitting on the "---" string.
-	decode := scheme.Codecs.UniversalDeserializer().Decode
-	obj, groupVersionKind, err := decode([]byte(configPayload), nil, nil)
+	obj, groupVersionKind, err := getResourceObjectFromYAML(configPayload)
 	if err != nil {
-		log.Printf("Error while decoding YAML object. Error was: %s. Now trying to decode as unstructured object...\n", err)
-		obj = &unstructured.Unstructured{}
-		unstructuredDecoder := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-		_, groupVersionKind, err = unstructuredDecoder.Decode([]byte(configPayload), nil, obj)
-		if err != nil {
-			log.Printf("Error while decoding unstructured YAML object. Error was: %s\n", err)
-			return false
-		}
+		return false
 	}
 	switch obj.(type) {
 	//TODO: Types like Pod, Deployment, StatefulSet, etc are missing. They would be almost an exact copy of the ReplicaSet case. Namespaces also need to be added in.
@@ -95,15 +83,10 @@ func (k KubernetesClientDriver) Deploy(configPayload string) bool {
 	case *unstructured.Unstructured:
 		strongTypeObject := obj.(*unstructured.Unstructured)
 		log.Printf("YAML file matched Unstructured of kind %s. Deploying...\n", groupVersionKind.Kind)
-		resourceName, ok := kindResourceMap[groupVersionKind.Kind]
-		if !ok {
-			log.Printf("The key %s was not in the kindResourceMap\n", groupVersionKind.Kind)
-			return false
-		}
 		_, err = k.dynamicClient.Resource(schema.GroupVersionResource{
 			Group:    groupVersionKind.Group,
 			Version:  groupVersionKind.Version,
-			Resource: resourceName,
+			Resource: getPluralResourceNameFromKind(groupVersionKind.Kind),
 		}).Namespace(corev1.NamespaceDefault).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
 		if err != nil {
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
@@ -116,8 +99,48 @@ func (k KubernetesClientDriver) Deploy(configPayload string) bool {
 	return true
 }
 
-func (k KubernetesClientDriver) Delete() bool {
-	panic("implement me")
+func (k KubernetesClientDriver) Delete(configPayload string) bool {
+	//TODO: This method currently expects only one object per file. Add in support for separate YAML files combined into one. This can be done by splitting on the "---" string.
+	obj, groupVersionKind, err := getResourceObjectFromYAML(configPayload)
+	if err != nil {
+		return false
+	}
+	switch obj.(type) {
+	//TODO: Types like Pod, Deployment, StatefulSet, etc are missing. They would be almost an exact copy of the ReplicaSet case. Namespaces also need to be added in.
+	//TODO: This current flow uses Create, just because it is simpler. Should eventually transition to Apply, which will cover more error cases.
+	case *corev1.Service:
+		strongTypeObject := obj.(*corev1.Service)
+		log.Printf("%s matched ReplicaSet. Deleting...\n", strongTypeObject.Name)
+		err = k.client.CoreV1().Services(corev1.NamespaceDefault).Delete(context.TODO(), strongTypeObject.GetName(), metav1.DeleteOptions{})
+		if err != nil {
+			log.Printf("The delete step threw an error. Error was %s\n", err)
+			return false
+		}
+	case *appsv1.ReplicaSet:
+		strongTypeObject := obj.(*appsv1.ReplicaSet)
+		log.Printf("%s matched ReplicaSet. Deleting...\n", strongTypeObject.Name)
+		err = k.client.AppsV1().ReplicaSets(corev1.NamespaceDefault).Delete(context.TODO(), strongTypeObject.GetName(), metav1.DeleteOptions{})
+		if err != nil {
+			log.Printf("The delete step threw an error. Error was %s\n", err)
+			return false
+		}
+	case *unstructured.Unstructured:
+		strongTypeObject := obj.(*unstructured.Unstructured)
+		log.Printf("YAML file matched Unstructured of kind %s. Deleting...\n", groupVersionKind.Kind)
+		err = k.dynamicClient.Resource(schema.GroupVersionResource{
+			Group:    groupVersionKind.Group,
+			Version:  groupVersionKind.Version,
+			Resource: getPluralResourceNameFromKind(groupVersionKind.Kind),
+		}).Namespace(corev1.NamespaceDefault).Delete(context.TODO(), strongTypeObject.GetName(), metav1.DeleteOptions{})
+		if err != nil {
+			log.Printf("The delete step threw an error. Error was %s\n", err)
+			return false
+		}
+	default:
+		log.Printf("There was no matching type for the input.\n")
+		return false
+	}
+	return true
 }
 
 func (k KubernetesClientDriver) CheckStatus() bool {
@@ -126,6 +149,26 @@ func (k KubernetesClientDriver) CheckStatus() bool {
 
 func (k KubernetesClientDriver) ExecInPod() bool {
 	panic("implement me")
+}
+
+func getResourceObjectFromYAML(configPayload string) (runtime.Object, *schema.GroupVersionKind, error) {
+	decode := scheme.Codecs.UniversalDeserializer().Decode
+	obj, groupVersionKind, err := decode([]byte(configPayload), nil, nil)
+	if err != nil {
+		log.Printf("Error while decoding YAML object. Error was: %s. Now trying to decode as unstructured object...\n", err)
+		obj = &unstructured.Unstructured{}
+		unstructuredDecoder := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+		_, groupVersionKind, err = unstructuredDecoder.Decode([]byte(configPayload), nil, obj)
+		if err != nil {
+			log.Printf("Error while decoding unstructured YAML object. Error was: %s\n", err)
+			return nil, nil, err
+		}
+	}
+	return obj, groupVersionKind, err
+}
+
+func getPluralResourceNameFromKind(kind string) string {
+	return strings.ToLower(kind) + "s"
 }
 
 //This is just for testing
