@@ -9,7 +9,11 @@ import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -34,6 +38,11 @@ public class RepoManagerImpl implements RepoManager {
             throw new RuntimeException("The org's repos could not be cloned correctly. Please restart to try again.");
         }
         dbClient.shutdown();
+    }
+
+    @Override
+    public String getOrgName() {
+        return orgName;
     }
 
     @Override
@@ -107,6 +116,30 @@ public class RepoManagerImpl implements RepoManager {
     }
 
     @Override
+    public String getYamlFileContents(String gitRepoUrl, String filename) {
+        var listOfSchemas = gitRepos.stream()
+                .filter(gitRepoSchema -> gitRepoSchema.getGitRepo().equals(gitRepoUrl))
+                .collect(Collectors.toList());
+        if (listOfSchemas.size() != 1) {
+            throw new RuntimeException("Too many git repos with the given url");
+        }
+
+        try {
+            Optional<Path> fileToFind = Files.walk(Paths.get(listOfSchemas.get(0).getPathToRoot()))
+                    .filter(file -> Files.isRegularFile(file) && file.getFileName().equals(filename) && (file.endsWith("yaml") || file.endsWith("yml")))
+                    .findFirst();
+            if (fileToFind.isPresent()) {
+                log.info("Found the file : {}", fileToFind.get().getFileName());
+                return Files.readString(fileToFind.get());
+            }
+        } catch (IOException ex) {
+            throw new RuntimeException("File was not found.");
+        }
+
+        return null;
+    }
+
+    @Override
     public boolean sync(GitRepoSchema gitRepoSchema) {
         var listOfGitRepos = gitRepos.stream().filter(gitRepoSchema1 ->
                 gitRepoSchema1.getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toList());
@@ -174,7 +207,7 @@ public class RepoManagerImpl implements RepoManager {
         }
         log.info("Fetched all teams and cloning pipeline repos for org {}", orgName);
         for (var teamName : listOfTeams) {
-            var teamSchema= dbClient.fetchTeamSchema(DbKey.makeDbTeamKey(orgName, teamName));
+            var teamSchema = dbClient.fetchTeamSchema(DbKey.makeDbTeamKey(orgName, teamName));
             if (teamSchema == null) {
                 log.error("The team {} doesn't exist, so cloning will be skipped", teamName);
                 continue;
