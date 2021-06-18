@@ -25,7 +25,7 @@ type KubernetesClient interface {
 	//TODO: Add parameters for Delete
 	Delete(configPayload string) bool
 	//TODO: Update parameters & return type for CheckStatus
-	CheckStatus() bool
+	CheckHealthy() bool
 	//TODO: Update parameters for ExecInPod
 	ExecInPod() bool
 }
@@ -143,7 +143,7 @@ func (k KubernetesClientDriver) Delete(configPayload string) bool {
 	return true
 }
 
-func (k KubernetesClientDriver) CheckStatus() bool {
+func (k KubernetesClientDriver) CheckHealthy() bool {
 	panic("implement me")
 }
 

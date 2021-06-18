@@ -38,15 +38,53 @@ func deploy(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(success)
 }
 
+func deleteApplication(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	groupVersionKind := schema.GroupVersionKind{
+		Group:   vars["group"],
+		Version: vars["version"],
+		Kind:    vars["kind"],
+	}
+	applicationName := vars["name"]
+	var success bool
+	if strings.Contains(groupVersionKind.Group, "argo") {
+		success = drivers.argoDriver.Delete(applicationName)
+	} else {
+		panic("K8S delete method not implemented yet.")
+	}
+
+	json.NewEncoder(w).Encode(success)
+}
+
+func checkStatus(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	groupVersionKind := schema.GroupVersionKind{
+		Group:   vars["group"],
+		Version: vars["version"],
+		Kind:    vars["kind"],
+	}
+	applicationName := vars["name"]
+	var success bool
+	if strings.Contains(groupVersionKind.Group, "argo") {
+		success = drivers.argoDriver.CheckHealthy(applicationName)
+	} else {
+		panic("K8S health check not implemented yet.")
+	}
+
+	json.NewEncoder(w).Encode(success)
+}
+
 func handleRequests() {
 	myRouter := mux.NewRouter().StrictSlash(true)
-	myRouter.HandleFunc("/deploy/{group}/{version}/{kind}", deploy)
+	myRouter.HandleFunc("/deploy/{group}/{version}/{kind}", deploy).Methods("POST")
+	myRouter.HandleFunc("/delete/{group}/{version}/{kind}/{name}", deleteApplication).Methods("POST")
+	myRouter.HandleFunc("/checkStatus/{group}/{version}/{kind}/{name}", checkStatus).Methods("GET")
 	log.Fatal(http.ListenAndServe(":9091", myRouter))
 }
 
 func main() {
 	drivers = Drivers{
-		k8sDriver:  k8sdriver.New(),
+		//k8sDriver:  k8sdriver.New(),
 		argoDriver: argodriver.New(),
 	}
 	handleRequests()

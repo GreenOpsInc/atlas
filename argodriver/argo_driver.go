@@ -28,9 +28,9 @@ type ArgoClient interface {
 	//TODO: Add parameters for Deploy
 	Deploy(configPayload string) bool
 	//TODO: Add parameters for Delete
-	Delete(configPayload string) bool
+	Delete(applicationName string) bool
 	//TODO: Update parameters & return type for CheckStatus
-	CheckStatus() bool
+	CheckHealthy(argoApplicationName string) bool
 }
 
 type ArgoClientDriver struct {
@@ -88,20 +88,48 @@ func (a ArgoClientDriver) Deploy(configPayload string) bool {
 		return false
 	}
 
-	argoApplication, err = applicationClient.Sync(context.TODO(), &application.ApplicationSyncRequest{Name: &argoApplication.Name})
+	//Sync() returns the current state of the application and triggers the synchronization of the application, so the return
+	//value is not useful in this case
+	_, err = applicationClient.Sync(context.TODO(), &application.ApplicationSyncRequest{Name: &argoApplication.Name})
+	if err != nil {
+		log.Printf("Syncing threw an error. Error was %s\n", err)
+		return false
+	}
+	//TODO: Syncing takes time. Right now, we can assume that apps will deploy properly. In the future, we will have to see whether we can blindly return true or not.
+	return true
+}
+
+func (a ArgoClientDriver) Delete(applicationName string) bool {
+	ioCloser, applicationClient, err := a.client.NewApplicationClient()
+	if err != nil {
+		log.Printf("The deploy application client could not be made. Error was %s\n", err)
+		return false
+	}
+	defer ioCloser.Close()
+	_, err = applicationClient.Delete(context.TODO(), &application.ApplicationDeleteRequest{Name: &applicationName})
+	if err != nil && !strings.Contains(err.Error(), "\""+applicationName+"\" not found") {
+		log.Printf("Deletion threw an error. Error was %s\n", err)
+		return false
+	}
+	//TODO: Deleting takes time. Right now, we can assume that apps will delete properly. In the future, we will have to see whether we can blindly return true or not.
+	return true
+}
+
+func (a ArgoClientDriver) CheckHealthy(argoApplicationName string) bool {
+	ioCloser, applicationClient, err := a.client.NewApplicationClient()
+	if err != nil {
+		log.Printf("The application client could not be made. Error was %s\n", err)
+		return false
+	}
+	defer ioCloser.Close()
+	//Sync() returns the current state of the application and triggers the synchronization of the application, so the return
+	//value is the state BEFORE the sync
+	argoApplication, err := applicationClient.Sync(context.TODO(), &application.ApplicationSyncRequest{Name: &argoApplicationName})
 	if err != nil {
 		log.Printf("Syncing threw an error. Error was %s\n", err)
 		return false
 	}
 	return argoApplication.Status.Health.Status == health.HealthStatusHealthy && argoApplication.Status.Sync.Status == v1alpha1.SyncStatusCodeSynced
-}
-
-func (a ArgoClientDriver) Delete(configPayload string) bool {
-	panic("implement me")
-}
-
-func (a ArgoClientDriver) CheckStatus() bool {
-	panic("implement me")
 }
 
 func makeApplication(configPayload string) v1alpha1.Application {
