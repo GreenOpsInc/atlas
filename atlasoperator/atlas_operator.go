@@ -5,6 +5,7 @@ import (
 	"github.com/gorilla/mux"
 	"greenops.io/client/argodriver"
 	"greenops.io/client/k8sdriver"
+	"greenops.io/client/progressionchecker"
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"log"
@@ -18,6 +19,7 @@ type Drivers struct {
 }
 
 var drivers Drivers
+var channel chan string
 
 func deploy(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -74,18 +76,28 @@ func checkStatus(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(success)
 }
 
+func watchApplication(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	channel <- vars["name"]
+	channel <- progressionchecker.EndTransactionMarker
+	json.NewEncoder(w).Encode(true)
+}
+
 func handleRequests() {
 	myRouter := mux.NewRouter().StrictSlash(true)
 	myRouter.HandleFunc("/deploy/{group}/{version}/{kind}", deploy).Methods("POST")
 	myRouter.HandleFunc("/delete/{group}/{version}/{kind}/{name}", deleteApplication).Methods("POST")
 	myRouter.HandleFunc("/checkStatus/{group}/{version}/{kind}/{name}", checkStatus).Methods("GET")
+	myRouter.HandleFunc("/watchApplication/{group}/{version}/{kind}/{name}", watchApplication).Methods("POST")
 	log.Fatal(http.ListenAndServe(":9091", myRouter))
 }
 
 func main() {
 	drivers = Drivers{
-		//k8sDriver:  k8sdriver.New(),
+		k8sDriver:  k8sdriver.New(),
 		argoDriver: argodriver.New(),
 	}
+	channel = make(chan string)
+	go progressionchecker.Start(channel)
 	handleRequests()
 }
