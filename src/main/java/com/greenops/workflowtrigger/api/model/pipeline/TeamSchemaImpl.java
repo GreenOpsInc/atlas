@@ -78,4 +78,15 @@ public class TeamSchemaImpl implements TeamSchema {
     public List<PipelineSchema> getPipelineSchemas() {
         return pipelines;
     }
+
+    @Override
+    public PipelineSchema getPipelineSchema(String pipelineName) {
+        var result = pipelines.stream().filter(
+                pipelineSchema -> pipelineSchema.getPipelineName().equals(pipelineName)
+        ).collect(Collectors.toList());
+        if (result.size() > 0) {
+            return result.get(0);
+        }
+        return null;
+    }
 }

@@ -15,6 +15,7 @@ public interface TeamSchema {
     String getOrgName();
     List<String> getPipelineNames();
     List<PipelineSchema> getPipelineSchemas();
+    PipelineSchema getPipelineSchema(String pipelineName);
     void setTeamName(String teamName);
     void setParentTeam(String parentTeam);
     void addPipeline(String pipelineName, GitRepoSchema gitRepoSchema);

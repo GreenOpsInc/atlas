@@ -79,8 +79,8 @@ public class PipelineApi {
                                            @PathVariable("teamName") String teamName,
                                            @RequestBody UpdateTeamRequest updateTeamRequest) {
         var key = DbKey.makeDbTeamKey(orgName, teamName);
-        var teamSchema= dbClient.fetchTeamSchema(key);
-        var response= deleteTeam(orgName, teamName);
+        var teamSchema = dbClient.fetchTeamSchema(key);
+        var response = deleteTeam(orgName, teamName);
         if (!response.getStatusCode().is2xxSuccessful()) {
             return response;
         }
@@ -96,7 +96,7 @@ public class PipelineApi {
     public ResponseEntity<Void> deleteTeam(@PathVariable("orgName") String orgName,
                                            @PathVariable("teamName") String teamName) {
         var key = DbKey.makeDbTeamKey(orgName, teamName);
-        if (dbClient.store(key,null)) {
+        if (dbClient.store(key, null)) {
             removeTeamFromOrgList(orgName, teamName);
             return ResponseEntity.ok().build();
         } else {
@@ -104,30 +104,99 @@ public class PipelineApi {
         }
     }
 
-    @PostMapping(value = "/pipeline/{teamName}/{pipelineName}")
-    public ResponseEntity<Void> createPipeline(@PathVariable("teamName") String teamName,
+    @PostMapping(value = "/pipeline/{orgName}/{teamName}/{pipelineName}")
+    public ResponseEntity<Void> createPipeline(@PathVariable("orgName") String orgName,
+                                               @PathVariable("teamName") String teamName,
                                                @PathVariable("pipelineName") String pipelineName,
                                                @RequestBody GitRepoSchema gitRepo) {
-        // TODO: implement pipeline creation logic
+        var key = DbKey.makeDbTeamKey(orgName, teamName);
+        var teamSchema = dbClient.fetchTeamSchema(key);
+
+        if (teamSchema == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        if (teamSchema.getPipelineSchema(pipelineName) != null) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
+
+        teamSchema.addPipeline(pipelineName, gitRepo);
+
+        if (!repoManagerApi.cloneRepo(gitRepo)) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+
+        if (!dbClient.store(key, teamSchema)) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping(value = "/pipeline/{teamName}/{pipelineName}")
-    public ResponseEntity<GitRepoSchema> getPipeline(@PathVariable("teamName") String teamName, @PathVariable("pipelineName") String pipelineName) {
-        // TODO: implement pipeline fetch logic
-        return ResponseEntity.ok().build();
+    @GetMapping(value = "/pipeline/{orgName}/{teamName}/{pipelineName}")
+    public ResponseEntity<String> getPipeline(@PathVariable("orgName") String orgName,
+                                              @PathVariable("teamName") String teamName,
+                                              @PathVariable("pipelineName") String pipelineName) {
+        var key = DbKey.makeDbTeamKey(orgName, teamName);
+        var teamSchema = dbClient.fetchTeamSchema(key);
+        if (teamSchema == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        var pipelineSchema = teamSchema.getPipelineSchema(pipelineName);
+        if (pipelineSchema == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        var currentRepoSchema = pipelineSchema.getGitRepoSchema();
+        var repoSchema = new GitRepoSchema(currentRepoSchema.getGitRepo(), currentRepoSchema.getPathToRoot(), new GitCredOpen());
+        pipelineSchema.setGitRepoSchema(repoSchema);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(schemaToResponsePayload(pipelineSchema));
     }
 
-    @PutMapping(value = "/pipeline/{teamName}/{pipelineName}")
-    public ResponseEntity<Void> updatePipeline(@PathVariable("teamName") String teamName, @PathVariable("pipelineName") String pipelineName, @RequestBody(required = false) GitRepoSchema gitRepo) {
-        // TODO: implement pipeline update logic
-        return ResponseEntity.ok().build();
+    @PutMapping(value = "/pipeline/{orgName}/{teamName}/{pipelineName}")
+    public ResponseEntity<Void> updatePipeline(@PathVariable("orgName") String orgName,
+                                               @PathVariable("teamName") String teamName, @PathVariable("pipelineName") String pipelineName,
+                                               @RequestBody(required = false) GitRepoSchema gitRepo) {
+        var key = DbKey.makeDbTeamKey(orgName, teamName);
+        var response = deletePipeline(orgName, teamName, pipelineName, gitRepo);
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            return response;
+        }
+        return createPipeline(
+                orgName,
+                teamName,
+                pipelineName,
+                gitRepo
+        );
     }
 
-    @DeleteMapping(value = "/pipeline/{teamName}/{pipelineName}")
-    public ResponseEntity<Void> deletePipeline(@PathVariable("teamName") String teamName, @PathVariable("pipelineName") String pipelineName, @RequestBody GitRepoSchema gitRepo) {
-        // TODO: implement pipeline deletion logic
-        return ResponseEntity.ok().build();
+    @DeleteMapping(value = "/pipeline/{orgName}/{teamName}/{pipelineName}")
+    public ResponseEntity<Void> deletePipeline(@PathVariable("orgName") String orgName,
+                                               @PathVariable("teamName") String teamName,
+                                               @PathVariable("pipelineName") String pipelineName,
+                                               @RequestBody GitRepoSchema gitRepo) {
+        var key = DbKey.makeDbTeamKey(orgName, teamName);
+        var teamSchema = dbClient.fetchTeamSchema(key);
+        if (teamSchema == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        if (teamSchema.getPipelineSchema(pipelineName) == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        teamSchema.removePipeline(pipelineName);
+
+        if (!repoManagerApi.deleteRepo(gitRepo)) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+
+        if (dbClient.store(key, teamSchema)) {
+            return ResponseEntity.ok().build();
+        }
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
 
     private void removeTeamFromOrgList(String orgName, String teamName) {
