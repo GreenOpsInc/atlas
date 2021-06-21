@@ -18,6 +18,11 @@ type Drivers struct {
 	argoDriver argodriver.ArgoClient
 }
 
+type DeployResponse struct {
+	Success      bool
+	AppNamespace string
+}
+
 var drivers Drivers
 var channel chan string
 
@@ -31,13 +36,18 @@ func deploy(w http.ResponseWriter, r *http.Request) {
 	byteReqBody, _ := ioutil.ReadAll(r.Body)
 	stringReqBody := string(byteReqBody)
 	var success bool
+	var appNamespace string
 	if strings.Contains(groupVersionKind.Group, "argo") {
-		success = drivers.argoDriver.Deploy(stringReqBody)
+		success, appNamespace = drivers.argoDriver.Deploy(stringReqBody)
 	} else {
-		success = drivers.k8sDriver.Deploy(stringReqBody)
+		success, appNamespace = drivers.k8sDriver.Deploy(stringReqBody)
 	}
 
-	json.NewEncoder(w).Encode(success)
+	json.NewEncoder(w).Encode(
+		DeployResponse{
+			Success:      success,
+			AppNamespace: appNamespace,
+		})
 }
 
 func deleteApplication(w http.ResponseWriter, r *http.Request) {
@@ -78,7 +88,13 @@ func checkStatus(w http.ResponseWriter, r *http.Request) {
 
 func watchApplication(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	channel <- vars["name"]
+	key := progressionchecker.WatchKey{
+		PipelineName: vars["pipelineName"],
+		StepName:     vars["stepName"],
+		AppName:      vars["appName"],
+		Namespace:    vars["namespace"],
+	}.WriteKeyAsString()
+	channel <- key
 	channel <- progressionchecker.EndTransactionMarker
 	json.NewEncoder(w).Encode(true)
 }
@@ -88,7 +104,7 @@ func handleRequests() {
 	myRouter.HandleFunc("/deploy/{group}/{version}/{kind}", deploy).Methods("POST")
 	myRouter.HandleFunc("/delete/{group}/{version}/{kind}/{name}", deleteApplication).Methods("POST")
 	myRouter.HandleFunc("/checkStatus/{group}/{version}/{kind}/{name}", checkStatus).Methods("GET")
-	myRouter.HandleFunc("/watchApplication/{group}/{version}/{kind}/{name}", watchApplication).Methods("POST")
+	myRouter.HandleFunc("/watchApplication/{pipelineName}/{stepName}/{namespace}/{appName}", watchApplication).Methods("POST")
 	log.Fatal(http.ListenAndServe(":9091", myRouter))
 }
 

@@ -21,7 +21,7 @@ import (
 
 type KubernetesClient interface {
 	//TODO: Add parameters for Deploy
-	Deploy(configPayload string) bool
+	Deploy(configPayload string) (bool, string)
 	//TODO: Add parameters for Delete
 	Delete(configPayload string) bool
 	//TODO: Update parameters & return type for CheckStatus
@@ -55,48 +55,55 @@ func New() KubernetesClient {
 	return client
 }
 
-func (k KubernetesClientDriver) Deploy(configPayload string) bool {
+func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string) {
 	//TODO: This method currently expects only one object per file. Add in support for separate YAML files combined into one. This can be done by splitting on the "---" string.
 	obj, groupVersionKind, err := getResourceObjectFromYAML(configPayload)
 	if err != nil {
-		return false
+		return false, ""
 	}
+	var namespace string
 	switch obj.(type) {
 	//TODO: Types like Pod, Deployment, StatefulSet, etc are missing. They would be almost an exact copy of the ReplicaSet case. Namespaces also need to be added in.
 	//TODO: This current flow uses Create, just because it is simpler. Should eventually transition to Apply, which will cover more error cases.
 	case *corev1.Service:
 		strongTypeObject := obj.(*corev1.Service)
 		log.Printf("%s matched ReplicaSet. Deploying...\n", strongTypeObject.Name)
-		_, err = k.client.CoreV1().Services(corev1.NamespaceDefault).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
+		namespace = strongTypeObject.Namespace
+		_, err = k.client.CoreV1().Services(namespace).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
 		if err != nil {
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
-			return false
+			return false, ""
 		}
 	case *appsv1.ReplicaSet:
 		strongTypeObject := obj.(*appsv1.ReplicaSet)
 		log.Printf("%s matched ReplicaSet. Deploying...\n", strongTypeObject.Name)
-		_, err = k.client.AppsV1().ReplicaSets(corev1.NamespaceDefault).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
+		namespace = strongTypeObject.Namespace
+		_, err = k.client.AppsV1().ReplicaSets(namespace).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
 		if err != nil {
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
-			return false
+			return false, ""
 		}
 	case *unstructured.Unstructured:
 		strongTypeObject := obj.(*unstructured.Unstructured)
 		log.Printf("YAML file matched Unstructured of kind %s. Deploying...\n", groupVersionKind.Kind)
+		namespace = strongTypeObject.GetNamespace()
+		if namespace == "" {
+			namespace = corev1.NamespaceDefault
+		}
 		_, err = k.dynamicClient.Resource(schema.GroupVersionResource{
 			Group:    groupVersionKind.Group,
 			Version:  groupVersionKind.Version,
 			Resource: getPluralResourceNameFromKind(groupVersionKind.Kind),
-		}).Namespace(corev1.NamespaceDefault).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
+		}).Namespace(namespace).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
 		if err != nil {
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
-			return false
+			return false, ""
 		}
 	default:
 		log.Printf("There was no matching type for the input.\n")
-		return false
+		return false, ""
 	}
-	return true
+	return true, namespace
 }
 
 func (k KubernetesClientDriver) Delete(configPayload string) bool {
@@ -111,7 +118,8 @@ func (k KubernetesClientDriver) Delete(configPayload string) bool {
 	case *corev1.Service:
 		strongTypeObject := obj.(*corev1.Service)
 		log.Printf("%s matched ReplicaSet. Deleting...\n", strongTypeObject.Name)
-		err = k.client.CoreV1().Services(corev1.NamespaceDefault).Delete(context.TODO(), strongTypeObject.GetName(), metav1.DeleteOptions{})
+		namespace := strongTypeObject.Namespace
+		err = k.client.CoreV1().Services(namespace).Delete(context.TODO(), strongTypeObject.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			log.Printf("The delete step threw an error. Error was %s\n", err)
 			return false
@@ -119,7 +127,8 @@ func (k KubernetesClientDriver) Delete(configPayload string) bool {
 	case *appsv1.ReplicaSet:
 		strongTypeObject := obj.(*appsv1.ReplicaSet)
 		log.Printf("%s matched ReplicaSet. Deleting...\n", strongTypeObject.Name)
-		err = k.client.AppsV1().ReplicaSets(corev1.NamespaceDefault).Delete(context.TODO(), strongTypeObject.GetName(), metav1.DeleteOptions{})
+		namespace := strongTypeObject.Namespace
+		err = k.client.AppsV1().ReplicaSets(namespace).Delete(context.TODO(), strongTypeObject.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			log.Printf("The delete step threw an error. Error was %s\n", err)
 			return false
@@ -127,11 +136,15 @@ func (k KubernetesClientDriver) Delete(configPayload string) bool {
 	case *unstructured.Unstructured:
 		strongTypeObject := obj.(*unstructured.Unstructured)
 		log.Printf("YAML file matched Unstructured of kind %s. Deleting...\n", groupVersionKind.Kind)
+		namespace := strongTypeObject.GetNamespace()
+		if namespace == "" {
+			namespace = corev1.NamespaceDefault
+		}
 		err = k.dynamicClient.Resource(schema.GroupVersionResource{
 			Group:    groupVersionKind.Group,
 			Version:  groupVersionKind.Version,
 			Resource: getPluralResourceNameFromKind(groupVersionKind.Kind),
-		}).Namespace(corev1.NamespaceDefault).Delete(context.TODO(), strongTypeObject.GetName(), metav1.DeleteOptions{})
+		}).Namespace(namespace).Delete(context.TODO(), strongTypeObject.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			log.Printf("The delete step threw an error. Error was %s\n", err)
 			return false
@@ -177,6 +190,6 @@ func getPluralResourceNameFromKind(kind string) string {
 //	//s2 := "apiVersion: apps/v1\nkind: ReplicaSet\nmetadata:\n  name: frontend\n  labels:\n    app: guestbook\n    tier: frontend\nspec:\n  # modify replicas according to your case\n  replicas: 3\n  selector:\n    matchLabels:\n      tier: frontend\n  template:\n    metadata:\n      labels:\n        tier: frontend\n    spec:\n      containers:\n      - name: php-redis\n        image: gcr.io/google_samples/gb-frontend:v3"
 //	//s2 := "apiVersion: v1\nkind: Service\nmetadata:\n  name: my-service\nspec:\n  selector:\n    app: MyApp\n  ports:\n    - protocol: TCP\n      port: 80\n      targetPort: 9376"
 //	//kubernetesClient.Deploy(s2)
-//	s1 := "apiVersion: networking.istio.io/v1alpha3\nkind: VirtualService\nmetadata:\n  name: reviews\nspec:\n  hosts:\n  - my-service\n  http:\n  - match:\n    - headers:\n        end-user:\n          exact: jason\n    route:\n    - destination:\n        host: my-service\n        subset: all"
+//	s1 := "apiVersion: networking.istio.io/v1alpha3\nkind: VirtualService\nmetadata:\n  name: reviews\n  namespace: guestbook\nspec:\n  hosts:\n    - my-service\n  http:\n    -\n      match:\n        -\n          headers:\n            end-user:\n              exact: jason\n      route:\n        -\n          destination:\n            host: my-service\n            subset: all"
 //	kubernetesClient.Deploy(s1)
 //}

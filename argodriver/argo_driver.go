@@ -26,7 +26,7 @@ const (
 
 type ArgoClient interface {
 	//TODO: Add parameters for Deploy
-	Deploy(configPayload string) bool
+	Deploy(configPayload string) (bool, string)
 	//TODO: Add parameters for Delete
 	Delete(applicationName string) bool
 	//TODO: Update parameters & return type for CheckStatus
@@ -71,11 +71,11 @@ func New() ArgoClient {
 	return client
 }
 
-func (a ArgoClientDriver) Deploy(configPayload string) bool {
+func (a ArgoClientDriver) Deploy(configPayload string) (bool, string) {
 	ioCloser, applicationClient, err := a.client.NewApplicationClient()
 	if err != nil {
 		log.Printf("The deploy application client could not be made. Error was %s\n", err)
-		return false
+		return false, ""
 	}
 	defer ioCloser.Close()
 
@@ -85,7 +85,7 @@ func (a ArgoClientDriver) Deploy(configPayload string) bool {
 	) //CallOption is not necessary, for now...
 	if err != nil {
 		log.Printf("The deploy step threw an error. Error was %s\n", err)
-		return false
+		return false, ""
 	}
 
 	//Sync() returns the current state of the application and triggers the synchronization of the application, so the return
@@ -93,10 +93,11 @@ func (a ArgoClientDriver) Deploy(configPayload string) bool {
 	_, err = applicationClient.Sync(context.TODO(), &application.ApplicationSyncRequest{Name: &argoApplication.Name})
 	if err != nil {
 		log.Printf("Syncing threw an error. Error was %s\n", err)
-		return false
+		return false, ""
 	}
+	log.Printf("Deployed Argo application named %s\n", argoApplication.Name)
 	//TODO: Syncing takes time. Right now, we can assume that apps will deploy properly. In the future, we will have to see whether we can blindly return true or not.
-	return true
+	return true, argoApplication.Namespace
 }
 
 func (a ArgoClientDriver) Delete(applicationName string) bool {
