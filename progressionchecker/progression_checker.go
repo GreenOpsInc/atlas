@@ -25,6 +25,7 @@ const (
 	MetricsServerEnvVar           string = "ARGOCD_METRICS_SERVER_ADDR"
 	WorkflowTriggerEnvVar         string = "WORKFLOW_TRIGGER_SERVER_ADDR"
 	HttpRequestRetryLimit         int    = 3
+	EventInfoTypeCompletion       string = "clientcompletion"
 )
 
 type ArgoAppMetricInfo struct {
@@ -47,6 +48,7 @@ type EventInfo struct {
 	Operation    string `json:"operation"`
 	Project      string `json:"project"`
 	Repo         string `json:"repo"`
+	Type         string `json:"type"`
 }
 
 type WatchKey struct {
@@ -127,6 +129,7 @@ func checkForCompletedApplications(channel chan string, metricsServerAddress str
 						Operation:    appInfo.Operation,
 						Project:      appInfo.Project,
 						Repo:         appInfo.Repo,
+						Type:         EventInfoTypeCompletion,
 					}
 					generateEvent(eventInfo, workflowTriggerAddress)
 				}
@@ -188,7 +191,7 @@ func generateEvent(eventInfo EventInfo, workflowTriggerAddress string) bool {
 	if err != nil {
 		return false
 	}
-	resp, err := http.Post(workflowTriggerAddress+"client/generateEvent", "application/json", bytes.NewBuffer(data))
+	resp, err := http.Post(workflowTriggerAddress+"/client/generateEvent", "application/json", bytes.NewBuffer(data))
 	if err != nil {
 		log.Printf("Error generating progression event. Error was %s\n", err)
 		return false
