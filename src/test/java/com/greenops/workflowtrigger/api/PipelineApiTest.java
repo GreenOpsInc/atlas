@@ -12,22 +12,19 @@ import com.greenops.workflowtrigger.api.model.mixin.git.GitRepoSchemaMixin;
 import com.greenops.workflowtrigger.api.model.mixin.pipeline.PipelineSchemaMixin;
 import com.greenops.workflowtrigger.api.model.mixin.pipeline.TeamSchemaMixin;
 import com.greenops.workflowtrigger.api.model.pipeline.PipelineSchemaImpl;
-import com.greenops.workflowtrigger.api.model.pipeline.TeamSchema;
 import com.greenops.workflowtrigger.api.model.pipeline.TeamSchemaImpl;
 import com.greenops.workflowtrigger.api.reposerver.RepoManagerApi;
-import com.greenops.workflowtrigger.config.SpringConfiguration;
 import com.greenops.workflowtrigger.dbclient.DbClient;
 import com.greenops.workflowtrigger.dbclient.DbKey;
-import org.apache.catalina.Pipeline;
+import com.greenops.workflowtrigger.kafka.KafkaClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.junit.jupiter.MockitoSettings;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 
 public class PipelineApiTest {
 
@@ -55,12 +52,15 @@ public class PipelineApiTest {
         var dbClient = Mockito.mock(DbClient.class);
         Mockito.when(dbClient.fetchTeamSchema(DbKey.makeDbTeamKey("org name", "team1"))).thenReturn(teamSchemaNew);
         Mockito.when(dbClient.fetchTeamSchema(DbKey.makeDbTeamKey("org name", "team2"))).thenReturn(teamSchemaOld);
-        Mockito.when(dbClient.store(Mockito.anyString(), Mockito.any())).thenReturn(true);
+        Mockito.when(dbClient.store(Mockito.anyString(), any())).thenReturn(true);
+
+        var kafkaClient = Mockito.mock(KafkaClient.class);
+        Mockito.doNothing().when(kafkaClient).sendMessage(any(String.class));
 
 
         var repoManagerApi = Mockito.mock(RepoManagerApi.class);
-        Mockito.when(repoManagerApi.cloneRepo(Mockito.any())).thenReturn(true);
-        Mockito.when(repoManagerApi.deleteRepo(Mockito.any())).thenReturn(true);
+        Mockito.when(repoManagerApi.cloneRepo(any())).thenReturn(true);
+        Mockito.when(repoManagerApi.deleteRepo(any())).thenReturn(true);
 
         objectMapper = new ObjectMapper()
                 .addMixIn(TeamSchemaImpl.class, TeamSchemaMixin.class)
@@ -71,7 +71,7 @@ public class PipelineApiTest {
 
         pipelineSchemaJson = objectMapper.writeValueAsString(pipelineSchema);
 
-        pipelineApi = new PipelineApi(dbClient, repoManagerApi, objectMapper);
+        pipelineApi = new PipelineApi(dbClient, kafkaClient, repoManagerApi, objectMapper);
 
     }
 

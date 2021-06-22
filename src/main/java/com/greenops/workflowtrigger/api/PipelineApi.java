@@ -2,6 +2,7 @@ package com.greenops.workflowtrigger.api;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.greenops.workflowtrigger.api.model.event.Event;
 import com.greenops.workflowtrigger.api.model.git.GitCredOpen;
 import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
 import com.greenops.workflowtrigger.api.model.pipeline.PipelineSchema;
@@ -9,6 +10,7 @@ import com.greenops.workflowtrigger.api.model.pipeline.TeamSchemaImpl;
 import com.greenops.workflowtrigger.api.reposerver.RepoManagerApi;
 import com.greenops.workflowtrigger.dbclient.DbClient;
 import com.greenops.workflowtrigger.dbclient.DbKey;
+import com.greenops.workflowtrigger.kafka.KafkaClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -26,12 +28,14 @@ import java.util.stream.Collectors;
 public class PipelineApi {
 
     private final DbClient dbClient;
+    private final KafkaClient kafkaClient;
     private final RepoManagerApi repoManagerApi;
     private final ObjectMapper objectMapper;
 
     @Autowired
-    public PipelineApi(DbClient dbClient, RepoManagerApi repoManagerApi, ObjectMapper objectMapper) {
+    public PipelineApi(DbClient dbClient, KafkaClient kafkaClient, RepoManagerApi repoManagerApi, ObjectMapper objectMapper) {
         this.dbClient = dbClient;
+        this.kafkaClient = kafkaClient;
         this.repoManagerApi = repoManagerApi;
         this.objectMapper = objectMapper;
     }
@@ -157,7 +161,8 @@ public class PipelineApi {
 
     @PutMapping(value = "/pipeline/{orgName}/{teamName}/{pipelineName}")
     public ResponseEntity<Void> updatePipeline(@PathVariable("orgName") String orgName,
-                                               @PathVariable("teamName") String teamName, @PathVariable("pipelineName") String pipelineName,
+                                               @PathVariable("teamName") String teamName,
+                                               @PathVariable("pipelineName") String pipelineName,
                                                @RequestBody(required = false) GitRepoSchema gitRepo) {
         var key = DbKey.makeDbTeamKey(orgName, teamName);
         var response = deletePipeline(orgName, teamName, pipelineName, gitRepo);
@@ -197,6 +202,16 @@ public class PipelineApi {
             return ResponseEntity.ok().build();
         }
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    }
+
+    @PostMapping(value = "/client/generateEvent")
+    public ResponseEntity<Void> generateEvent(@RequestBody Event event) {
+        try {
+            kafkaClient.sendMessage(objectMapper.writeValueAsString(event));
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     private void removeTeamFromOrgList(String orgName, String teamName) {

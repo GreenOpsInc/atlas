@@ -27,12 +27,15 @@ services:
     ports:
       - "8080:8080"
     depends_on:
+      - kafka
       - redisserver
       - reposerver
     links:
+      - "kafka"
       - "redisserver"
       - "reposerver"
     environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - REPO_SERVER_ENDPOINT=http://reposerver:8081
       - REDIS_ENDPOINT=redisserver:6379
 

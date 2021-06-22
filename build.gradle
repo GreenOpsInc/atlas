@@ -24,6 +24,7 @@ dependencies {
 	annotationProcessor 'org.projectlombok:lombok:1.18.20'
 	implementation 'com.fasterxml.jackson.core:jackson-databind:2.11.1'
 	implementation 'org.apache.httpcomponents:httpclient:4.5'
+	implementation 'org.springframework.kafka:spring-kafka:2.5.8.RELEASE'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.junit.jupiter:junit-jupiter-api:5.3.1'
 	testImplementation "org.testcontainers:testcontainers:1.15.3"
