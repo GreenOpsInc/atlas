@@ -40,13 +40,13 @@ type ArgoAppMetricInfo struct {
 }
 
 type EventInfo struct {
-	HealthStatus string
-	PipelineName string
-	StepName     string
-	argoName     string
-	Operation    string
-	Project      string
-	Repo         string
+	HealthStatus string `json:"healthStatus"`
+	PipelineName string `json:"pipelineName"`
+	StepName     string `json:"stepName"`
+	ArgoName     string `json:"argoName"`
+	Operation    string `json:"operation"`
+	Project      string `json:"project"`
+	Repo         string `json:"repo"`
 }
 
 type WatchKey struct {
@@ -123,7 +123,7 @@ func checkForCompletedApplications(channel chan string, metricsServerAddress str
 						HealthStatus: Healthy,
 						PipelineName: key.PipelineName,
 						StepName:     key.StepName,
-						argoName:     appInfo.Name,
+						ArgoName:     appInfo.Name,
 						Operation:    appInfo.Operation,
 						Project:      appInfo.Project,
 						Repo:         appInfo.Repo,
@@ -188,7 +188,7 @@ func generateEvent(eventInfo EventInfo, workflowTriggerAddress string) bool {
 	if err != nil {
 		return false
 	}
-	resp, err := http.Post(workflowTriggerAddress, "application/json", bytes.NewBuffer(data))
+	resp, err := http.Post(workflowTriggerAddress+"client/generateEvent", "application/json", bytes.NewBuffer(data))
 	if err != nil {
 		log.Printf("Error generating progression event. Error was %s\n", err)
 		return false
