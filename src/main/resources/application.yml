@@ -1,0 +1,9 @@
+spring:
+  kafka:
+    consumer:
+      group-id: workflow_orchestrator
+      auto-offset-reset: earliest
+      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    topic: greenops.eventing
