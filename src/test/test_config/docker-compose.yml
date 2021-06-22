@@ -22,6 +22,22 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
+  workfloworchestrator:
+    image: atlasworkfloworchestrator
+    depends_on:
+      - kafka
+      - redisserver
+      - workflowtrigger
+      - reposerver
+    links:
+      - "kafka"
+      - "redisserver"
+      - "reposerver"
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - REPO_SERVER_ENDPOINT=http://reposerver:8081
+      - REDIS_ENDPOINT=redisserver:6379
+
   workflowtrigger:
     image: atlasworkflowtrigger
     ports:
