@@ -4,4 +4,4 @@ cd ../../../
 cd ../PipelineRepoServer/
 ./gradlew jibDockerBuild --image=atlasreposerver
 cd ../WorkflowTrigger/src/test/test_config
-docker compose up #-d
+docker compose up -d
