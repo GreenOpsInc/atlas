@@ -6,5 +6,5 @@ public interface ClientWrapperApi {
     public DeployResponse deploy(String group, String version, String kind, String body);
     public boolean deleteApplication(String group, String version, String kind, String applicationName);
     public boolean checkStatus(String group, String version, String kind, String applicationName);
-    public boolean watchApplication(String pipelineName, String stepName, String applicationName, String namespace);
+    public boolean watchApplication(String orgName, String teamName, String pipelineName, String stepName, String namespace, String applicationName);
 }

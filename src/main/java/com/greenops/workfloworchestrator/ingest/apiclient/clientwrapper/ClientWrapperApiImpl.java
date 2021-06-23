@@ -1,13 +1,9 @@
 package com.greenops.workfloworchestrator.ingest.apiclient.clientwrapper;
 
-import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.workfloworchestrator.datamodel.requests.DeployResponse;
-import com.greenops.workfloworchestrator.datamodel.requests.GetFileRequest;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ContentType;
@@ -29,8 +25,8 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     private final HttpClient httpClient;
 
     @Autowired
-    public ClientWrapperApiImpl(@Value("${application.repo-server-url}") String serverEndpoint, @Qualifier("requestObjectMapper") ObjectMapper objectMapper) {
-        this.serverEndpoint = serverEndpoint.endsWith("/") ? serverEndpoint + "yaml" : serverEndpoint + "/yaml";
+    public ClientWrapperApiImpl(@Value("${application.client-wrapper-url}") String serverEndpoint, @Qualifier("eventAndRequestObjectMapper") ObjectMapper objectMapper) {
+        this.serverEndpoint = serverEndpoint.endsWith("/") ? serverEndpoint.substring(0, serverEndpoint.length() - 1) : serverEndpoint;
         httpClient = HttpClientBuilder.create().build();
         this.objectMapper = objectMapper;
     }
@@ -82,9 +78,9 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     }
 
     @Override
-    public boolean watchApplication(String pipelineName, String stepName, String applicationName, String namespace) {
+    public boolean watchApplication(String orgName, String teamName, String pipelineName, String stepName, String namespace, String applicationName) {
         try {
-            var request = new HttpPost(serverEndpoint + String.format("/watchApplication/%s/%s/%s/%s", pipelineName, stepName, applicationName, namespace));
+            var request = new HttpPost(serverEndpoint + String.format("/watchApplication/%s/%s/%s/%s/%s/%s", orgName, teamName, pipelineName, stepName, namespace, applicationName));
             var response = httpClient.execute(request);
             return objectMapper.readValue(response.getEntity().getContent().readAllBytes(), Boolean.class);
         } catch (JsonProcessingException e) {

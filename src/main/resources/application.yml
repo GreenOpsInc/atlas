@@ -1,12 +1,16 @@
 spring:
   kafka:
+    listener:
+      ack-mode: MANUAL_IMMEDIATE
     consumer:
       group-id: workflow_orchestrator
       auto-offset-reset: earliest
+      enable-auto-commit: false
       bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     topic: greenops.eventing
 application:
   repo-server-url: ${REPO_SERVER_ENDPOINT:http://localhost:8081}
+  client-wrapper-url: ${CLIENT_WRAPPER_ENDPOINT:http://localhost:9091}
   redis-url: ${REDIS_ENDPOINT:localhost:6379}
