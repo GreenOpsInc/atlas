@@ -42,6 +42,8 @@ type ArgoAppMetricInfo struct {
 
 type EventInfo struct {
 	HealthStatus string `json:"healthStatus"`
+	OrgName      string `json:"orgName"`
+	TeamName     string `json:"teamName"`
 	PipelineName string `json:"pipelineName"`
 	StepName     string `json:"stepName"`
 	ArgoName     string `json:"argoName"`
@@ -52,6 +54,8 @@ type EventInfo struct {
 }
 
 type WatchKey struct {
+	OrgName      string
+	TeamName     string
 	PipelineName string
 	StepName     string
 	AppName      string
@@ -123,6 +127,8 @@ func checkForCompletedApplications(channel chan string, metricsServerAddress str
 				for i := 0; i < HttpRequestRetryLimit; i++ {
 					eventInfo := EventInfo{
 						HealthStatus: Healthy,
+						OrgName:      key.OrgName,
+						TeamName:     key.TeamName,
 						PipelineName: key.PipelineName,
 						StepName:     key.StepName,
 						ArgoName:     appInfo.Name,
@@ -203,15 +209,17 @@ func generateEvent(eventInfo EventInfo, workflowTriggerAddress string) bool {
 func readKeyAsWatchKey(key string) WatchKey {
 	splitKey := strings.Split(key, "-")
 	return WatchKey{
-		PipelineName: splitKey[0],
-		StepName:     splitKey[1],
-		AppName:      splitKey[2],
-		Namespace:    splitKey[3],
+		OrgName:      splitKey[0],
+		TeamName:     splitKey[1],
+		PipelineName: splitKey[2],
+		StepName:     splitKey[3],
+		AppName:      splitKey[4],
+		Namespace:    splitKey[5],
 	}
 }
 
 func (watchKey WatchKey) WriteKeyAsString() string {
-	return strings.Join([]string{watchKey.PipelineName, watchKey.StepName, watchKey.AppName, watchKey.Namespace}, "-")
+	return strings.Join([]string{watchKey.OrgName, watchKey.TeamName, watchKey.PipelineName, watchKey.StepName, watchKey.AppName, watchKey.Namespace}, "-")
 }
 
 func Start(channel chan string) {

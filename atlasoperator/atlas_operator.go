@@ -89,6 +89,8 @@ func checkStatus(w http.ResponseWriter, r *http.Request) {
 func watchApplication(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	key := progressionchecker.WatchKey{
+		OrgName:      vars["orgName"],
+		TeamName:     vars["teamName"],
 		PipelineName: vars["pipelineName"],
 		StepName:     vars["stepName"],
 		AppName:      vars["appName"],
@@ -104,7 +106,7 @@ func handleRequests() {
 	myRouter.HandleFunc("/deploy/{group}/{version}/{kind}", deploy).Methods("POST")
 	myRouter.HandleFunc("/delete/{group}/{version}/{kind}/{name}", deleteApplication).Methods("POST")
 	myRouter.HandleFunc("/checkStatus/{group}/{version}/{kind}/{name}", checkStatus).Methods("GET")
-	myRouter.HandleFunc("/watchApplication/{pipelineName}/{stepName}/{namespace}/{appName}", watchApplication).Methods("POST")
+	myRouter.HandleFunc("/watchApplication/{orgName}/{teamName}/{pipelineName}/{stepName}/{namespace}/{appName}", watchApplication).Methods("POST")
 	log.Fatal(http.ListenAndServe(":9091", myRouter))
 }
 
