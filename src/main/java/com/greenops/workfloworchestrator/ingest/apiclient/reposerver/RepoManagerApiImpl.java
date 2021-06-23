@@ -32,20 +32,20 @@ public class RepoManagerApiImpl implements RepoManagerApi {
     }
 
     @Override
-    public boolean getFileFromRepo(GetFileRequest getFileRequest, String orgName, String teamName) {
+    public String getFileFromRepo(GetFileRequest getFileRequest, String orgName, String teamName) {
         try {
             var requestBody = objectMapper.writeValueAsString(getFileRequest);
             var request = new HttpPost(serverEndpoint + String.format("%s/%s", orgName, teamName));
             request.setEntity(new StringEntity(requestBody, ContentType.APPLICATION_JSON));
             var response = httpClient.execute(request);
             log.info("Fetch file request for repo {} returned with status code {}", getFileRequest.getGitRepoUrl(), response.getStatusLine().getStatusCode());
-            return response.getStatusLine().getStatusCode() == 200;
+            return new String(response.getEntity().getContent().readAllBytes());
         } catch (JsonProcessingException e) {
             log.error("Object mapper could not convert GetFileRequest", e);
-            return false;
+            return null;
         } catch (IOException e) {
             log.error("HTTP get file request failed for repo: {}", getFileRequest.getGitRepoUrl(), e);
-            return false;
+            return null;
         }
     }
 }
