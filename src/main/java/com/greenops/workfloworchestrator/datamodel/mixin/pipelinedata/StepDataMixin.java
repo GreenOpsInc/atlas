@@ -1,4 +1,4 @@
-package com.greenops.workfloworchestrator.datamodel.mixin;
+package com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
