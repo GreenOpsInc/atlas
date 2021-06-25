@@ -2,10 +2,13 @@ package com.greenops.workfloworchestrator.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.greenops.workfloworchestrator.datamodel.mixin.PipelineDataMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.StepDataMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.TestMixin;
+import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.PipelineDataMixin;
+import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.StepDataMixin;
+import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.TestMixin;
+import com.greenops.workfloworchestrator.datamodel.mixin.requests.GetFileRequestMixin;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.*;
+import com.greenops.workfloworchestrator.datamodel.requests.GetFileRequest;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -13,11 +16,19 @@ import org.springframework.context.annotation.Configuration;
 public class SpringConfiguration {
 
     @Bean
+    @Qualifier("yamlObjectMapper")
     ObjectMapper yamlObjectMapper() {
         return new ObjectMapper(new YAMLFactory());
     }
 
     @Bean
+    @Qualifier("requestObjectMapper")
+    ObjectMapper requestObjectMapper() {
+        return new ObjectMapper().addMixIn(GetFileRequest.class, GetFileRequestMixin.class);
+    }
+
+    @Bean
+    @Qualifier("objectMapper")
     ObjectMapper objectMapper() {
         return new ObjectMapper()
                 .addMixIn(PipelineDataImpl.class, PipelineDataMixin.class)

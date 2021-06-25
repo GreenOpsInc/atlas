@@ -7,3 +7,6 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     topic: greenops.eventing
+application:
+  repo-server-url: ${REPO_SERVER_ENDPOINT:http://localhost:8081}
+  redis-url: ${REDIS_ENDPOINT:localhost:6379}
