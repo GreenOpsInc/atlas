@@ -15,12 +15,13 @@ import (
 )
 
 const (
-	EndTransactionMarker          string = "__ATLAS_END_TRANSACTION_MARKER__"
-	Missing                       string = "Missing"
-	NotHealthy                    string = "NotHealthy"
-	Healthy                       string = "Healthy"
-	ProgressionChannelBufferSize  int    = 100
-	DefaultMetricsServerAddress   string = "http://argocd-metrics.argocd.svc.cluster.local:8082/metrics"
+	EndTransactionMarker         string = "__ATLAS_END_TRANSACTION_MARKER__"
+	Missing                      string = "Missing"
+	NotHealthy                   string = "NotHealthy"
+	Healthy                      string = "Healthy"
+	ProgressionChannelBufferSize int    = 100
+	DefaultMetricsServerAddress  string = "http://argocd-metrics.argocd.svc.cluster.local:8082/metrics"
+	//Command to get localhost address: "minikube ssh 'grep host.minikube.internal /etc/hosts | cut -f1'"
 	DefaultWorkflowTriggerAddress string = "http://atlasworkflowtrigger.default.svc.cluster.local"
 	MetricsServerEnvVar           string = "ARGOCD_METRICS_SERVER_ADDR"
 	WorkflowTriggerEnvVar         string = "WORKFLOW_TRIGGER_SERVER_ADDR"
@@ -137,7 +138,11 @@ func checkForCompletedApplications(channel chan string, metricsServerAddress str
 						Repo:         appInfo.Repo,
 						Type:         EventInfoTypeCompletion,
 					}
-					generateEvent(eventInfo, workflowTriggerAddress)
+					if generateEvent(eventInfo, workflowTriggerAddress) {
+						//TODO: This deletion is a TEMPORARY measure. It should not be done longer term, as we want to continue receiving Argo events about application
+						delete(watchedApplications, key)
+						break
+					}
 				}
 			} else {
 				watchedApplications[key] = NotHealthy
@@ -203,7 +208,7 @@ func generateEvent(eventInfo EventInfo, workflowTriggerAddress string) bool {
 		return false
 	}
 	defer resp.Body.Close()
-	return strings.HasPrefix(resp.Status, "2")
+	return resp.StatusCode/100 == 2
 }
 
 func readKeyAsWatchKey(key string) WatchKey {
