@@ -34,6 +34,31 @@ public class StepDataImpl implements StepData {
     }
 
     @Override
+    public String getArgoApplication() {
+        return argoApplication;
+    }
+
+    @Override
+    public String getArgoApplicationPath() {
+        return argoApplicationPath;
+    }
+
+    @Override
+    public String getOtherDeploymentsPath() {
+        return otherDeploymentsPath;
+    }
+
+    @Override
+    public boolean getRollback() {
+        return rollback;
+    }
+
+    @Override
+    public List<Test> getTests() {
+        return tests;
+    }
+
+    @Override
     public List<String> getDependencies() {
         return dependencies;
     }

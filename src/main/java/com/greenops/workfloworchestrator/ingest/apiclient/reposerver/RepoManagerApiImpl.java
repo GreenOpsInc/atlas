@@ -25,7 +25,7 @@ public class RepoManagerApiImpl implements RepoManagerApi {
     private final HttpClient httpClient;
 
     @Autowired
-    public RepoManagerApiImpl(@Value("${application.repo-server-url}") String serverEndpoint, @Qualifier("requestObjectMapper") ObjectMapper objectMapper) {
+    public RepoManagerApiImpl(@Value("${application.repo-server-url}") String serverEndpoint, @Qualifier("eventAndRequestObjectMapper") ObjectMapper objectMapper) {
         this.serverEndpoint = serverEndpoint.endsWith("/") ? serverEndpoint + "yaml" : serverEndpoint + "/yaml";
         httpClient = HttpClientBuilder.create().build();
         this.objectMapper = objectMapper;
@@ -35,7 +35,7 @@ public class RepoManagerApiImpl implements RepoManagerApi {
     public String getFileFromRepo(GetFileRequest getFileRequest, String orgName, String teamName) {
         try {
             var requestBody = objectMapper.writeValueAsString(getFileRequest);
-            var request = new HttpPost(serverEndpoint + String.format("%s/%s", orgName, teamName));
+            var request = new HttpPost(serverEndpoint + String.format("/%s/%s", orgName, teamName));
             request.setEntity(new StringEntity(requestBody, ContentType.APPLICATION_JSON));
             var response = httpClient.execute(request);
             log.info("Fetch file request for repo {} returned with status code {}", getFileRequest.getGitRepoUrl(), response.getStatusLine().getStatusCode());
