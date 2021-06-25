@@ -1,6 +1,7 @@
 package com.greenops.workfloworchestrator.datamodel.requests;
 
 public class GetFileRequest {
+
     private final String gitRepoUrl;
     private final String filename;
 
