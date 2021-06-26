@@ -8,6 +8,7 @@ import (
 	"github.com/argoproj/argo-cd/util/config"
 	"github.com/argoproj/argo-cd/util/io"
 	"github.com/argoproj/gitops-engine/pkg/health"
+	"greenops.io/client/k8sdriver"
 	"greenops.io/client/util"
 	"log"
 	"os"
@@ -38,8 +39,8 @@ type ArgoClientDriver struct {
 }
 
 //TODO: ALL functions should have a callee tag on them
-func New() ArgoClient {
-	apiServerAddress, userAccount, userPassword, _ := getClientCreationData()
+func New(kubernetesDriver *k8sdriver.KubernetesClient) ArgoClient {
+	apiServerAddress, userAccount, userPassword, _ := getClientCreationData(kubernetesDriver)
 	tlsTestResult, err := grpcutil.TestTLS(apiServerAddress)
 	util.CheckFatalError(err)
 
@@ -143,7 +144,7 @@ func makeApplication(configPayload string) v1alpha1.Application {
 	return argoApplication
 }
 
-func getClientCreationData() (string, string, string, string) {
+func getClientCreationData(kubernetesDriver *k8sdriver.KubernetesClient) (string, string, string, string) {
 	argoCdServer := os.Getenv(apiclient.EnvArgoCDServer)
 	if argoCdServer == "" {
 		argoCdServer = DefaultApiServerAddress
@@ -154,13 +155,14 @@ func getClientCreationData() (string, string, string, string) {
 	}
 	argoCdUserPassword := os.Getenv(UserAccountPasswordEnvVar)
 	if argoCdUserPassword == "" {
-		panic("The password has to be entered. The default is stored in a secret called argocd-initial-admin-secret " +
-			"and can be fetched using 'kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath=\"{.data.password}\" | base64 -d'. " +
-			"Fetching the password is not implemented yet.")
+		secretData := (*kubernetesDriver).GetSecret("argocd-initial-admin-secret", "argocd")
+		if secretData != nil {
+			argoCdUserPassword = string(secretData["password"])
+		}
 	}
-	argoCdUserToken := os.Getenv(apiclient.EnvArgoCDAuthToken)
-	if argoCdUserToken == "" {
-		panic("An acces token has to be entered. Not implemented yet.")
-	}
+	argoCdUserToken := "" //os.Getenv(apiclient.EnvArgoCDAuthToken)
+	//if argoCdUserToken == "" {
+	//	panic("An acces token has to be entered. Not implemented yet.")
+	//}
 	return argoCdServer, argoCdUser, argoCdUserPassword, argoCdUserToken
 }

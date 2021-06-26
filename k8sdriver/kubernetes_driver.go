@@ -24,6 +24,7 @@ type KubernetesClient interface {
 	Deploy(configPayload string) (bool, string)
 	//TODO: Add parameters for Delete
 	Delete(configPayload string) bool
+	GetSecret(name string, namespace string) map[string][]byte
 	//TODO: Update parameters & return type for CheckStatus
 	CheckHealthy() bool
 	//TODO: Update parameters for ExecInPod
@@ -154,6 +155,16 @@ func (k KubernetesClientDriver) Delete(configPayload string) bool {
 		return false
 	}
 	return true
+}
+
+//TODO: This should probably be agnostic to type. Challenge is the Workflow Orchestrator can't be expected to know what the type is.
+func (k KubernetesClientDriver) GetSecret(name string, namespace string) map[string][]byte {
+	secret, err := k.client.CoreV1().Secrets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		log.Printf("Error %s", err)
+		return nil
+	}
+	return secret.Data
 }
 
 func (k KubernetesClientDriver) CheckHealthy() bool {

@@ -111,9 +111,10 @@ func handleRequests() {
 }
 
 func main() {
+	kubernetesDriver := k8sdriver.New()
 	drivers = Drivers{
-		k8sDriver:  k8sdriver.New(),
-		argoDriver: argodriver.New(),
+		k8sDriver:  kubernetesDriver,
+		argoDriver: argodriver.New(&kubernetesDriver),
 	}
 	channel = make(chan string)
 	go progressionchecker.Start(channel)
