@@ -9,8 +9,10 @@ import com.greenops.pipelinereposerver.api.model.mixin.git.GitCredTokenMixin;
 import com.greenops.pipelinereposerver.api.model.mixin.git.GitRepoSchemaMixin;
 import com.greenops.pipelinereposerver.api.model.mixin.pipeline.PipelineSchemaMixin;
 import com.greenops.pipelinereposerver.api.model.mixin.pipeline.TeamSchemaMixin;
+import com.greenops.pipelinereposerver.api.model.mixin.request.GetFileRequestMixin;
 import com.greenops.pipelinereposerver.api.model.pipeline.PipelineSchemaImpl;
 import com.greenops.pipelinereposerver.api.model.pipeline.TeamSchemaImpl;
+import com.greenops.pipelinereposerver.api.model.request.GetFileRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -24,6 +26,7 @@ public class SpringConfiguration {
                 .addMixIn(PipelineSchemaImpl.class, PipelineSchemaMixin.class)
                 .addMixIn(GitRepoSchema.class, GitRepoSchemaMixin.class)
                 .addMixIn(GitCredMachineUser.class, GitCredMachineUserMixin.class)
-                .addMixIn(GitCredToken.class, GitCredTokenMixin.class);
+                .addMixIn(GitCredToken.class, GitCredTokenMixin.class)
+                .addMixIn(GetFileRequest.class, GetFileRequestMixin.class);
     }
 }

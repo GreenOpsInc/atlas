@@ -4,16 +4,16 @@ import com.greenops.pipelinereposerver.api.model.git.GitRepoSchema;
 import com.greenops.pipelinereposerver.dbclient.DbClient;
 import com.greenops.pipelinereposerver.dbclient.DbKey;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashSet;
-import java.util.Optional;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -23,7 +23,7 @@ import static com.greenops.pipelinereposerver.repomanager.CommandBuilder.getFold
 @Component
 public class RepoManagerImpl implements RepoManager {
 
-    private final String orgName = "temporary"; //TODO: Needs to be updated when we decide how to configure organization
+    private final String orgName = "org"; //TODO: Needs to be updated when we decide how to configure organization
     private final String directory = "tmp";
 
     private Set<GitRepoSchema> gitRepos;
@@ -104,7 +104,7 @@ public class RepoManagerImpl implements RepoManager {
             int exitCode = process.waitFor();
             log.info("Deletion of repo {} finished with exit code {}", gitRepoSchema.getGitRepo(), exitCode);
             if (exitCode == 0) {
-                gitRepos.remove(gitRepoSchema);
+                gitRepos = gitRepos.stream().filter(gitRepoSchema1 -> !gitRepoSchema1.getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toSet());
                 return true;
             } else {
                 return false;
@@ -121,22 +121,23 @@ public class RepoManagerImpl implements RepoManager {
                 .filter(gitRepoSchema -> gitRepoSchema.getGitRepo().equals(gitRepoUrl))
                 .collect(Collectors.toList());
         if (listOfSchemas.size() != 1) {
-            throw new RuntimeException("Too many git repos with the given url");
+            log.error("Too many git repos with the given url");
+            return null;
         }
 
         try {
-            Optional<Path> fileToFind = Files.walk(Paths.get(listOfSchemas.get(0).getPathToRoot()))
-                    .filter(file -> Files.isRegularFile(file) && file.getFileName().equals(filename) && (file.endsWith("yaml") || file.endsWith("yml")))
-                    .findFirst();
-            if (fileToFind.isPresent()) {
-                log.info("Found the file : {}", fileToFind.get().getFileName());
-                return Files.readString(fileToFind.get());
-            }
+            var pathToRoot = strip(listOfSchemas.get(0).getPathToRoot(), '/');
+            var truncatedFilePath = strip(filename, '/');
+            var path = Paths.get(Strings.join(
+                    List.of(orgName, directory, getFolderName(gitRepoUrl), pathToRoot, truncatedFilePath),
+                    '/')
+            );
+            var reader = Files.newBufferedReader(path);
+            return reader.lines().collect(Collectors.joining("\n"));
         } catch (IOException ex) {
-            throw new RuntimeException("File was not found.");
+            log.error("File was not found or could not be read.");
+            return null;
         }
-
-        return null;
     }
 
     @Override
@@ -174,6 +175,22 @@ public class RepoManagerImpl implements RepoManager {
     @Override
     public boolean containsGitRepoSchema(GitRepoSchema gitRepoSchema) {
         return gitRepos.stream().anyMatch(gitRepoSchema1 -> gitRepoSchema1.getGitRepo().equals(gitRepoSchema.getGitRepo()));
+    }
+
+    private String strip(String str, char delimiter) {
+        var beg = 0;
+        var end = str.length() - 1;
+        while (beg < str.length() && str.charAt(beg) == delimiter) {
+            beg++;
+        }
+        while (end >= 0 && str.charAt(end) == delimiter) {
+            end--;
+        }
+        if (end < beg) {
+            return "";
+        } else {
+            return str.substring(beg, end + 1);
+        }
     }
 
     private boolean setupGitCli() {

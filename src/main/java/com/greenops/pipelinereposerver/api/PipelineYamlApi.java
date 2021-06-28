@@ -1,6 +1,7 @@
 package com.greenops.pipelinereposerver.api;
 
 import com.greenops.pipelinereposerver.api.model.git.GitRepoSchema;
+import com.greenops.pipelinereposerver.api.model.request.GetFileRequest;
 import com.greenops.pipelinereposerver.repomanager.RepoManager;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,13 +22,13 @@ public class PipelineYamlApi {
     }
 
     //TODO: This only returns string contents for now, we need to return the actual yaml content as well.
-    @GetMapping("/{orgName}/{teamName}")
+    @PostMapping("/{orgName}/{teamName}")
     public ResponseEntity<String> getPipelineConfig(@PathVariable("orgName") String orgName,
                                                     @PathVariable("teamName") String teamName,
                                                     @RequestBody GetFileRequest fileRequest) {
         if (repoManager.getOrgName().equals(orgName) &&
                 repoManager.containsGitRepoSchema(new GitRepoSchema(fileRequest.getGitRepoUrl(), null, null))) {
-            String fileContents = repoManager.getYamlFileContents(fileRequest.gitRepoUrl, fileRequest.filename);
+            String fileContents = repoManager.getYamlFileContents(fileRequest.getGitRepoUrl(), fileRequest.getFilename());
             if (fileContents == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
@@ -35,23 +36,5 @@ public class PipelineYamlApi {
         }
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-    }
-
-    private class GetFileRequest {
-        private final String gitRepoUrl;
-        private final String filename;
-
-        GetFileRequest(String gitRepoUrl, String filename) {
-            this.gitRepoUrl = gitRepoUrl;
-            this.filename = filename;
-        }
-
-        String getGitRepoUrl() {
-            return gitRepoUrl;
-        }
-
-        String getFilename() {
-            return filename;
-        }
     }
 }
