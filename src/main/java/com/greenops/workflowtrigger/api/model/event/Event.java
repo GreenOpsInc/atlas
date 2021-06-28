@@ -10,6 +10,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         }
 )
 public interface Event {
+    String getOrgName();
+    String getTeamName();
     String getPipelineName();
     String getStepName();
     String getRepoUrl();

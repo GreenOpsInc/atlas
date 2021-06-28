@@ -1,12 +1,17 @@
 package com.greenops.workflowtrigger.api.model.mixin.event;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public abstract class ClientCompletionEventMixin {
 
     @JsonProperty(value = "healthStatus")
     String healthStatus;
+    @JsonProperty(value = "orgName")
+    String orgName;
+    @JsonProperty(value = "teamName")
+    String teamName;
     @JsonProperty(value = "pipelineName")
     String pipelineName;
     @JsonProperty(value = "stepName")
@@ -22,6 +27,8 @@ public abstract class ClientCompletionEventMixin {
 
     @JsonCreator
     public ClientCompletionEventMixin(@JsonProperty(value = "healthStatus") String healthStatus,
+                                      @JsonProperty(value = "orgName") String orgName,
+                                      @JsonProperty(value = "teamName") String teamName,
                                       @JsonProperty(value = "pipelineName") String pipelineName,
                                       @JsonProperty(value = "stepName") String stepName,
                                       @JsonProperty(value = "argoName") String argoName,
@@ -29,4 +36,7 @@ public abstract class ClientCompletionEventMixin {
                                       @JsonProperty(value = "project") String project,
                                       @JsonProperty(value = "repo") String repo) {
     }
+
+    @JsonIgnore
+    abstract String getRepoUrl();
 }

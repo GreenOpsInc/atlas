@@ -35,6 +35,7 @@ services:
       - "reposerver"
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - CLIENT_WRAPPER_ENDPOINT=http://host.docker.internal:9091
       - REPO_SERVER_ENDPOINT=http://reposerver:8081
       - REDIS_ENDPOINT=redisserver:6379
 

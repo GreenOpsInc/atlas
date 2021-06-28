@@ -2,7 +2,7 @@ package com.greenops.workflowtrigger.api;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.greenops.workflowtrigger.api.model.event.Event;
+import com.greenops.workflowtrigger.api.model.event.ClientCompletionEvent;
 import com.greenops.workflowtrigger.api.model.git.GitCredOpen;
 import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
 import com.greenops.workflowtrigger.api.model.pipeline.PipelineSchema;
@@ -132,6 +132,15 @@ public class PipelineApi {
         if (!dbClient.store(key, teamSchema)) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+
+        //TODO: TriggerEvents don't need all of this information. This should be replaced with a special type called a "TriggerEvent"
+        var triggerEvent = new ClientCompletionEvent("Healthy", orgName, teamName, pipelineName,"ATLAS_ROOT_DATA", "","","", gitRepo.getGitRepo());
+        try {
+            generateEvent(objectMapper.writeValueAsString(triggerEvent));
+        } catch (JsonProcessingException e) {
+            log.error("Serializing the event failed.", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
         return ResponseEntity.ok().build();
     }
 
@@ -205,13 +214,9 @@ public class PipelineApi {
     }
 
     @PostMapping(value = "/client/generateEvent")
-    public ResponseEntity<Void> generateEvent(@RequestBody Event event) {
-        try {
-            kafkaClient.sendMessage(objectMapper.writeValueAsString(event));
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+    public ResponseEntity<Void> generateEvent(@RequestBody String event) {
+        kafkaClient.sendMessage(event);
+        return ResponseEntity.ok().build();
     }
 
     private void removeTeamFromOrgList(String orgName, String teamName) {
