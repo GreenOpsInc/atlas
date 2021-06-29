@@ -15,4 +15,24 @@ public class CustomTest implements Test {
         this.executeBeforeDeployment = executeBeforeDeployment;
         this.variables = variables;
     }
+
+    @Override
+    public String getPath() {
+        return path;
+    }
+
+    @Override
+    public boolean shouldExecuteInPod() {
+        return executeInApplicationPod;
+    }
+
+    @Override
+    public boolean shouldExecuteBefore() {
+        return executeBeforeDeployment;
+    }
+
+    @Override
+    public Map<String, String> getVariables() {
+        return variables;
+    }
 }

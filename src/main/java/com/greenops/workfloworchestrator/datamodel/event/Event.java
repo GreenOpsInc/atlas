@@ -14,5 +14,4 @@ public interface Event {
     String getTeamName();
     String getPipelineName();
     String getStepName();
-    String getRepoUrl();
 }
