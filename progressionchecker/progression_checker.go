@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
+	"greenops.io/client/k8sdriver"
+	"greenops.io/client/progressionchecker/datamodel"
 	"io"
 	"log"
 	"net/http"
@@ -16,9 +18,6 @@ import (
 
 const (
 	EndTransactionMarker         string = "__ATLAS_END_TRANSACTION_MARKER__"
-	Missing                      string = "Missing"
-	NotHealthy                   string = "NotHealthy"
-	Healthy                      string = "Healthy"
 	ProgressionChannelBufferSize int    = 100
 	DefaultMetricsServerAddress  string = "http://argocd-metrics.argocd.svc.cluster.local:8082/metrics"
 	//Command to get localhost address: "minikube ssh 'grep host.minikube.internal /etc/hosts | cut -f1'"
@@ -26,43 +25,7 @@ const (
 	MetricsServerEnvVar           string = "ARGOCD_METRICS_SERVER_ADDR"
 	WorkflowTriggerEnvVar         string = "WORKFLOW_TRIGGER_SERVER_ADDR"
 	HttpRequestRetryLimit         int    = 3
-	EventInfoTypeCompletion       string = "clientcompletion"
 )
-
-type ArgoAppMetricInfo struct {
-	DestNamespace string `tag:"dest_namespace"`
-	DestServer    string `tag:"dest_server"`
-	HealthStatus  string `tag:"health_status"`
-	Name          string `tag:"name"`
-	Namespace     string `tag:"namespace"`
-	Operation     string `tag:"operation"`
-	Project       string `tag:"project"`
-	Repo          string `tag:"repo"`
-	SyncStatus    string `tag:"sync_status"`
-}
-
-type EventInfo struct {
-	HealthStatus string `json:"healthStatus"`
-	OrgName      string `json:"orgName"`
-	TeamName     string `json:"teamName"`
-	PipelineName string `json:"pipelineName"`
-	StepName     string `json:"stepName"`
-	ArgoName     string `json:"argoName"`
-	Operation    string `json:"operation"`
-	Project      string `json:"project"`
-	Repo         string `json:"repo"`
-	Type         string `json:"type"`
-}
-
-type WatchKey struct {
-	OrgName      string
-	TeamName     string
-	PipelineName string
-	StepName     string
-	AppName      string
-	//You can't have two Argo apps with the same name in the same namespace, this makes sure there are no collisions
-	Namespace string
-}
 
 func listenForApplicationsToWatch(inputChannel chan string, outputChannel chan string) {
 	var listOfWatchKeys []string
@@ -81,18 +44,19 @@ func listenForApplicationsToWatch(inputChannel chan string, outputChannel chan s
 	}
 }
 
-func checkForCompletedApplications(channel chan string, metricsServerAddress string, workflowTriggerAddress string) {
-	watchedApplications := make(map[WatchKey]string)
+func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGetRestricted, channel chan string, metricsServerAddress string, workflowTriggerAddress string) {
+	watchedApplications := make(map[datamodel.WatchKey]string)
 	for {
 		//Update watched applications list with new entries
 		for {
 			doneReading := false
 			select {
 			case newKey := <-channel:
-				newWatchKey := readKeyAsWatchKey(newKey)
+				var newWatchKey datamodel.WatchKey
+				_ = json.NewDecoder(strings.NewReader(newKey)).Decode(&newWatchKey)
 				if _, ok := watchedApplications[newWatchKey]; !ok {
-					watchedApplications[newWatchKey] = Missing
-					log.Printf("Added Argo CD application %s to watched list\n", newWatchKey)
+					watchedApplications[newWatchKey] = datamodel.Missing
+					log.Printf("Added key %s to watched list\n", newWatchKey)
 				}
 			default:
 				//No more items to read in from channel
@@ -103,7 +67,7 @@ func checkForCompletedApplications(channel chan string, metricsServerAddress str
 			}
 		}
 		//Check health of watched applications
-		var argoAppInfo []ArgoAppMetricInfo
+		var argoAppInfo []datamodel.ArgoAppMetricInfo
 		for i := 0; i < HttpRequestRetryLimit; i++ {
 			argoAppInfo = getUnmarshalledMetrics(metricsServerAddress)
 			if argoAppInfo != nil {
@@ -112,9 +76,9 @@ func checkForCompletedApplications(channel chan string, metricsServerAddress str
 		}
 
 		for _, appInfo := range argoAppInfo {
-			key := WatchKey{}
+			key := datamodel.WatchKey{}
 			for mapKey, _ := range watchedApplications {
-				if mapKey.AppName == appInfo.Name && mapKey.Namespace == appInfo.Namespace {
+				if mapKey.Name == appInfo.Name && mapKey.Namespace == appInfo.Namespace {
 					key = mapKey
 					break
 				}
@@ -124,28 +88,38 @@ func checkForCompletedApplications(channel chan string, metricsServerAddress str
 				continue
 			}
 			if appInfo.HealthStatus == string(health.HealthStatusHealthy) && appInfo.SyncStatus == string(v1alpha1.SyncStatusCodeSynced) {
-				watchedApplications[key] = Healthy
+				watchedApplications[key] = datamodel.Healthy
+				eventInfo := datamodel.MakeApplicationEvent(key, appInfo)
 				for i := 0; i < HttpRequestRetryLimit; i++ {
-					eventInfo := EventInfo{
-						HealthStatus: Healthy,
-						OrgName:      key.OrgName,
-						TeamName:     key.TeamName,
-						PipelineName: key.PipelineName,
-						StepName:     key.StepName,
-						ArgoName:     appInfo.Name,
-						Operation:    appInfo.Operation,
-						Project:      appInfo.Project,
-						Repo:         appInfo.Repo,
-						Type:         EventInfoTypeCompletion,
-					}
 					if generateEvent(eventInfo, workflowTriggerAddress) {
-						//TODO: This deletion is a TEMPORARY measure. It should not be done longer term, as we want to continue receiving Argo events about application
+						//TODO: This deletion is a TEMPORARY measure. It should not be done longer term, as we want to continue receiving Argo datamodel about application
 						delete(watchedApplications, key)
 						break
 					}
 				}
 			} else {
-				watchedApplications[key] = NotHealthy
+				watchedApplications[key] = datamodel.NotHealthy
+			}
+		}
+
+		for key, _ := range watchedApplications {
+			log.Printf("Checking for key %s", key.Name)
+			if key.Type == datamodel.WatchTestKey {
+				jobStatus, numPods := kubernetesClient.GetJob(key.Name, key.Namespace)
+				log.Printf("Job status succeeded: %d, status failed %d", jobStatus.Succeeded, jobStatus.Failed)
+				if numPods == -1 {
+					//TODO: GetJob failed. Should have better handling than continue
+					continue
+				}
+				if jobStatus.Succeeded == numPods || jobStatus.Failed == numPods {
+					eventInfo := datamodel.MakeTestEvent(key, jobStatus.Succeeded > 0)
+					for i := 0; i < HttpRequestRetryLimit; i++ {
+						if generateEvent(eventInfo, workflowTriggerAddress) {
+							delete(watchedApplications, key)
+							break
+						}
+					}
+				}
 			}
 		}
 
@@ -154,10 +128,10 @@ func checkForCompletedApplications(channel chan string, metricsServerAddress str
 	}
 }
 
-func unmarshall(payload *string) []ArgoAppMetricInfo {
+func unmarshall(payload *string) []datamodel.ArgoAppMetricInfo {
 	metricTypePattern, _ := regexp.Compile("(argocd_app_info{.*} [0-9]*)+")
 	relevantPayload := metricTypePattern.FindAllString(*payload, -1)
-	var argoAppInfo []ArgoAppMetricInfo
+	var argoAppInfo []datamodel.ArgoAppMetricInfo
 	for _, payloadLine := range relevantPayload {
 		metricVariablePattern, _ := regexp.Compile("([a-zA-Z_-]*)=\"([a-zA-Z:/_.-]*)\"")
 		variableMap := make(map[string]string)
@@ -165,7 +139,7 @@ func unmarshall(payload *string) []ArgoAppMetricInfo {
 			variableMap[variable[1]] = variable[2]
 		}
 		//We should be using reflection in the future to assign all these values. For now this will work.
-		appInfo := ArgoAppMetricInfo{
+		appInfo := datamodel.ArgoAppMetricInfo{
 			DestNamespace: variableMap["dest_namespace"],
 			DestServer:    variableMap["dest_server"],
 			HealthStatus:  variableMap["health_status"],
@@ -181,7 +155,7 @@ func unmarshall(payload *string) []ArgoAppMetricInfo {
 	return argoAppInfo
 }
 
-func getUnmarshalledMetrics(metricsServerAddress string) []ArgoAppMetricInfo {
+func getUnmarshalledMetrics(metricsServerAddress string) []datamodel.ArgoAppMetricInfo {
 	resp, err := http.Get(metricsServerAddress)
 	if err != nil {
 		log.Printf("Error querying metrics server. Error was %s\n", err)
@@ -197,7 +171,7 @@ func getUnmarshalledMetrics(metricsServerAddress string) []ArgoAppMetricInfo {
 	return unmarshall(&stringBody)
 }
 
-func generateEvent(eventInfo EventInfo, workflowTriggerAddress string) bool {
+func generateEvent(eventInfo datamodel.EventInfo, workflowTriggerAddress string) bool {
 	data, err := json.Marshal(eventInfo)
 	if err != nil {
 		return false
@@ -211,23 +185,7 @@ func generateEvent(eventInfo EventInfo, workflowTriggerAddress string) bool {
 	return resp.StatusCode/100 == 2
 }
 
-func readKeyAsWatchKey(key string) WatchKey {
-	splitKey := strings.Split(key, "-")
-	return WatchKey{
-		OrgName:      splitKey[0],
-		TeamName:     splitKey[1],
-		PipelineName: splitKey[2],
-		StepName:     splitKey[3],
-		AppName:      splitKey[4],
-		Namespace:    splitKey[5],
-	}
-}
-
-func (watchKey WatchKey) WriteKeyAsString() string {
-	return strings.Join([]string{watchKey.OrgName, watchKey.TeamName, watchKey.PipelineName, watchKey.StepName, watchKey.AppName, watchKey.Namespace}, "-")
-}
-
-func Start(channel chan string) {
+func Start(kubernetesClient k8sdriver.KubernetesClientGetRestricted, channel chan string) {
 	metricsServerAddress := os.Getenv(MetricsServerEnvVar)
 	if metricsServerAddress == "" {
 		metricsServerAddress = DefaultMetricsServerAddress
@@ -239,5 +197,5 @@ func Start(channel chan string) {
 	progressionCheckerChannel := make(chan string, ProgressionChannelBufferSize)
 	//TODO: Add initial cache creation
 	go listenForApplicationsToWatch(channel, progressionCheckerChannel)
-	checkForCompletedApplications(progressionCheckerChannel, metricsServerAddress, workflowTriggerAddress)
+	checkForCompletedApplications(kubernetesClient, progressionCheckerChannel, metricsServerAddress, workflowTriggerAddress)
 }

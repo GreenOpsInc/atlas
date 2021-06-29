@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"greenops.io/client/argodriver"
+	"greenops.io/client/atlasoperator/requestdatatypes"
 	"greenops.io/client/k8sdriver"
 	"greenops.io/client/progressionchecker"
+	"greenops.io/client/progressionchecker/datamodel"
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"log"
@@ -18,33 +20,40 @@ type Drivers struct {
 	argoDriver argodriver.ArgoClient
 }
 
-type DeployResponse struct {
-	Success      bool
-	AppNamespace string
-}
-
 var drivers Drivers
 var channel chan string
 
 func deploy(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	groupVersionKind := schema.GroupVersionKind{
-		Group:   vars["group"],
-		Version: vars["version"],
-		Kind:    vars["kind"],
-	}
+	deployType := vars["type"]
 	byteReqBody, _ := ioutil.ReadAll(r.Body)
 	stringReqBody := string(byteReqBody)
 	var success bool
 	var appNamespace string
-	if strings.Contains(groupVersionKind.Group, "argo") {
+	if deployType == requestdatatypes.DeployArgoRequest {
 		success, appNamespace = drivers.argoDriver.Deploy(stringReqBody)
+	} else if deployType == requestdatatypes.DeployTestRequest {
+		var kubernetesCreationRequest requestdatatypes.KubernetesCreationRequest
+		err := json.NewDecoder(strings.NewReader(stringReqBody)).Decode(&kubernetesCreationRequest)
+		if err != nil {
+			success, appNamespace = false, ""
+		} else {
+			success, appNamespace = drivers.k8sDriver.CreateAndDeploy(
+				kubernetesCreationRequest.Kind,
+				kubernetesCreationRequest.ObjectName,
+				kubernetesCreationRequest.Namespace,
+				kubernetesCreationRequest.ImageName,
+				kubernetesCreationRequest.Command,
+				kubernetesCreationRequest.Args,
+				kubernetesCreationRequest.Variables,
+			)
+		}
 	} else {
 		success, appNamespace = drivers.k8sDriver.Deploy(stringReqBody)
 	}
 
 	json.NewEncoder(w).Encode(
-		DeployResponse{
+		requestdatatypes.DeployResponse{
 			Success:      success,
 			AppNamespace: appNamespace,
 		})
@@ -86,27 +95,44 @@ func checkStatus(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(success)
 }
 
-func watchApplication(w http.ResponseWriter, r *http.Request) {
+func watch(w http.ResponseWriter, r *http.Request) {
+	var watchRequest requestdatatypes.WatchRequest
+	err := json.NewDecoder(r.Body).Decode(&watchRequest)
+	if err != nil {
+		json.NewEncoder(w).Encode(false)
+		return
+	}
 	vars := mux.Vars(r)
-	key := progressionchecker.WatchKey{
-		OrgName:      vars["orgName"],
-		TeamName:     vars["teamName"],
-		PipelineName: vars["pipelineName"],
-		StepName:     vars["stepName"],
-		AppName:      vars["appName"],
-		Namespace:    vars["namespace"],
-	}.WriteKeyAsString()
-	channel <- key
+	var watchKeyType datamodel.WatchKeyType
+	if watchRequest.Type == string(datamodel.WatchTestKey) {
+		watchKeyType = datamodel.WatchTestKey
+	} else {
+		watchKeyType = datamodel.WatchArgoApplicationKey
+	}
+
+	key := datamodel.WatchKey{
+		WatchKeyMetaData: datamodel.WatchKeyMetaData{
+			Type:         watchKeyType,
+			OrgName:      vars["orgName"],
+			TeamName:     watchRequest.TeamName,
+			PipelineName: watchRequest.PipelineName,
+			StepName:     watchRequest.StepName,
+		},
+		Name:      watchRequest.Name,
+		Namespace: watchRequest.Namespace,
+	}
+	byteKey, _ := json.Marshal(key)
+	channel <- string(byteKey)
 	channel <- progressionchecker.EndTransactionMarker
 	json.NewEncoder(w).Encode(true)
 }
 
 func handleRequests() {
 	myRouter := mux.NewRouter().StrictSlash(true)
-	myRouter.HandleFunc("/deploy/{group}/{version}/{kind}", deploy).Methods("POST")
+	myRouter.HandleFunc("/deploy/{orgName}/{type}", deploy).Methods("POST")
 	myRouter.HandleFunc("/delete/{group}/{version}/{kind}/{name}", deleteApplication).Methods("POST")
 	myRouter.HandleFunc("/checkStatus/{group}/{version}/{kind}/{name}", checkStatus).Methods("GET")
-	myRouter.HandleFunc("/watchApplication/{orgName}/{teamName}/{pipelineName}/{stepName}/{namespace}/{appName}", watchApplication).Methods("POST")
+	myRouter.HandleFunc("/watch/{orgName}", watch).Methods("POST")
 	log.Fatal(http.ListenAndServe(":9091", myRouter))
 }
 
@@ -117,6 +143,8 @@ func main() {
 		argoDriver: argodriver.New(&kubernetesDriver),
 	}
 	channel = make(chan string)
-	go progressionchecker.Start(channel)
+	var getRestrictedKubernetesClient k8sdriver.KubernetesClientGetRestricted
+	getRestrictedKubernetesClient = kubernetesDriver
+	go progressionchecker.Start(getRestrictedKubernetesClient, channel)
 	handleRequests()
 }

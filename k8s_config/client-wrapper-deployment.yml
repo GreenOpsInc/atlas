@@ -4,7 +4,7 @@ metadata:
   name: prom-admin
 rules:
   # Small scope, feel free to change it
-  - apiGroups: ["networking.istio.io", "apps", ""]
+  - apiGroups: ["networking.istio.io", "apps", "", "batch"]
     resources: ["*"] #"pods", "nodes"
     verbs: ["*"] #"get", "watch", "list"
 

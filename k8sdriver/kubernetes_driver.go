@@ -2,6 +2,7 @@ package k8sdriver
 
 import (
 	"context"
+	"encoding/json"
 	"k8s.io/apimachinery/pkg/runtime"
 	"log"
 	"strings"
@@ -15,15 +16,29 @@ import (
 	"k8s.io/client-go/rest"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilpointer "k8s.io/utils/pointer"
 )
+
+const (
+	DefaultContainer string = "alpine:3.14"
+	JobKindName      string = "Job"
+	CronJobKindName  string = "CronJob"
+)
+
+type KubernetesClientGetRestricted interface {
+	GetJob(name string, namespace string) (batchv1.JobStatus, int32)
+}
 
 type KubernetesClient interface {
 	//TODO: Add parameters for Deploy
 	Deploy(configPayload string) (bool, string)
+	CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, variables map[string]string) (bool, string)
 	//TODO: Add parameters for Delete
 	Delete(configPayload string) bool
+	GetJob(name string, namespace string) (batchv1.JobStatus, int32)
 	GetSecret(name string, namespace string) map[string][]byte
 	//TODO: Update parameters & return type for CheckStatus
 	CheckHealthy() bool
@@ -66,6 +81,15 @@ func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string) {
 	switch obj.(type) {
 	//TODO: Types like Pod, Deployment, StatefulSet, etc are missing. They would be almost an exact copy of the ReplicaSet case. Namespaces also need to be added in.
 	//TODO: This current flow uses Create, just because it is simpler. Should eventually transition to Apply, which will cover more error cases.
+	case *batchv1.Job:
+		strongTypeObject := obj.(*batchv1.Job)
+		log.Printf("%s matched Job. Deploying...\n", strongTypeObject.Name)
+		namespace = strongTypeObject.Namespace
+		_, err = k.client.BatchV1().Jobs(namespace).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
+		if err != nil {
+			log.Printf("The deploy step threw an error. Error was %s\n", err)
+			return false, ""
+		}
 	case *corev1.Service:
 		strongTypeObject := obj.(*corev1.Service)
 		log.Printf("%s matched ReplicaSet. Deploying...\n", strongTypeObject.Name)
@@ -107,6 +131,58 @@ func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string) {
 	return true, namespace
 }
 
+//CreateAndDeploy should only be used for ephemeral runs ONLY. "Kind" should just be discerning between a chron job or a job.
+//They are both of type "batch/v1".
+func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, variables map[string]string) (bool, string) {
+	if imageName == "" {
+		imageName = DefaultContainer
+	}
+	if namespace == "" {
+		namespace = corev1.NamespaceDefault
+	}
+	envVars := make([]corev1.EnvVar, 0)
+	for key, value := range variables {
+		envVars = append(envVars, corev1.EnvVar{Name: key, Value: value})
+	}
+	var containerSpec = corev1.Container{
+		Name:       objName,
+		Image:      imageName,
+		Command:    command,
+		Args:       args,
+		WorkingDir: "",
+		Ports:      nil,
+		EnvFrom:    nil,
+		Env:        envVars,
+		//There are a lot more parameters, probably won't need them in the near future
+	}
+	var configPayload string
+	if kind == JobKindName {
+		jobSpec := batchv1.Job{
+			TypeMeta:   metav1.TypeMeta{Kind: "Job", APIVersion: batchv1.SchemeGroupVersion.String()},
+			ObjectMeta: metav1.ObjectMeta{Name: objName, Namespace: namespace},
+			Spec: batchv1.JobSpec{
+				BackoffLimit: utilpointer.Int32Ptr(1),
+				Template: corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						Containers:    []corev1.Container{containerSpec},
+						RestartPolicy: corev1.RestartPolicyNever,
+					},
+				},
+			},
+			Status: batchv1.JobStatus{},
+		}
+		data, err := json.Marshal(jobSpec)
+		if err != nil {
+			log.Printf("Error marshalling Job: %s", err)
+			return false, ""
+		}
+		configPayload = string(data)
+	} else if kind == CronJobKindName {
+		//TODO: Implement me
+	}
+	return k.Deploy(configPayload)
+}
+
 func (k KubernetesClientDriver) Delete(configPayload string) bool {
 	//TODO: This method currently expects only one object per file. Add in support for separate YAML files combined into one. This can be done by splitting on the "---" string.
 	obj, groupVersionKind, err := getResourceObjectFromYAML(configPayload)
@@ -116,6 +192,15 @@ func (k KubernetesClientDriver) Delete(configPayload string) bool {
 	switch obj.(type) {
 	//TODO: Types like Pod, Deployment, StatefulSet, etc are missing. They would be almost an exact copy of the ReplicaSet case. Namespaces also need to be added in.
 	//TODO: This current flow uses Create, just because it is simpler. Should eventually transition to Apply, which will cover more error cases.
+	case *batchv1.Job:
+		strongTypeObject := obj.(*batchv1.Job)
+		log.Printf("%s matched ReplicaSet. Deploying...\n", strongTypeObject.Name)
+		namespace := strongTypeObject.Namespace
+		err = k.client.BatchV1().Jobs(namespace).Delete(context.TODO(), strongTypeObject.GetName(), metav1.DeleteOptions{})
+		if err != nil {
+			log.Printf("The deploy step threw an error. Error was %s\n", err)
+			return false
+		}
 	case *corev1.Service:
 		strongTypeObject := obj.(*corev1.Service)
 		log.Printf("%s matched ReplicaSet. Deleting...\n", strongTypeObject.Name)
@@ -155,6 +240,16 @@ func (k KubernetesClientDriver) Delete(configPayload string) bool {
 		return false
 	}
 	return true
+}
+
+func (k KubernetesClientDriver) GetJob(name string, namespace string) (batchv1.JobStatus, int32) {
+	job, err := k.client.BatchV1().Jobs(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		log.Printf("Error getting Job %s", err)
+		//This is temporary
+		return batchv1.JobStatus{}, -1
+	}
+	return job.Status, *job.Spec.Parallelism
 }
 
 //TODO: This should probably be agnostic to type. Challenge is the Workflow Orchestrator can't be expected to know what the type is.
