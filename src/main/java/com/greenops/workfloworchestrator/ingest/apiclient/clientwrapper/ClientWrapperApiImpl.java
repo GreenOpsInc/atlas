@@ -3,6 +3,8 @@ package com.greenops.workfloworchestrator.ingest.apiclient.clientwrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.workfloworchestrator.datamodel.requests.DeployResponse;
+import com.greenops.workfloworchestrator.datamodel.requests.KubernetesCreationRequest;
+import com.greenops.workfloworchestrator.datamodel.requests.WatchRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
@@ -15,6 +17,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.Optional;
 
 @Slf4j
 @Component
@@ -32,9 +35,10 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     }
 
     @Override
-    public DeployResponse deploy(String group, String version, String kind, String body) {
+    public DeployResponse deploy(String orgName, String type, Optional<String> configPayload, Optional<KubernetesCreationRequest> kubernetesCreationRequest) {
         try {
-            var request = new HttpPost(serverEndpoint + String.format("/deploy/%s/%s/%s", group, version, kind));
+            var request = new HttpPost(serverEndpoint + String.format("/deploy/%s/%s", orgName, type));
+            var body = type.equals(DEPLOY_TEST_REQUEST) ? objectMapper.writeValueAsString(kubernetesCreationRequest.get()) : configPayload.get();
             request.setEntity(new StringEntity(body, ContentType.DEFAULT_TEXT));
             var response = httpClient.execute(request);
             return objectMapper.readValue(response.getEntity().getContent().readAllBytes(), DeployResponse.class);
@@ -78,9 +82,11 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     }
 
     @Override
-    public boolean watchApplication(String orgName, String teamName, String pipelineName, String stepName, String namespace, String applicationName) {
+    public boolean watchApplication(String orgName, WatchRequest watchRequest) {
         try {
-            var request = new HttpPost(serverEndpoint + String.format("/watchApplication/%s/%s/%s/%s/%s/%s", orgName, teamName, pipelineName, stepName, namespace, applicationName));
+            var request = new HttpPost(serverEndpoint + String.format("/watch/%s", orgName));
+            var body = objectMapper.writeValueAsString(watchRequest);
+            request.setEntity(new StringEntity(body, ContentType.DEFAULT_TEXT));
             var response = httpClient.execute(request);
             return objectMapper.readValue(response.getEntity().getContent().readAllBytes(), Boolean.class);
         } catch (JsonProcessingException e) {

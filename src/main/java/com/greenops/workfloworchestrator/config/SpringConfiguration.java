@@ -3,11 +3,13 @@ package com.greenops.workfloworchestrator.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.greenops.workfloworchestrator.datamodel.event.ClientCompletionEvent;
+import com.greenops.workfloworchestrator.datamodel.event.TestCompletionEvent;
 import com.greenops.workfloworchestrator.datamodel.git.GitCredMachineUser;
 import com.greenops.workfloworchestrator.datamodel.git.GitCredOpen;
 import com.greenops.workfloworchestrator.datamodel.git.GitCredToken;
 import com.greenops.workfloworchestrator.datamodel.git.GitRepoSchema;
 import com.greenops.workfloworchestrator.datamodel.mixin.event.ClientCompletionEventMixin;
+import com.greenops.workfloworchestrator.datamodel.mixin.event.TestCompletionEventMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.git.GitCredMachineUserMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.git.GitCredTokenMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.git.GitRepoSchemaMixin;
@@ -18,11 +20,15 @@ import com.greenops.workfloworchestrator.datamodel.mixin.pipelineschema.Pipeline
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelineschema.TeamSchemaMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.requests.DeployResponseMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.requests.GetFileRequestMixin;
+import com.greenops.workfloworchestrator.datamodel.mixin.requests.KubernetesCreationRequestMixin;
+import com.greenops.workfloworchestrator.datamodel.mixin.requests.WatchRequestMixin;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.*;
 import com.greenops.workfloworchestrator.datamodel.pipelineschema.PipelineSchemaImpl;
 import com.greenops.workfloworchestrator.datamodel.pipelineschema.TeamSchemaImpl;
 import com.greenops.workfloworchestrator.datamodel.requests.DeployResponse;
 import com.greenops.workfloworchestrator.datamodel.requests.GetFileRequest;
+import com.greenops.workfloworchestrator.datamodel.requests.KubernetesCreationRequest;
+import com.greenops.workfloworchestrator.datamodel.requests.WatchRequest;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -41,7 +47,10 @@ public class SpringConfiguration {
     ObjectMapper eventAndRequestObjectMapper() {
         return new ObjectMapper()
                 .addMixIn(ClientCompletionEvent.class, ClientCompletionEventMixin.class)
+                .addMixIn(TestCompletionEvent.class, TestCompletionEventMixin.class)
                 .addMixIn(GetFileRequest.class, GetFileRequestMixin.class)
+                .addMixIn(WatchRequest.class, WatchRequestMixin.class)
+                .addMixIn(KubernetesCreationRequest.class, KubernetesCreationRequestMixin.class)
                 .addMixIn(DeployResponse.class, DeployResponseMixin.class);
     }
 

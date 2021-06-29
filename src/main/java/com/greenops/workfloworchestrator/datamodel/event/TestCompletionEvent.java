@@ -1,28 +1,24 @@
 package com.greenops.workfloworchestrator.datamodel.event;
 
-public class ClientCompletionEvent implements Event {
+public class TestCompletionEvent implements Event {
 
-    private String healthStatus;
+    private boolean successful;
     private String orgName;
     private String teamName;
     private String pipelineName;
     private String stepName;
-    private String argoName;
-    private String operation;
-    private String project;
-    private String repo;
+    private String log;
+    private String testName;
 
-    public ClientCompletionEvent(String healthStatus, String orgName, String teamName, String pipelineName, String stepName,
-                                 String argoName, String operation, String project, String repo) {
-        this.healthStatus = healthStatus;
+    public TestCompletionEvent(boolean successful, String orgName, String teamName, String pipelineName, String stepName,
+                                 String log, String testName) {
+        this.successful = successful;
         this.orgName = orgName;
         this.teamName = teamName;
         this.pipelineName = pipelineName;
         this.stepName = stepName;
-        this.argoName = argoName;
-        this.operation = operation;
-        this.project = project;
-        this.repo = repo;
+        this.log = log;
+        this.testName = testName;
     }
 
     @Override
@@ -45,7 +41,11 @@ public class ClientCompletionEvent implements Event {
         return stepName;
     }
 
-    public String getRepoUrl() {
-        return repo;
+    public boolean getSuccessful() {
+        return successful;
+    }
+
+    public String getTestName() {
+        return testName;
     }
 }
