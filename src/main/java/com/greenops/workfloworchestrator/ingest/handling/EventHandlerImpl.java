@@ -102,7 +102,7 @@ public class EventHandlerImpl implements EventHandler {
                     //trigger next step
                 } else if ((test.shouldExecuteBefore() && step.getTests().get(i + 1).shouldExecuteBefore())
                         || !test.shouldExecuteBefore()) {
-                    return runStepTest(pipelineData.getName(), gitRepoUrl, step.getTests().get(i + 1), event);
+                    return runStepTest(pipelineData.getName(), gitRepoUrl, step.getTests().get(i + 1), i + 1, event);
                 } else {
                     //This case should never be happening...log and see what the edge case is
                     log.info("EDGE CASE: {}, {}", test.shouldExecuteBefore(), i == step.getTests().size() - 1);
@@ -115,10 +115,10 @@ public class EventHandlerImpl implements EventHandler {
         return false;
     }
 
-    private boolean runStepTest(String pipelineName, String pipelineRepoUrl, Test test, Event event) {
+    private boolean runStepTest(String pipelineName, String pipelineRepoUrl, Test test, int testNumber, Event event) {
         var getFileRequest = new GetFileRequest(pipelineRepoUrl, test.getPath());
         var testConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
-        var testKey = makeTestKey(event.getTeamName(), event.getPipelineName(), event.getStepName(), getFileNameWithoutExtension(test.getPath()));
+        var testKey = makeTestKey(testNumber);
         var filename = getFileName(test.getPath());
         var creationRequest = new KubernetesCreationRequest(
                 "Job",
@@ -143,8 +143,8 @@ public class EventHandlerImpl implements EventHandler {
     private boolean deployStep(String pipelineName, String pipelineRepoUrl, StepData stepData, Event event) {
         //TODO: Test should not be run synchronously. This should be removed and events should be added to trigger before tests
         var beforeTests = stepData.getTests().stream().filter(Test::shouldExecuteBefore).collect(Collectors.toList());
-        for (var test : beforeTests) {
-            runStepTest(pipelineName, pipelineRepoUrl, test, event);
+        for (int idx = 0; idx < beforeTests.size(); idx++) {
+            runStepTest(pipelineName, pipelineRepoUrl, beforeTests.get(idx), idx, event);
         }
         if (stepData.getOtherDeploymentsPath() != null) {
             var getFileRequest = new GetFileRequest(pipelineRepoUrl, stepData.getOtherDeploymentsPath());
@@ -176,8 +176,8 @@ public class EventHandlerImpl implements EventHandler {
 
         //TODO: Test should not be run synchronously. This should be removed and events should be added to trigger before tests
         var afterTests = stepData.getTests().stream().filter(test -> !test.shouldExecuteBefore()).collect(Collectors.toList());
-        for (var test : afterTests) {
-            runStepTest(pipelineName, pipelineRepoUrl, test, event);
+        for (int idx = 0; idx < afterTests.size(); idx++) {
+            runStepTest(pipelineName, pipelineRepoUrl, afterTests.get(idx), idx, event);
         }
         return true;
     }
