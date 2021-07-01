@@ -36,5 +36,6 @@ type WatchKey struct {
 	WatchKeyMetaData
 	Name string
 	//You can't have two Argo apps with the same name in the same namespace, this makes sure there are no collisions
-	Namespace string
+	Namespace                string
+	GeneratedCompletionEvent bool
 }

@@ -118,8 +118,9 @@ func watch(w http.ResponseWriter, r *http.Request) {
 			PipelineName: watchRequest.PipelineName,
 			StepName:     watchRequest.StepName,
 		},
-		Name:      watchRequest.Name,
-		Namespace: watchRequest.Namespace,
+		Name:                     watchRequest.Name,
+		Namespace:                watchRequest.Namespace,
+		GeneratedCompletionEvent: false,
 	}
 	byteKey, _ := json.Marshal(key)
 	channel <- string(byteKey)

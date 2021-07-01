@@ -75,52 +75,52 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 			}
 		}
 
-		for _, appInfo := range argoAppInfo {
-			key := datamodel.WatchKey{}
-			for mapKey, _ := range watchedApplications {
-				if mapKey.Name == appInfo.Name && mapKey.Namespace == appInfo.Namespace {
-					key = mapKey
-					break
-				}
-			}
-			if key.PipelineName == "" {
-				log.Printf("The Argo application named %s was never marked as \"watched\"", appInfo.Name)
-				continue
-			}
-			if appInfo.HealthStatus == string(health.HealthStatusHealthy) && appInfo.SyncStatus == string(v1alpha1.SyncStatusCodeSynced) {
-				watchedApplications[key] = datamodel.Healthy
-				eventInfo := datamodel.MakeApplicationEvent(key, appInfo)
-				for i := 0; i < HttpRequestRetryLimit; i++ {
-					if generateEvent(eventInfo, workflowTriggerAddress) {
-						//TODO: This deletion is a TEMPORARY measure. It should not be done longer term, as we want to continue receiving Argo datamodel about application
-						delete(watchedApplications, key)
+		deleteKeys := make([]datamodel.WatchKey, 0)
+		for mapKey, _ := range watchedApplications {
+			log.Printf("Checking for key %s", mapKey.Name)
+			if mapKey.Type == datamodel.WatchArgoApplicationKey {
+				for _, appInfo := range argoAppInfo {
+					if mapKey.Name == appInfo.Name && mapKey.Namespace == appInfo.Namespace {
+						log.Printf("Matched Argo application %s", appInfo.Name)
+						if appInfo.HealthStatus == string(health.HealthStatusHealthy) && appInfo.SyncStatus == string(v1alpha1.SyncStatusCodeSynced) {
+							watchedApplications[mapKey] = datamodel.Healthy
+							eventInfo := datamodel.MakeApplicationEvent(mapKey, appInfo)
+							for i := 0; i < HttpRequestRetryLimit; i++ {
+								if !mapKey.GeneratedCompletionEvent && generateEvent(eventInfo, workflowTriggerAddress) {
+									log.Printf("Generated Client Completion event for %s", appInfo.Name)
+									mapKey.GeneratedCompletionEvent = true
+									break
+								}
+							}
+						} else {
+							watchedApplications[mapKey] = datamodel.NotHealthy
+						}
 						break
 					}
 				}
-			} else {
-				watchedApplications[key] = datamodel.NotHealthy
-			}
-		}
-
-		for key, _ := range watchedApplications {
-			log.Printf("Checking for key %s", key.Name)
-			if key.Type == datamodel.WatchTestKey {
-				jobStatus, numPods := kubernetesClient.GetJob(key.Name, key.Namespace)
+			} else if mapKey.Type == datamodel.WatchTestKey {
+				jobStatus, numPods := kubernetesClient.GetJob(mapKey.Name, mapKey.Namespace)
 				log.Printf("Job status succeeded: %d, status failed %d", jobStatus.Succeeded, jobStatus.Failed)
 				if numPods == -1 {
-					//TODO: GetJob failed. Should have better handling than continue
+					log.Printf("Getting the Job failed")
 					continue
 				}
 				if jobStatus.Succeeded == numPods || jobStatus.Failed == numPods {
-					eventInfo := datamodel.MakeTestEvent(key, jobStatus.Succeeded > 0)
+					eventInfo := datamodel.MakeTestEvent(mapKey, jobStatus.Succeeded > 0)
 					for i := 0; i < HttpRequestRetryLimit; i++ {
-						if generateEvent(eventInfo, workflowTriggerAddress) {
-							delete(watchedApplications, key)
+						if !mapKey.GeneratedCompletionEvent && generateEvent(eventInfo, workflowTriggerAddress) {
+							log.Printf("Generated Test Completion event for %s", mapKey.Name)
+							//TODO: Should also be deleting the Job after completion
+							mapKey.GeneratedCompletionEvent = true
+							deleteKeys = append(deleteKeys, mapKey)
 							break
 						}
 					}
 				}
 			}
+		}
+		for _, keyToDelete := range deleteKeys {
+			delete(watchedApplications, keyToDelete)
 		}
 
 		duration := 10 * time.Second
