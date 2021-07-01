@@ -26,6 +26,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.ROOT_STEP_NAME;
+import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.createRootStep;
+import static com.greenops.workfloworchestrator.ingest.handling.ClientKey.getTestNumberFromTestKey;
 import static com.greenops.workfloworchestrator.ingest.handling.ClientKey.makeTestKey;
 
 @Slf4j
@@ -60,62 +63,56 @@ public class EventHandlerImpl implements EventHandler {
 
     @Override
     public boolean handleEvent(Event event) {
-        if (event instanceof ClientCompletionEvent) {
-            return handleStepCompletion((ClientCompletionEvent) event);
-        } else if (event instanceof TestCompletionEvent) {
-            log.info("Test event received {}, {}", ((TestCompletionEvent) event).getTestName(), ((TestCompletionEvent) event).getSuccessful());
-            //TODO: Ignore for now. Should trigger next tests
-        }
-        return true;
-    }
-
-    private boolean handleStepCompletion(ClientCompletionEvent event) {
         var teamSchema = fetchTeamSchema(event);
         if (teamSchema == null) return false;
         var pipelineData = fetchPipelineData(event, teamSchema);
         if (pipelineData == null) return false;
-        var childrenSteps = pipelineData.getChildrenSteps(event.getStepName());
-        for (var stepName : childrenSteps) {
-            var step = pipelineData.getStep(stepName);
-            if (areParentStepsComplete(stepName)) {
-                var gitRepoUrl = teamSchema.getPipelineSchema(event.getPipelineName()).getGitRepoSchema().getGitRepo();
-                if (!deployStep(event.getPipelineName(), gitRepoUrl, step, event)) return false;
-            }
-        }
-        return true;
-    }
-
-    private boolean handleTestCompletion(TestCompletionEvent event) {
-        var teamSchema = fetchTeamSchema(event);
-        if (teamSchema == null) return false;
-        var pipelineData = fetchPipelineData(event, teamSchema);
-        if (pipelineData == null) return false;
-        var step = pipelineData.getStep(event.getStepName());
         var gitRepoUrl = teamSchema.getPipelineSchema(event.getPipelineName()).getGitRepoSchema().getGitRepo();
-        for (int i = 0; i < step.getTests().size(); i++) {
-            var test = step.getTests().get(i);
-            if (event.getTestName().equals(getFileName(test.getPath()))) {
-                if ((test.shouldExecuteBefore() && i == step.getTests().size() - 1)
-                        || (i < step.getTests().size() - 1 && test.shouldExecuteBefore() && !step.getTests().get(i + 1).shouldExecuteBefore())) {
-                    //trigger current step deployment
-                } else if (!test.shouldExecuteBefore() && i == step.getTests().size() - 1) {
-                    //trigger next step
-                } else if ((test.shouldExecuteBefore() && step.getTests().get(i + 1).shouldExecuteBefore())
-                        || !test.shouldExecuteBefore()) {
-                    return runStepTest(pipelineData.getName(), gitRepoUrl, step.getTests().get(i + 1), i + 1, event);
-                } else {
-                    //This case should never be happening...log and see what the edge case is
-                    log.info("EDGE CASE: {}, {}", test.shouldExecuteBefore(), i == step.getTests().size() - 1);
-                }
-            }
+        if (event instanceof ClientCompletionEvent) {
+            return handleClientCompletionEvent(pipelineData, gitRepoUrl, (ClientCompletionEvent) event);
+        } else if (event instanceof TestCompletionEvent) {
+            return handleTestCompletion(pipelineData, gitRepoUrl, (TestCompletionEvent) event);
         }
-        if (step.getTests().size() == 0) {
-            //TODO: Should directly deploy step.
-        }
-        return false;
+        return true;
     }
 
-    private boolean runStepTest(String pipelineName, String pipelineRepoUrl, Test test, int testNumber, Event event) {
+    private boolean handleClientCompletionEvent(PipelineData pipelineData, String pipelineRepoUrl, ClientCompletionEvent event) {
+        if (event.getStepName().equals(ROOT_STEP_NAME)) {
+            return triggerNextSteps(pipelineData, createRootStep(), pipelineRepoUrl, event);
+        }
+        var step = pipelineData.getStep(event.getStepName());
+        var afterTestsExist = step.getTests().stream().anyMatch(test -> !test.shouldExecuteBefore());
+        if (afterTestsExist) {
+            return triggerTest(pipelineRepoUrl, step, false, event);
+        } else {
+            return triggerNextSteps(pipelineData, step, pipelineRepoUrl, event);
+        }
+    }
+
+    private boolean handleTestCompletion(PipelineData pipelineData, String pipelineRepoUrl, TestCompletionEvent event) {
+        var step = pipelineData.getStep(event.getStepName());
+        var completedTestNumber = getTestNumberFromTestKey(event.getTestName());
+        if (completedTestNumber < 0 || step.getTests().size() <= completedTestNumber) {
+            log.info("Malformed test key or tests have changed");
+            return false;
+        }
+        var completedTest = step.getTests().get(completedTestNumber);
+        var tests = step.getTests().stream().filter(test -> test.shouldExecuteBefore() == completedTest.shouldExecuteBefore()).collect(Collectors.toList());
+
+        if (completedTest.shouldExecuteBefore() && completedTestNumber == tests.size() - 1) {
+            return deploy(event.getPipelineName(), pipelineRepoUrl, step, event);
+        } else if (!completedTest.shouldExecuteBefore() && completedTestNumber == tests.size() - 1) {
+            return triggerNextSteps(pipelineData, step, pipelineRepoUrl, event);
+        } else if (completedTestNumber < tests.size()) {
+            return runStepTest(step.getName(), pipelineRepoUrl, step.getTests().get(completedTestNumber + 1), completedTestNumber + 1, event);
+        } else {
+            //This case should never be happening...log and see what the edge case is
+            log.info("EDGE CASE: {}, {}", completedTest.shouldExecuteBefore(), completedTestNumber == step.getTests().size() - 1);
+        }
+        return true;
+    }
+
+    private boolean runStepTest(String stepName, String pipelineRepoUrl, Test test, int testNumber, Event event) {
         var getFileRequest = new GetFileRequest(pipelineRepoUrl, test.getPath());
         var testConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
         var testKey = makeTestKey(testNumber);
@@ -132,7 +129,7 @@ public class EventHandlerImpl implements EventHandler {
         log.info("Creating test Job...");
         var deployResponse = clientWrapperApi.deploy(event.getOrgName(), ClientWrapperApi.DEPLOY_TEST_REQUEST, Optional.empty(), Optional.of(creationRequest));
         if (deployResponse.getSuccess()) {
-            var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), event.getStepName(), WATCH_TEST_KEY, testKey, deployResponse.getApplicationNamespace());
+            var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepName, WATCH_TEST_KEY, testKey, deployResponse.getApplicationNamespace());
             var watching = clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
             if (!watching) return false;
             log.info("Watching Job");
@@ -140,12 +137,44 @@ public class EventHandlerImpl implements EventHandler {
         return true;
     }
 
-    private boolean deployStep(String pipelineName, String pipelineRepoUrl, StepData stepData, Event event) {
-        //TODO: Test should not be run synchronously. This should be removed and events should be added to trigger before tests
-        var beforeTests = stepData.getTests().stream().filter(Test::shouldExecuteBefore).collect(Collectors.toList());
-        for (int idx = 0; idx < beforeTests.size(); idx++) {
-            runStepTest(pipelineName, pipelineRepoUrl, beforeTests.get(idx), idx, event);
+    private boolean triggerNextSteps(PipelineData pipelineData, StepData step, String pipelineRepoUrl, Event event) {
+        var childrenSteps = pipelineData.getChildrenSteps(step.getName());
+        for (var stepName : childrenSteps) {
+            var nextStep = pipelineData.getStep(stepName);
+            if (areParentStepsComplete(stepName)) {
+                if (!triggerStep(event.getPipelineName(), pipelineRepoUrl, nextStep, event)) return false;
+            }
         }
+        return true;
+    }
+
+    private boolean triggerStep(String pipelineName, String pipelineRepoUrl, StepData stepData, Event event) {
+        var beforeTestsExist = stepData.getTests().stream().anyMatch(Test::shouldExecuteBefore);
+        if (beforeTestsExist) {
+            return triggerTest(pipelineRepoUrl, stepData, true, event);
+        }
+
+        if (stepData.getOtherDeploymentsPath() != null || stepData.getArgoApplicationPath() != null) {
+            return deploy(pipelineName, pipelineRepoUrl, stepData, event);
+        }
+
+        var afterTestsExist = stepData.getTests().stream().anyMatch(test -> !test.shouldExecuteBefore());
+        if (afterTestsExist) {
+            return triggerTest(pipelineRepoUrl, stepData, false, event);
+        }
+        return true;
+    }
+
+    private boolean triggerTest(String pipelineRepoUrl, StepData stepData, boolean beforeTest, Event event) {
+        for (int i = 0; i < stepData.getTests().size(); i++) {
+            if (beforeTest == stepData.getTests().get(i).shouldExecuteBefore()) {
+                return runStepTest(stepData.getName(), pipelineRepoUrl, stepData.getTests().get(i), i, event);
+            }
+        }
+        return true;
+    }
+
+    private boolean deploy(String pipelineName, String pipelineRepoUrl, StepData stepData, Event event) {
         if (stepData.getOtherDeploymentsPath() != null) {
             var getFileRequest = new GetFileRequest(pipelineRepoUrl, stepData.getOtherDeploymentsPath());
             var otherDeploymentsConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
@@ -164,7 +193,7 @@ public class EventHandlerImpl implements EventHandler {
                 log.error("Deploying the Argo application failed.");
                 return false;
             } else {
-                var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), event.getStepName(), WATCH_ARGO_APPLICATION_KEY, stepData.getArgoApplication(), deployResponse.getApplicationNamespace());
+                var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepData.getName(), WATCH_ARGO_APPLICATION_KEY, stepData.getArgoApplication(), deployResponse.getApplicationNamespace());
                 var watching = clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
                 if (!watching) return false;
                 log.info("Watching Argo application {}", stepData.getArgoApplication());
@@ -173,16 +202,10 @@ public class EventHandlerImpl implements EventHandler {
             //TODO: Expectation is argo application has already been created. Not currently supported.
         }
         //TODO: Audit log
-
-        //TODO: Test should not be run synchronously. This should be removed and events should be added to trigger before tests
-        var afterTests = stepData.getTests().stream().filter(test -> !test.shouldExecuteBefore()).collect(Collectors.toList());
-        for (int idx = 0; idx < afterTests.size(); idx++) {
-            runStepTest(pipelineName, pipelineRepoUrl, afterTests.get(idx), idx, event);
-        }
         return true;
     }
 
-    public TeamSchema fetchTeamSchema(Event event) {
+    private TeamSchema fetchTeamSchema(Event event) {
         return dbClient.fetchTeamSchema(DbKey.makeDbTeamKey(event.getOrgName(), event.getTeamName()));
     }
 
