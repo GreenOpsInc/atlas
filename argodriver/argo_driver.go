@@ -35,7 +35,8 @@ type ArgoClient interface {
 }
 
 type ArgoClientDriver struct {
-	client apiclient.Client
+	client           apiclient.Client
+	kubernetesClient k8sdriver.KubernetesClientNamespaceRestricted
 }
 
 //TODO: ALL functions should have a callee tag on them
@@ -68,7 +69,9 @@ func New(kubernetesDriver *k8sdriver.KubernetesClient) ArgoClient {
 	util.CheckFatalError(err)
 
 	var client ArgoClient
-	client = ArgoClientDriver{argoClient}
+	var kubernetesClient k8sdriver.KubernetesClientNamespaceRestricted
+	kubernetesClient = *kubernetesDriver
+	client = ArgoClientDriver{argoClient, kubernetesClient}
 	return client
 }
 
@@ -80,9 +83,15 @@ func (a ArgoClientDriver) Deploy(configPayload string) (bool, string) {
 	}
 	defer ioCloser.Close()
 
+	applicationPayload := makeApplication(configPayload)
+	err = a.kubernetesClient.CheckAndCreateNamespace(applicationPayload.Spec.Destination.Namespace)
+	if err != nil {
+		return false, ""
+	}
+
 	argoApplication, err := applicationClient.Create(
 		context.TODO(),
-		&application.ApplicationCreateRequest{Application: makeApplication(configPayload)},
+		&application.ApplicationCreateRequest{Application: applicationPayload},
 	) //CallOption is not necessary, for now...
 	if err != nil {
 		log.Printf("The deploy step threw an error. Error was %s\n", err)

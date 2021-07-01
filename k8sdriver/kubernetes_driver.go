@@ -3,6 +3,7 @@ package k8sdriver
 import (
 	"context"
 	"encoding/json"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"log"
 	"strings"
@@ -32,12 +33,17 @@ type KubernetesClientGetRestricted interface {
 	GetJob(name string, namespace string) (batchv1.JobStatus, int32)
 }
 
+type KubernetesClientNamespaceRestricted interface {
+	CheckAndCreateNamespace(namespace string) error
+}
+
 type KubernetesClient interface {
 	//TODO: Add parameters for Deploy
 	Deploy(configPayload string) (bool, string)
 	CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, variables map[string]string) (bool, string)
 	//TODO: Add parameters for Delete
 	Delete(configPayload string) bool
+	CheckAndCreateNamespace(namespace string) error
 	GetJob(name string, namespace string) (batchv1.JobStatus, int32)
 	GetSecret(name string, namespace string) map[string][]byte
 	//TODO: Update parameters & return type for CheckStatus
@@ -85,6 +91,11 @@ func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string) {
 		strongTypeObject := obj.(*batchv1.Job)
 		log.Printf("%s matched Job. Deploying...\n", strongTypeObject.Name)
 		namespace = strongTypeObject.Namespace
+		err = k.CheckAndCreateNamespace(namespace)
+		if err != nil {
+			log.Printf("The namespace could not be created. Error was %s\n", err)
+			return false, ""
+		}
 		_, err = k.client.BatchV1().Jobs(namespace).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
 		if err != nil {
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
@@ -94,6 +105,11 @@ func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string) {
 		strongTypeObject := obj.(*corev1.Service)
 		log.Printf("%s matched ReplicaSet. Deploying...\n", strongTypeObject.Name)
 		namespace = strongTypeObject.Namespace
+		err = k.CheckAndCreateNamespace(namespace)
+		if err != nil {
+			log.Printf("The namespace could not be created. Error was %s\n", err)
+			return false, ""
+		}
 		_, err = k.client.CoreV1().Services(namespace).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
 		if err != nil {
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
@@ -103,6 +119,11 @@ func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string) {
 		strongTypeObject := obj.(*appsv1.ReplicaSet)
 		log.Printf("%s matched ReplicaSet. Deploying...\n", strongTypeObject.Name)
 		namespace = strongTypeObject.Namespace
+		err = k.CheckAndCreateNamespace(namespace)
+		if err != nil {
+			log.Printf("The namespace could not be created. Error was %s\n", err)
+			return false, ""
+		}
 		_, err = k.client.AppsV1().ReplicaSets(namespace).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
 		if err != nil {
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
@@ -114,6 +135,11 @@ func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string) {
 		namespace = strongTypeObject.GetNamespace()
 		if namespace == "" {
 			namespace = corev1.NamespaceDefault
+		}
+		err = k.CheckAndCreateNamespace(namespace)
+		if err != nil {
+			log.Printf("The namespace could not be created. Error was %s\n", err)
+			return false, ""
 		}
 		_, err = k.dynamicClient.Resource(schema.GroupVersionResource{
 			Group:    groupVersionKind.Group,
@@ -240,6 +266,23 @@ func (k KubernetesClientDriver) Delete(configPayload string) bool {
 		return false
 	}
 	return true
+}
+
+func (k KubernetesClientDriver) CheckAndCreateNamespace(namespace string) error {
+	if _, err := k.client.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{}); err == nil {
+		return nil
+	}
+	newNamespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      namespace,
+			Namespace: "",
+		},
+	}
+	_, err := k.client.CoreV1().Namespaces().Create(context.TODO(), newNamespace, metav1.CreateOptions{})
+	if err != nil && errors.IsAlreadyExists(err) {
+		err = nil
+	}
+	return err
 }
 
 func (k KubernetesClientDriver) GetJob(name string, namespace string) (batchv1.JobStatus, int32) {
