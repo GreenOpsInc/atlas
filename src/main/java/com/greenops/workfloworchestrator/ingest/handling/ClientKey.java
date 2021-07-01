@@ -9,4 +9,12 @@ public class ClientKey {
     static String makeTestKey(int testNumber) {
         return Strings.join(List.of(testNumber, UUID.randomUUID()), '-');
     }
+
+    static int getTestNumberFromTestKey(String testKey) {
+        var splitKey = testKey.split("-");
+        if (splitKey.length > 0) {
+            return Integer.parseInt(splitKey[0]);
+        }
+        return -1;
+    }
 }

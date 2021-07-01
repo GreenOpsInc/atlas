@@ -7,6 +7,7 @@ import java.util.List;
 @JsonDeserialize(as = PipelineDataImpl.class)
 public interface PipelineData {
 
+    @Deprecated
     public String getName();
     public StepData getStep(String stepName);
     public List<String> getChildrenSteps(String stepName);
