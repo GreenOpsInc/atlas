@@ -134,7 +134,7 @@ public class EventHandlerImpl implements EventHandler {
             if (!watching) return false;
             log.info("Watching Job");
         }
-        return true;
+        return false;
     }
 
     private boolean triggerNextSteps(PipelineData pipelineData, StepData step, String pipelineRepoUrl, Event event) {
