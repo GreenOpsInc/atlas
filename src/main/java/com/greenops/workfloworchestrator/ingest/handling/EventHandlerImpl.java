@@ -178,25 +178,31 @@ public class EventHandlerImpl implements EventHandler {
         if (stepData.getOtherDeploymentsPath() != null) {
             var getFileRequest = new GetFileRequest(pipelineRepoUrl, stepData.getOtherDeploymentsPath());
             var otherDeploymentsConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
-            var deployResponse = clientWrapperApi.deploy(event.getOrgName(), ClientWrapperApi.DEPLOY_KUBERNETES_REQUEST, Optional.of(otherDeploymentsConfig), Optional.empty());
-            if (!deployResponse.getSuccess()) {
-                log.error("Deploying other resources failed.");
-                return false;
+            //TODO: The splitting of the config file should eventually be done on the client side
+            for (var deploymentConfig : otherDeploymentsConfig.split("---")) {
+                var deployResponse = clientWrapperApi.deploy(event.getOrgName(), ClientWrapperApi.DEPLOY_KUBERNETES_REQUEST, Optional.of(deploymentConfig), Optional.empty());
+                if (!deployResponse.getSuccess()) {
+                    log.error("Deploying other resources failed.");
+                    return false;
+                }
             }
         }
         if (stepData.getArgoApplicationPath() != null) {
             var getFileRequest = new GetFileRequest(pipelineRepoUrl, stepData.getArgoApplicationPath());
             var argoApplicationConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
-            var deployResponse = clientWrapperApi.deploy(event.getOrgName(), ClientWrapperApi.DEPLOY_ARGO_REQUEST, Optional.of(argoApplicationConfig), Optional.empty());
-            log.info("Deploying Argo application {}...", stepData.getArgoApplication());
-            if (!deployResponse.getSuccess()) {
-                log.error("Deploying the Argo application failed.");
-                return false;
-            } else {
-                var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepData.getName(), WATCH_ARGO_APPLICATION_KEY, stepData.getArgoApplication(), deployResponse.getApplicationNamespace());
-                var watching = clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
-                if (!watching) return false;
-                log.info("Watching Argo application {}", stepData.getArgoApplication());
+            //TODO: The splitting of the config file should eventually be done on the client side
+            for (var applicationConfig : argoApplicationConfig.split("---")) {
+                var deployResponse = clientWrapperApi.deploy(event.getOrgName(), ClientWrapperApi.DEPLOY_ARGO_REQUEST, Optional.of(applicationConfig), Optional.empty());
+                log.info("Deploying Argo application {}...", stepData.getArgoApplication());
+                if (!deployResponse.getSuccess()) {
+                    log.error("Deploying the Argo application failed.");
+                    return false;
+                } else {
+                    var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepData.getName(), WATCH_ARGO_APPLICATION_KEY, stepData.getArgoApplication(), deployResponse.getApplicationNamespace());
+                    var watching = clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
+                    if (!watching) return false;
+                    log.info("Watching Argo application {}", stepData.getArgoApplication());
+                }
             }
         } else {
             //TODO: Expectation is argo application has already been created. Not currently supported.
