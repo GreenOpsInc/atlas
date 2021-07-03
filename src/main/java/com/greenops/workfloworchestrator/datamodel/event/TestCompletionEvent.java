@@ -48,4 +48,8 @@ public class TestCompletionEvent implements Event {
     public String getTestName() {
         return testName;
     }
+
+    public String getLog() {
+        return log;
+    }
 }
