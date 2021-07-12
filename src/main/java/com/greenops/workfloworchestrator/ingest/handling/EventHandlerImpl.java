@@ -2,6 +2,7 @@ package com.greenops.workfloworchestrator.ingest.handling;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.greenops.workfloworchestrator.datamodel.auditlog.DeploymentLog;
 import com.greenops.workfloworchestrator.datamodel.event.ClientCompletionEvent;
 import com.greenops.workfloworchestrator.datamodel.event.Event;
 import com.greenops.workfloworchestrator.datamodel.event.TestCompletionEvent;
@@ -77,6 +78,12 @@ public class EventHandlerImpl implements EventHandler {
     }
 
     private boolean handleClientCompletionEvent(PipelineData pipelineData, String pipelineRepoUrl, ClientCompletionEvent event) {
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName());
+        var deploymentLog = dbClient.fetchLatestLog(logKey);
+        if (deploymentLog != null) {
+            deploymentLog.setDeploymentComplete(true);
+            if (!dbClient.updateHeadInList(logKey, deploymentLog)) return false;
+        }
         if (event.getStepName().equals(ROOT_STEP_NAME)) {
             return triggerNextSteps(pipelineData, createRootStep(), pipelineRepoUrl, event);
         }
@@ -90,6 +97,16 @@ public class EventHandlerImpl implements EventHandler {
     }
 
     private boolean handleTestCompletion(PipelineData pipelineData, String pipelineRepoUrl, TestCompletionEvent event) {
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName());
+        var deploymentLog = dbClient.fetchLatestLog(logKey);
+        if (deploymentLog != null && !event.getSuccessful()) {
+            deploymentLog.setBrokenTest(event.getTestName());
+            deploymentLog.setBrokenTestLog(event.getLog());
+            deploymentLog.setStatus(DeploymentLog.DeploymentStatus.FAILURE.name());
+            //If the dbClient operation fails, return that, otherwise the pipeline should stop given the step failure
+            return dbClient.updateHeadInList(logKey, deploymentLog);
+        }
+
         var step = pipelineData.getStep(event.getStepName());
         var completedTestNumber = getTestNumberFromTestKey(event.getTestName());
         if (completedTestNumber < 0 || step.getTests().size() <= completedTestNumber) {
@@ -133,11 +150,20 @@ public class EventHandlerImpl implements EventHandler {
             var watching = clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
             if (!watching) return false;
             log.info("Watching Job");
+            return true;
+        } else {
+            return false;
         }
-        return false;
     }
 
     private boolean triggerNextSteps(PipelineData pipelineData, StepData step, String pipelineRepoUrl, Event event) {
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName());
+        var deploymentLog = dbClient.fetchLatestLog(logKey);
+        if (deploymentLog != null && deploymentLog.getBrokenTest() == null) {
+            deploymentLog.setStatus(DeploymentLog.DeploymentStatus.SUCCESS.name());
+            if (!dbClient.updateHeadInList(logKey, deploymentLog)) return false;
+        }
+
         var childrenSteps = pipelineData.getChildrenSteps(step.getName());
         for (var stepName : childrenSteps) {
             var nextStep = pipelineData.getStep(stepName);
@@ -149,6 +175,9 @@ public class EventHandlerImpl implements EventHandler {
     }
 
     private boolean triggerStep(String pipelineName, String pipelineRepoUrl, StepData stepData, Event event) {
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepData.getName());
+        var newLog = new DeploymentLog(DeploymentLog.DeploymentStatus.PROGRESSING.name(), false, "_____");
+        if (!dbClient.insertValueInList(logKey, newLog)) return false;
         var beforeTestsExist = stepData.getTests().stream().anyMatch(Test::shouldExecuteBefore);
         if (beforeTestsExist) {
             return triggerTest(pipelineRepoUrl, stepData, true, event);
