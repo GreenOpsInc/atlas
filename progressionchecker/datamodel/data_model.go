@@ -1,5 +1,7 @@
 package datamodel
 
+import "strings"
+
 const (
 	Missing    string = "Missing"
 	NotHealthy string = "NotHealthy"
@@ -37,5 +39,10 @@ type WatchKey struct {
 	Name string
 	//You can't have two Argo apps with the same name in the same namespace, this makes sure there are no collisions
 	Namespace                string
+	Status                   string
 	GeneratedCompletionEvent bool
+}
+
+func (key WatchKey) GetKeyFromWatchKey() string {
+	return strings.Join([]string{key.TeamName, key.PipelineName, key.StepName, key.Name, key.Namespace}, "-")
 }

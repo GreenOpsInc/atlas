@@ -1,9 +1,12 @@
 package k8sdriver
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"log"
 	"strings"
@@ -30,7 +33,8 @@ const (
 )
 
 type KubernetesClientGetRestricted interface {
-	GetJob(name string, namespace string) (batchv1.JobStatus, int32)
+	GetJob(name string, namespace string) (batchv1.JobStatus, metav1.LabelSelector, int32)
+	GetLogs(podNamespace string, selector metav1.LabelSelector) (string, error)
 }
 
 type KubernetesClientNamespaceRestricted interface {
@@ -44,7 +48,8 @@ type KubernetesClient interface {
 	//TODO: Add parameters for Delete
 	Delete(configPayload string) bool
 	CheckAndCreateNamespace(namespace string) error
-	GetJob(name string, namespace string) (batchv1.JobStatus, int32)
+	GetLogs(podNamespace string, selector metav1.LabelSelector) (string, error)
+	GetJob(name string, namespace string) (batchv1.JobStatus, metav1.LabelSelector, int32)
 	GetSecret(name string, namespace string) map[string][]byte
 	//TODO: Update parameters & return type for CheckStatus
 	CheckHealthy() bool
@@ -285,14 +290,55 @@ func (k KubernetesClientDriver) CheckAndCreateNamespace(namespace string) error 
 	return err
 }
 
-func (k KubernetesClientDriver) GetJob(name string, namespace string) (batchv1.JobStatus, int32) {
+type GetLogs func(podName string, podNamespace string, selector metav1.LabelSelector)
+
+//Right now only works for simple one container/pod instances created by this driver
+func (k KubernetesClientDriver) GetLogs(podNamespace string, selector metav1.LabelSelector) (string, error) {
+	labelMap, _ := metav1.LabelSelectorAsMap(&selector)
+	podList, err := k.client.CoreV1().Pods(podNamespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labelMap).String()})
+	if err != nil {
+		return "", err
+	}
+	var completeLogs []string
+	var podLogs string
+	for _, pod := range podList.Items {
+		completeLogs = append(completeLogs, "Pod name: "+pod.Name)
+		podLogs, err = k.getLogsFromSinglePod(pod.Name, pod.Namespace)
+		if err != nil {
+			return "", err
+		}
+		completeLogs = append(completeLogs, podLogs)
+	}
+	return strings.Join(completeLogs, "\n----------\n"), nil
+}
+
+func (k KubernetesClientDriver) getLogsFromSinglePod(podName string, podNamespace string) (string, error) {
+	podLogOpts := corev1.PodLogOptions{}
+	req := k.client.CoreV1().Pods(podNamespace).GetLogs(podName, &podLogOpts)
+	podLogs, err := req.Stream(context.TODO())
+	if err != nil {
+		return "", err
+	}
+	defer podLogs.Close()
+
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, podLogs)
+	if err != nil {
+		return "", err
+	}
+	str := buf.String()
+
+	return str, nil
+}
+
+func (k KubernetesClientDriver) GetJob(name string, namespace string) (batchv1.JobStatus, metav1.LabelSelector, int32) {
 	job, err := k.client.BatchV1().Jobs(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		log.Printf("Error getting Job %s", err)
 		//This is temporary
-		return batchv1.JobStatus{}, -1
+		return batchv1.JobStatus{}, metav1.LabelSelector{}, -1
 	}
-	return job.Status, *job.Spec.Parallelism
+	return job.Status, *job.Spec.Selector, *job.Spec.Parallelism
 }
 
 //TODO: This should probably be agnostic to type. Challenge is the Workflow Orchestrator can't be expected to know what the type is.

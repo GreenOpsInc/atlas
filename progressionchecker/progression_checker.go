@@ -45,7 +45,7 @@ func listenForApplicationsToWatch(inputChannel chan string, outputChannel chan s
 }
 
 func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGetRestricted, channel chan string, metricsServerAddress string, workflowTriggerAddress string) {
-	watchedApplications := make(map[datamodel.WatchKey]string)
+	watchedApplications := make(map[string]datamodel.WatchKey)
 	for {
 		//Update watched applications list with new entries
 		for {
@@ -54,8 +54,9 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 			case newKey := <-channel:
 				var newWatchKey datamodel.WatchKey
 				_ = json.NewDecoder(strings.NewReader(newKey)).Decode(&newWatchKey)
-				if _, ok := watchedApplications[newWatchKey]; !ok {
-					watchedApplications[newWatchKey] = datamodel.Missing
+				keyForWatchKey := newWatchKey.GetKeyFromWatchKey()
+				if _, ok := watchedApplications[keyForWatchKey]; !ok {
+					watchedApplications[keyForWatchKey] = newWatchKey
 					log.Printf("Added key %s to watched list\n", newWatchKey)
 				}
 			default:
@@ -75,43 +76,53 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 			}
 		}
 
-		deleteKeys := make([]datamodel.WatchKey, 0)
-		for mapKey, _ := range watchedApplications {
-			log.Printf("Checking for key %s", mapKey.Name)
-			if mapKey.Type == datamodel.WatchArgoApplicationKey {
+		deleteKeys := make([]string, 0)
+		for mapKey, watchKey := range watchedApplications {
+			log.Printf("Checking for key %s", watchKey.Name)
+			if watchKey.Type == datamodel.WatchArgoApplicationKey {
 				for _, appInfo := range argoAppInfo {
-					if mapKey.Name == appInfo.Name && mapKey.Namespace == appInfo.Namespace {
+					if watchKey.Name == appInfo.Name && watchKey.Namespace == appInfo.Namespace {
 						log.Printf("Matched Argo application %s", appInfo.Name)
 						if appInfo.HealthStatus == string(health.HealthStatusHealthy) && appInfo.SyncStatus == string(v1alpha1.SyncStatusCodeSynced) {
-							watchedApplications[mapKey] = datamodel.Healthy
-							eventInfo := datamodel.MakeApplicationEvent(mapKey, appInfo)
+							watchKey.Status = datamodel.Healthy
+							watchedApplications[mapKey] = watchKey
+							eventInfo := datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo)
 							for i := 0; i < HttpRequestRetryLimit; i++ {
-								if !mapKey.GeneratedCompletionEvent && generateEvent(eventInfo, workflowTriggerAddress) {
+								if !watchedApplications[mapKey].GeneratedCompletionEvent && generateEvent(eventInfo, workflowTriggerAddress) {
 									log.Printf("Generated Client Completion event for %s", appInfo.Name)
-									mapKey.GeneratedCompletionEvent = true
+									watchKey.GeneratedCompletionEvent = true
+									watchedApplications[mapKey] = watchKey
 									break
 								}
 							}
 						} else {
-							watchedApplications[mapKey] = datamodel.NotHealthy
+							watchKey.Status = datamodel.NotHealthy
+							watchedApplications[mapKey] = watchKey
 						}
 						break
 					}
 				}
-			} else if mapKey.Type == datamodel.WatchTestKey {
-				jobStatus, numPods := kubernetesClient.GetJob(mapKey.Name, mapKey.Namespace)
+			} else if watchKey.Type == datamodel.WatchTestKey {
+				jobStatus, selector, numPods := kubernetesClient.GetJob(watchKey.Name, watchKey.Namespace)
 				log.Printf("Job status succeeded: %d, status failed %d", jobStatus.Succeeded, jobStatus.Failed)
 				if numPods == -1 {
 					log.Printf("Getting the Job failed")
 					continue
 				}
 				if jobStatus.Succeeded == numPods || jobStatus.Failed == numPods {
-					eventInfo := datamodel.MakeTestEvent(mapKey, jobStatus.Succeeded > 0)
+					podLogs, err := kubernetesClient.GetLogs(watchKey.Namespace, selector)
+					if err != nil {
+						//TODO: This should have a timeout. For example, if it fails 5 times just send the event without the logs
+						log.Printf("Pod logs could not be fetched...will try again next time")
+						continue
+					}
+					eventInfo := datamodel.MakeTestEvent(watchKey, jobStatus.Succeeded > 0, podLogs)
 					for i := 0; i < HttpRequestRetryLimit; i++ {
-						if !mapKey.GeneratedCompletionEvent && generateEvent(eventInfo, workflowTriggerAddress) {
-							log.Printf("Generated Test Completion event for %s", mapKey.Name)
+						if !watchKey.GeneratedCompletionEvent && generateEvent(eventInfo, workflowTriggerAddress) {
+							log.Printf("Generated Test Completion event for %s", watchKey.Name)
 							//TODO: Should also be deleting the Job after completion
-							mapKey.GeneratedCompletionEvent = true
+							watchKey.GeneratedCompletionEvent = true
+							watchedApplications[mapKey] = watchKey
 							deleteKeys = append(deleteKeys, mapKey)
 							break
 						}
@@ -133,7 +144,7 @@ func unmarshall(payload *string) []datamodel.ArgoAppMetricInfo {
 	relevantPayload := metricTypePattern.FindAllString(*payload, -1)
 	var argoAppInfo []datamodel.ArgoAppMetricInfo
 	for _, payloadLine := range relevantPayload {
-		metricVariablePattern, _ := regexp.Compile("([a-zA-Z_-]*)=\"([a-zA-Z:/_.-]*)\"")
+		metricVariablePattern, _ := regexp.Compile("([a-zA-Z_-]*)=\"([a-zA-Z0-9:/_.-]*)\"")
 		variableMap := make(map[string]string)
 		for _, variable := range metricVariablePattern.FindAllStringSubmatch(payloadLine, -1) {
 			variableMap[variable[1]] = variable[2]

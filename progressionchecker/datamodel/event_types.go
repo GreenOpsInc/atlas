@@ -66,7 +66,7 @@ func (eventInfo TestEventInfo) GetEventType() EventInfoType {
 	return eventInfo.Type
 }
 
-func MakeTestEvent(key WatchKey, successful bool) EventInfo {
+func MakeTestEvent(key WatchKey, successful bool, logs string) EventInfo {
 	return TestEventInfo{
 		EventInfoMetaData: EventInfoMetaData{
 			Type:         TestCompletionEvent,
@@ -76,7 +76,7 @@ func MakeTestEvent(key WatchKey, successful bool) EventInfo {
 			StepName:     key.StepName,
 		},
 		Successful: successful,
-		Log:        "",
+		Log:        logs,
 		TestName:   key.Name,
 	}
 }

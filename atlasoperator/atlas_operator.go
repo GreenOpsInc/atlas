@@ -120,6 +120,7 @@ func watch(w http.ResponseWriter, r *http.Request) {
 		},
 		Name:                     watchRequest.Name,
 		Namespace:                watchRequest.Namespace,
+		Status:                   datamodel.Missing,
 		GeneratedCompletionEvent: false,
 	}
 	byteKey, _ := json.Marshal(key)
