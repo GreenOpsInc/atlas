@@ -26,7 +26,7 @@ public class RepoManagerImpl implements RepoManager {
     private final String orgName = "org"; //TODO: Needs to be updated when we decide how to configure organization
     private final String directory = "tmp";
 
-    private Set<GitRepoSchema> gitRepos;
+    private Set<GitRepoCache> gitRepos;
 
     @Autowired
     public RepoManagerImpl(DbClient dbClient) {
@@ -53,6 +53,8 @@ public class RepoManagerImpl implements RepoManager {
         try {
             var command = new CommandBuilder()
                     .gitClone(gitRepoSchema)
+                    .cd(getFolderName(gitRepoSchema.getGitRepo()))
+                    .gitLog(1, true)
                     .build();
             var process = new ProcessBuilder()
                     .command("/bin/bash", "-c", command)
@@ -61,7 +63,8 @@ public class RepoManagerImpl implements RepoManager {
             int exitCode = process.waitFor();
             if (exitCode == 0) {
                 log.info("Cloning repo {} was successful.", gitRepoSchema.getGitRepo());
-                gitRepos.add(gitRepoSchema);
+                var commitHash = new String(process.getInputStream().readAllBytes()).split("\n")[0];
+                gitRepos.add(new GitRepoCache(commitHash, gitRepoSchema));
                 return true;
             } else {
                 log.info("Cloning repo {} was not successful. Cleaning up...", gitRepoSchema.getGitRepo());
@@ -78,15 +81,16 @@ public class RepoManagerImpl implements RepoManager {
     @Override
     public boolean update(GitRepoSchema gitRepoSchema) {
         //There should only be one answer that fits the filter for oldGitRepoSchema
-        var oldGitRepoSchema = gitRepos.stream().filter(gitRepoSchema1 -> gitRepoSchema1.getGitRepo().equals(gitRepoSchema.getGitRepo())).findFirst().orElse(null);
+        var oldGitRepoCache = gitRepos.stream().filter(gitRepoCache -> gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo())).findFirst().orElse(null);
 
-        gitRepos = gitRepos.stream().filter(gitRepoSchema1 -> !gitRepoSchema1.getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toSet());
-        gitRepos.add(gitRepoSchema);
+        gitRepos = gitRepos.stream().filter(gitRepoCache -> !gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toSet());
+        var newRepoCacheEntry = new GitRepoCache(getCurrentCommit(gitRepoSchema), gitRepoSchema);
+        gitRepos.add(newRepoCacheEntry);
         if (sync(gitRepoSchema)) {
             return true;
         } else {
-            gitRepos.remove(gitRepoSchema);
-            gitRepos.add(oldGitRepoSchema);
+            gitRepos.remove(newRepoCacheEntry);
+            gitRepos.add(oldGitRepoCache);
             return false;
         }
     }
@@ -104,7 +108,7 @@ public class RepoManagerImpl implements RepoManager {
             int exitCode = process.waitFor();
             log.info("Deletion of repo {} finished with exit code {}", gitRepoSchema.getGitRepo(), exitCode);
             if (exitCode == 0) {
-                gitRepos = gitRepos.stream().filter(gitRepoSchema1 -> !gitRepoSchema1.getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toSet());
+                gitRepos = gitRepos.stream().filter(gitRepoCache -> !gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toSet());
                 return true;
             } else {
                 return false;
@@ -118,7 +122,7 @@ public class RepoManagerImpl implements RepoManager {
     @Override
     public String getYamlFileContents(String gitRepoUrl, String filename) {
         var listOfSchemas = gitRepos.stream()
-                .filter(gitRepoSchema -> gitRepoSchema.getGitRepo().equals(gitRepoUrl))
+                .filter(gitRepoCache -> gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoUrl))
                 .collect(Collectors.toList());
         if (listOfSchemas.size() != 1) {
             log.error("Too many git repos with the given url");
@@ -126,7 +130,7 @@ public class RepoManagerImpl implements RepoManager {
         }
 
         try {
-            var pathToRoot = strip(listOfSchemas.get(0).getPathToRoot(), '/');
+            var pathToRoot = strip(listOfSchemas.get(0).getGitRepoSchema().getPathToRoot(), '/');
             var truncatedFilePath = strip(filename, '/');
             var path = Paths.get(Strings.join(
                     List.of(orgName, directory, getFolderName(gitRepoUrl), pathToRoot, truncatedFilePath),
@@ -142,13 +146,13 @@ public class RepoManagerImpl implements RepoManager {
 
     @Override
     public boolean sync(GitRepoSchema gitRepoSchema) {
-        var listOfGitRepos = gitRepos.stream().filter(gitRepoSchema1 ->
-                gitRepoSchema1.getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toList());
+        var listOfGitRepos = gitRepos.stream().filter(gitRepoCache ->
+                gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toList());
         if (listOfGitRepos.size() != 1) {
             //The size should never be greater than 1
             return false;
         }
-        var cachedGitRepoSchema = listOfGitRepos.get(0);
+        var cachedGitRepoSchema = listOfGitRepos.get(0).getGitRepoSchema();
         try {
             var command = new CommandBuilder()
                     .gitPull(cachedGitRepoSchema)
@@ -173,8 +177,32 @@ public class RepoManagerImpl implements RepoManager {
     }
 
     @Override
+    public String getCurrentCommit(GitRepoSchema gitRepoSchema) {
+        try {
+            var command = new CommandBuilder()
+                    .gitLog(1, true)
+                    .build();
+            var process = new ProcessBuilder()
+                    .command("/bin/bash", "-c", command)
+                    .directory(new File(orgName + "/" + directory + "/" + getFolderName(gitRepoSchema.getGitRepo())))
+                    .start();
+            int exitCode = process.waitFor();
+            if (exitCode == 0) {
+                log.info("Fetching commit was successful.");
+                return new String(process.getInputStream().readAllBytes()).split("\n")[0];
+            } else {
+                log.info("Fetching commit was not successful.");
+                return null;
+            }
+        } catch (IOException | InterruptedException e) {
+            log.error("An error was thrown when attempting to fetch the commit hash", e);
+            return null;
+        }
+    }
+
+    @Override
     public boolean containsGitRepoSchema(GitRepoSchema gitRepoSchema) {
-        return gitRepos.stream().anyMatch(gitRepoSchema1 -> gitRepoSchema1.getGitRepo().equals(gitRepoSchema.getGitRepo()));
+        return gitRepos.stream().anyMatch(gitRepoCache -> gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo()));
     }
 
     private String strip(String str, char delimiter) {
@@ -233,7 +261,7 @@ public class RepoManagerImpl implements RepoManager {
                 if (!clone(pipelineSchema.getGitRepoSchema())) {
                     return false;
                 }
-                gitRepos.add(pipelineSchema.getGitRepoSchema());
+                gitRepos.add(new GitRepoCache(getCurrentCommit(pipelineSchema.getGitRepoSchema()), pipelineSchema.getGitRepoSchema()));
             }
             log.info("Finished cloning pipeline repos for team {}", teamName);
         }

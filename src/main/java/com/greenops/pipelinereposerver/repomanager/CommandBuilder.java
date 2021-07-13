@@ -39,6 +39,16 @@ public class CommandBuilder {
         return this;
     }
 
+    //Can only be used with an existing repo. Remotes will not work.
+    CommandBuilder gitLog(int logCount, boolean justCommits) {
+        if (justCommits) {
+            commands.add("git log -n " + logCount + " --pretty=format:\"%H\"");
+        } else {
+            commands.add("git log -n " + logCount);
+        }
+        return this;
+    }
+
     CommandBuilder deleteFolder(GitRepoSchema gitRepoSchema) {
         var newCommand = new ArrayList<String>();
         newCommand.add("rm -rf");
