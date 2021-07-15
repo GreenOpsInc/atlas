@@ -177,7 +177,22 @@ public class RepoManagerImpl implements RepoManager {
     }
 
     @Override
-    public String getCurrentCommit(GitRepoSchema gitRepoSchema) {
+    public String getLatestCommitFromCache(String gitRepoUrl) {
+        var listOfGitRepos = gitRepos.stream().filter(gitRepoCache ->
+                gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoUrl)).collect(Collectors.toList());
+        if (listOfGitRepos.size() != 1) {
+            //The size should never be greater than 1
+            return null;
+        }
+        return listOfGitRepos.get(0).getCommitHashHistory().get(0);
+    }
+
+    @Override
+    public boolean containsGitRepoSchema(GitRepoSchema gitRepoSchema) {
+        return gitRepos.stream().anyMatch(gitRepoCache -> gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo()));
+    }
+
+    private String getCurrentCommit(GitRepoSchema gitRepoSchema) {
         try {
             var command = new CommandBuilder()
                     .gitLog(1, true)
@@ -198,11 +213,6 @@ public class RepoManagerImpl implements RepoManager {
             log.error("An error was thrown when attempting to fetch the commit hash", e);
             return null;
         }
-    }
-
-    @Override
-    public boolean containsGitRepoSchema(GitRepoSchema gitRepoSchema) {
-        return gitRepos.stream().anyMatch(gitRepoCache -> gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo()));
     }
 
     private String strip(String str, char delimiter) {
