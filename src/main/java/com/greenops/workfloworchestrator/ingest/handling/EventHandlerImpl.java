@@ -176,7 +176,8 @@ public class EventHandlerImpl implements EventHandler {
 
     private boolean triggerStep(String pipelineName, String pipelineRepoUrl, StepData stepData, Event event) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepData.getName());
-        var newLog = new DeploymentLog(DeploymentLog.DeploymentStatus.PROGRESSING.name(), false, "_____");
+        var gitCommitVersion = repoManagerApi.getCurrentPipelineCommitHash(pipelineRepoUrl, event.getOrgName(), event.getTeamName());
+        var newLog = new DeploymentLog(DeploymentLog.DeploymentStatus.PROGRESSING.name(), false, gitCommitVersion);
         if (!dbClient.insertValueInList(logKey, newLog)) return false;
         var beforeTestsExist = stepData.getTests().stream().anyMatch(Test::shouldExecuteBefore);
         if (beforeTestsExist) {
