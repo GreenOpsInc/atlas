@@ -54,4 +54,13 @@ public class PipelineRepoApi {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+    @PostMapping(value = "resetToVersion/{gitCommit}")
+    ResponseEntity<Void> resetRepoToVersion(@PathVariable("gitCommit") String gitCommit, @RequestBody GitRepoSchema gitRepoSchema) {
+        if (repoManager.resetToVersion(gitCommit, gitRepoSchema)) {
+            return ResponseEntity.ok().build();
+        } else {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }

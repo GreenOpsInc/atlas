@@ -155,6 +155,7 @@ public class RepoManagerImpl implements RepoManager {
         var cachedGitRepoSchema = listOfGitRepos.get(0).getGitRepoSchema();
         try {
             var command = new CommandBuilder()
+                    .gitCheckout("main")
                     .gitPull(cachedGitRepoSchema)
                     .build();
             var process = new ProcessBuilder()
@@ -172,6 +173,37 @@ public class RepoManagerImpl implements RepoManager {
         } catch (IOException | InterruptedException e) {
             log.error("An error was thrown when attempting to clone the repo {}", cachedGitRepoSchema.getGitRepo(), e);
             delete(cachedGitRepoSchema);
+            return false;
+        }
+    }
+
+    @Override
+    public boolean resetToVersion(String gitCommit, GitRepoSchema gitRepoSchema) {
+        var listOfGitRepos = gitRepos.stream().filter(gitRepoCache ->
+                gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toList());
+        if (listOfGitRepos.size() != 1) {
+            //The size should never be greater than 1
+            return false;
+        }
+        var cachedGitRepoSchema = listOfGitRepos.get(0).getGitRepoSchema();
+        try {
+            var command = new CommandBuilder()
+                    .gitCheckout(gitCommit)
+                    .build();
+            var process = new ProcessBuilder()
+                    .command("/bin/bash", "-c", command)
+                    .directory(new File(orgName + "/" + directory + "/" + getFolderName(cachedGitRepoSchema.getGitRepo())))
+                    .start();
+            int exitCode = process.waitFor();
+            if (exitCode == 0) {
+                log.info("Updating repo version {} was successful.", cachedGitRepoSchema.getGitRepo());
+                return true;
+            } else {
+                log.info("Updating repo version {} was not successful.", cachedGitRepoSchema.getGitRepo());
+                return false;
+            }
+        } catch (IOException | InterruptedException e) {
+            log.error("An error was thrown when attempting to update the repo version {}", cachedGitRepoSchema.getGitRepo(), e);
             return false;
         }
     }

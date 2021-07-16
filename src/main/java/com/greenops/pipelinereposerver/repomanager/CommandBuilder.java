@@ -39,6 +39,14 @@ public class CommandBuilder {
         return this;
     }
 
+    CommandBuilder gitCheckout(String commitHash) {
+        var newCommand = new ArrayList<String>();
+        newCommand.add("git checkout");
+        newCommand.add(commitHash);
+        commands.add(String.join(" ", newCommand));
+        return this;
+    }
+
     //Can only be used with an existing repo. Remotes will not work.
     CommandBuilder gitLog(int logCount, boolean justCommits) {
         if (justCommits) {
