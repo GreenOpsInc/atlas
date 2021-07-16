@@ -20,17 +20,21 @@ import java.io.IOException;
 @Component
 public class RepoManagerApiImpl implements RepoManagerApi {
 
-    private static final String ROOT_EXTENSION = "data";
+    private static final String ROOT_DATA_EXTENSION = "data";
+    private static final String ROOT_REPO_EXTENSION = "repo";
     private static final String GET_FILE_EXTENSION = "file";
     private static final String GET_COMMIT_EXTENSION = "version";
+    private static final String CHANGE_VERSION_EXTENSION = "resetToVersion";
 
-    private final String serverEndpoint;
+    private final String serverRepoEndpoint;
+    private final String serverDataEndpoint;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
 
     @Autowired
     public RepoManagerApiImpl(@Value("${application.repo-server-url}") String serverEndpoint, @Qualifier("eventAndRequestObjectMapper") ObjectMapper objectMapper) {
-        this.serverEndpoint = serverEndpoint.endsWith("/") ? serverEndpoint + ROOT_EXTENSION : serverEndpoint + "/" + ROOT_EXTENSION;
+        this.serverRepoEndpoint = serverEndpoint.endsWith("/") ? serverEndpoint + ROOT_REPO_EXTENSION : serverEndpoint + "/" + ROOT_REPO_EXTENSION;
+        this.serverDataEndpoint = serverEndpoint.endsWith("/") ? serverEndpoint + ROOT_DATA_EXTENSION : serverEndpoint + "/" + ROOT_DATA_EXTENSION;
         httpClient = HttpClientBuilder.create().build();
         this.objectMapper = objectMapper;
     }
@@ -39,7 +43,7 @@ public class RepoManagerApiImpl implements RepoManagerApi {
     public String getFileFromRepo(GetFileRequest getFileRequest, String orgName, String teamName) {
         try {
             var requestBody = objectMapper.writeValueAsString(getFileRequest);
-            var request = new HttpPost(serverEndpoint + String.format("/%s/%s/%s", GET_FILE_EXTENSION, orgName, teamName));
+            var request = new HttpPost(serverDataEndpoint + String.format("/%s/%s/%s", GET_FILE_EXTENSION, orgName, teamName));
             request.setEntity(new StringEntity(requestBody, ContentType.APPLICATION_JSON));
             var response = httpClient.execute(request);
             log.info("Fetch file request for repo {} returned with status code {}", getFileRequest.getGitRepoUrl(), response.getStatusLine().getStatusCode());
@@ -56,7 +60,7 @@ public class RepoManagerApiImpl implements RepoManagerApi {
     @Override
     public String getCurrentPipelineCommitHash(String gitRepoUrl, String orgName, String teamName) {
         try {
-            var request = new HttpPost(serverEndpoint + String.format("/%s/%s/%s", GET_COMMIT_EXTENSION, orgName, teamName));
+            var request = new HttpPost(serverDataEndpoint + String.format("/%s/%s/%s", GET_COMMIT_EXTENSION, orgName, teamName));
             request.setEntity(new StringEntity(gitRepoUrl, ContentType.APPLICATION_JSON));
             var response = httpClient.execute(request);
             log.info("Fetch version request for repo {} returned with status code {}", gitRepoUrl, response.getStatusLine().getStatusCode());
@@ -64,6 +68,20 @@ public class RepoManagerApiImpl implements RepoManagerApi {
         } catch (IOException e) {
             log.error("HTTP get version request failed for repo: {}", gitRepoUrl, e);
             return null;
+        }
+    }
+
+    @Override
+    public boolean resetRepoVersion(String gitCommit, String gitRepoUrl, String orgName, String teamName) {
+        try {
+            var request = new HttpPost(serverRepoEndpoint + String.format("/%s/%s/%s/%s", CHANGE_VERSION_EXTENSION, orgName, teamName, gitCommit));
+            request.setEntity(new StringEntity(gitRepoUrl, ContentType.DEFAULT_TEXT));
+            var response = httpClient.execute(request);
+            log.info("Change version request for repo {} returned with status code {}", gitRepoUrl, response.getStatusLine().getStatusCode());
+            return String.valueOf(response.getStatusLine().getStatusCode()).startsWith("2");
+        } catch (IOException e) {
+            log.error("HTTP Change version request failed for repo: {}", gitRepoUrl, e);
+            return false;
         }
     }
 }

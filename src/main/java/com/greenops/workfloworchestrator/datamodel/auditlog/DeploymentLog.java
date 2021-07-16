@@ -1,5 +1,7 @@
 package com.greenops.workfloworchestrator.datamodel.auditlog;
 
+import java.util.UUID;
+
 public class DeploymentLog {
 
     public enum DeploymentStatus {
@@ -8,24 +10,38 @@ public class DeploymentLog {
         FAILURE
     }
 
-    //TODO: Should have "progressing" if step is not complete
+    private final String uniqueVersionNumber;
+    private final int uniqueVersionInstance;
     private String status;
     private boolean deploymentComplete;
+    private String argoApplicationName;
+    private int argoRevisionId;
     private String gitCommitVersion;
-    //TODO: Should have "progressing" if tests are not done yet
     private String brokenTest;
     private String brokenTestLog;
 
-    public DeploymentLog(String status, boolean deploymentComplete, String gitCommitVersion, String brokenTest, String brokenTestLog) {
+    public DeploymentLog(String uniqueVersionNumber, int uniqueVersionInstance, String status, boolean deploymentComplete, String argoApplicationName, int argoRevisionId, String gitCommitVersion, String brokenTest, String brokenTestLog) {
+        this.uniqueVersionNumber = uniqueVersionNumber;
+        this.uniqueVersionInstance = uniqueVersionInstance;
         this.status = status;
+        this.argoApplicationName = argoApplicationName;
         this.deploymentComplete = deploymentComplete;
+        this.argoRevisionId = argoRevisionId;
         this.gitCommitVersion = gitCommitVersion;
         this.brokenTest = brokenTest;
         this.brokenTestLog = brokenTestLog;
     }
 
-    public DeploymentLog(String status, boolean deploymentComplete, String gitCommitVersion) {
-        this(status, deploymentComplete, gitCommitVersion, null, null);
+    public DeploymentLog(String status, boolean deploymentComplete, int argoRevisionId, String gitCommitVersion) {
+        this(UUID.randomUUID().toString(), 0, status, deploymentComplete, null, argoRevisionId, gitCommitVersion, null, null);
+    }
+
+    public String getUniqueVersionNumber() {
+        return uniqueVersionNumber;
+    }
+
+    public int getUniqueVersionInstance() {
+        return uniqueVersionInstance;
     }
 
     public String getStatus() {
@@ -42,6 +58,22 @@ public class DeploymentLog {
 
     public void setDeploymentComplete(boolean deploymentComplete) {
         this.deploymentComplete = deploymentComplete;
+    }
+
+    public String getArgoApplicationName() {
+        return argoApplicationName;
+    }
+
+    public void setArgoApplicationName(String argoApplicationName) {
+        this.argoApplicationName = argoApplicationName;
+    }
+
+    public int getArgoRevisionId() {
+        return argoRevisionId;
+    }
+
+    public void setArgoRevisionId(int argoRevisionId) {
+        this.argoRevisionId = argoRevisionId;
     }
 
     public String getGitCommitVersion() {
