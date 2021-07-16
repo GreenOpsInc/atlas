@@ -21,7 +21,7 @@ const (
 	ProgressionChannelBufferSize int    = 100
 	DefaultMetricsServerAddress  string = "http://argocd-metrics.argocd.svc.cluster.local:8082/metrics"
 	//Command to get localhost address: "minikube ssh 'grep host.minikube.internal /etc/hosts | cut -f1'"
-	DefaultWorkflowTriggerAddress string = "http://atlasworkflowtrigger.default.svc.cluster.local"
+	DefaultWorkflowTriggerAddress string = "http://atlasworkflowtrigger.default.svc.cluster.local:8080"
 	MetricsServerEnvVar           string = "ARGOCD_METRICS_SERVER_ADDR"
 	WorkflowTriggerEnvVar         string = "WORKFLOW_TRIGGER_SERVER_ADDR"
 	HttpRequestRetryLimit         int    = 3
@@ -55,10 +55,8 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 				var newWatchKey datamodel.WatchKey
 				_ = json.NewDecoder(strings.NewReader(newKey)).Decode(&newWatchKey)
 				keyForWatchKey := newWatchKey.GetKeyFromWatchKey()
-				if _, ok := watchedApplications[keyForWatchKey]; !ok {
-					watchedApplications[keyForWatchKey] = newWatchKey
-					log.Printf("Added key %s to watched list\n", newWatchKey)
-				}
+				watchedApplications[keyForWatchKey] = newWatchKey
+				log.Printf("Added key %s to watched list\n", newWatchKey)
 			default:
 				//No more items to read in from channel
 				doneReading = true
@@ -109,7 +107,7 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 					log.Printf("Getting the Job failed")
 					continue
 				}
-				if jobStatus.Succeeded == numPods || jobStatus.Failed == numPods {
+				if jobStatus.Succeeded == numPods || jobStatus.Failed >= numPods {
 					podLogs, err := kubernetesClient.GetLogs(watchKey.Namespace, selector)
 					if err != nil {
 						//TODO: This should have a timeout. For example, if it fails 5 times just send the event without the logs

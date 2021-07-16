@@ -43,8 +43,8 @@ type KubernetesClientNamespaceRestricted interface {
 
 type KubernetesClient interface {
 	//TODO: Add parameters for Deploy
-	Deploy(configPayload string) (bool, string)
-	CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, variables map[string]string) (bool, string)
+	Deploy(configPayload string) (bool, string, string)
+	CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, variables map[string]string) (bool, string, string)
 	//TODO: Add parameters for Delete
 	Delete(configPayload string) bool
 	CheckAndCreateNamespace(namespace string) error
@@ -82,12 +82,13 @@ func New() KubernetesClient {
 	return client
 }
 
-func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string) {
+func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string, string) {
 	//TODO: This method currently expects only one object per file. Add in support for separate YAML files combined into one. This can be done by splitting on the "---" string.
 	obj, groupVersionKind, err := getResourceObjectFromYAML(configPayload)
 	if err != nil {
-		return false, ""
+		return false, "", ""
 	}
+	var resourceName string
 	var namespace string
 	switch obj.(type) {
 	//TODO: Types like Pod, Deployment, StatefulSet, etc are missing. They would be almost an exact copy of the ReplicaSet case. Namespaces also need to be added in.
@@ -95,48 +96,61 @@ func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string) {
 	case *batchv1.Job:
 		strongTypeObject := obj.(*batchv1.Job)
 		log.Printf("%s matched Job. Deploying...\n", strongTypeObject.Name)
+		resourceName = strongTypeObject.Name
 		namespace = strongTypeObject.Namespace
 		err = k.CheckAndCreateNamespace(namespace)
 		if err != nil {
 			log.Printf("The namespace could not be created. Error was %s\n", err)
-			return false, ""
+			return false, "", ""
 		}
 		_, err = k.client.BatchV1().Jobs(namespace).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
 		if err != nil {
+			if strings.Contains(err.Error(), "already exists") {
+				return k.deleteAndDeploy(&configPayload)
+			}
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
-			return false, ""
+			return false, "", ""
 		}
 	case *corev1.Service:
 		strongTypeObject := obj.(*corev1.Service)
 		log.Printf("%s matched ReplicaSet. Deploying...\n", strongTypeObject.Name)
+		resourceName = strongTypeObject.Name
 		namespace = strongTypeObject.Namespace
 		err = k.CheckAndCreateNamespace(namespace)
 		if err != nil {
 			log.Printf("The namespace could not be created. Error was %s\n", err)
-			return false, ""
+			return false, "", ""
 		}
 		_, err = k.client.CoreV1().Services(namespace).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
 		if err != nil {
+			if strings.Contains(err.Error(), "already exists") {
+				return k.deleteAndDeploy(&configPayload)
+			}
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
-			return false, ""
+			return false, "", ""
 		}
 	case *appsv1.ReplicaSet:
 		strongTypeObject := obj.(*appsv1.ReplicaSet)
 		log.Printf("%s matched ReplicaSet. Deploying...\n", strongTypeObject.Name)
+		resourceName = strongTypeObject.Name
 		namespace = strongTypeObject.Namespace
 		err = k.CheckAndCreateNamespace(namespace)
 		if err != nil {
 			log.Printf("The namespace could not be created. Error was %s\n", err)
-			return false, ""
+			return false, "", ""
 		}
 		_, err = k.client.AppsV1().ReplicaSets(namespace).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
 		if err != nil {
+			if strings.Contains(err.Error(), "already exists") {
+				return k.deleteAndDeploy(&configPayload)
+			}
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
-			return false, ""
+			return false, "", ""
 		}
 	case *unstructured.Unstructured:
 		strongTypeObject := obj.(*unstructured.Unstructured)
 		log.Printf("YAML file matched Unstructured of kind %s. Deploying...\n", groupVersionKind.Kind)
+		resourceName = strongTypeObject.GetName()
 		namespace = strongTypeObject.GetNamespace()
 		if namespace == "" {
 			namespace = corev1.NamespaceDefault
@@ -144,7 +158,7 @@ func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string) {
 		err = k.CheckAndCreateNamespace(namespace)
 		if err != nil {
 			log.Printf("The namespace could not be created. Error was %s\n", err)
-			return false, ""
+			return false, "", ""
 		}
 		_, err = k.dynamicClient.Resource(schema.GroupVersionResource{
 			Group:    groupVersionKind.Group,
@@ -152,19 +166,22 @@ func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string) {
 			Resource: getPluralResourceNameFromKind(groupVersionKind.Kind),
 		}).Namespace(namespace).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
 		if err != nil {
+			if strings.Contains(err.Error(), "already exists") {
+				return k.deleteAndDeploy(&configPayload)
+			}
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
-			return false, ""
+			return false, "", ""
 		}
 	default:
 		log.Printf("There was no matching type for the input.\n")
-		return false, ""
+		return false, "", ""
 	}
-	return true, namespace
+	return true, resourceName, namespace
 }
 
 //CreateAndDeploy should only be used for ephemeral runs ONLY. "Kind" should just be discerning between a chron job or a job.
 //They are both of type "batch/v1".
-func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, variables map[string]string) (bool, string) {
+func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, variables map[string]string) (bool, string, string) {
 	if imageName == "" {
 		imageName = DefaultContainer
 	}
@@ -205,13 +222,22 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 		data, err := json.Marshal(jobSpec)
 		if err != nil {
 			log.Printf("Error marshalling Job: %s", err)
-			return false, ""
+			return false, "", ""
 		}
 		configPayload = string(data)
 	} else if kind == CronJobKindName {
 		//TODO: Implement me
 	}
 	return k.Deploy(configPayload)
+}
+
+func (k KubernetesClientDriver) deleteAndDeploy(configPayload *string) (bool, string, string) {
+	success := k.Delete(*configPayload)
+	if success {
+		return k.Deploy(*configPayload)
+	}
+	log.Printf("Failed to delete the existing resource successfully. Aborting deploy.")
+	return false, "", ""
 }
 
 func (k KubernetesClientDriver) Delete(configPayload string) bool {

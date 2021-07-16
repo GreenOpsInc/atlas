@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -29,16 +30,18 @@ func deploy(w http.ResponseWriter, r *http.Request) {
 	byteReqBody, _ := ioutil.ReadAll(r.Body)
 	stringReqBody := string(byteReqBody)
 	var success bool
+	var resourceName string
 	var appNamespace string
+	var revisionId int64
 	if deployType == requestdatatypes.DeployArgoRequest {
-		success, appNamespace = drivers.argoDriver.Deploy(stringReqBody)
+		success, resourceName, appNamespace, revisionId = drivers.argoDriver.Deploy(stringReqBody)
 	} else if deployType == requestdatatypes.DeployTestRequest {
 		var kubernetesCreationRequest requestdatatypes.KubernetesCreationRequest
 		err := json.NewDecoder(strings.NewReader(stringReqBody)).Decode(&kubernetesCreationRequest)
 		if err != nil {
-			success, appNamespace = false, ""
+			success, resourceName, appNamespace, revisionId = false, "", "", -1
 		} else {
-			success, appNamespace = drivers.k8sDriver.CreateAndDeploy(
+			success, resourceName, appNamespace = drivers.k8sDriver.CreateAndDeploy(
 				kubernetesCreationRequest.Kind,
 				kubernetesCreationRequest.ObjectName,
 				kubernetesCreationRequest.Namespace,
@@ -47,15 +50,37 @@ func deploy(w http.ResponseWriter, r *http.Request) {
 				kubernetesCreationRequest.Args,
 				kubernetesCreationRequest.Variables,
 			)
+			revisionId = -1
 		}
 	} else {
-		success, appNamespace = drivers.k8sDriver.Deploy(stringReqBody)
+		success, resourceName, appNamespace = drivers.k8sDriver.Deploy(stringReqBody)
+		revisionId = -1
 	}
 
 	json.NewEncoder(w).Encode(
 		requestdatatypes.DeployResponse{
 			Success:      success,
+			ResourceName: resourceName,
 			AppNamespace: appNamespace,
+			RevisionId:   revisionId,
+		},
+	)
+}
+
+func rollbackArgoApp(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	appName := vars["appName"]
+	stringRevisionId := vars["revisionId"]
+	intRevisionId, _ := strconv.Atoi(stringRevisionId)
+	revisionId := int64(intRevisionId)
+	success, resourceName, appNamespace := drivers.argoDriver.Rollback(appName, stringRevisionId)
+
+	json.NewEncoder(w).Encode(
+		requestdatatypes.DeployResponse{
+			Success:      success,
+			ResourceName: resourceName,
+			AppNamespace: appNamespace,
+			RevisionId:   revisionId,
 		})
 }
 
@@ -132,6 +157,7 @@ func watch(w http.ResponseWriter, r *http.Request) {
 func handleRequests() {
 	myRouter := mux.NewRouter().StrictSlash(true)
 	myRouter.HandleFunc("/deploy/{orgName}/{type}", deploy).Methods("POST")
+	myRouter.HandleFunc("/rollback/{orgName}/{appName}/{revisionId}", rollbackArgoApp).Methods("POST")
 	myRouter.HandleFunc("/delete/{group}/{version}/{kind}/{name}", deleteApplication).Methods("POST")
 	myRouter.HandleFunc("/checkStatus/{group}/{version}/{kind}/{name}", checkStatus).Methods("GET")
 	myRouter.HandleFunc("/watch/{orgName}", watch).Methods("POST")
