@@ -14,6 +14,8 @@ public interface ClientWrapperApi {
 
     public DeployResponse deploy(String orgName, String type, Optional<String> configPayload, Optional<KubernetesCreationRequest> kubernetesCreationRequest);
 
+    public DeployResponse rollback(String orgName, String appName, int revisionId);
+
     public boolean deleteApplication(String group, String version, String kind, String applicationName);
 
     public boolean checkStatus(String group, String version, String kind, String applicationName);

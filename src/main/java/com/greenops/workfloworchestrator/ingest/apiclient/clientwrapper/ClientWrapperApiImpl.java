@@ -52,6 +52,21 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     }
 
     @Override
+    public DeployResponse rollback(String orgName, String appName, int revisionId) {
+        try {
+            var request = new HttpPost(serverEndpoint + String.format("/rollback/%s/%s/%d", orgName, appName, revisionId));
+            var response = httpClient.execute(request);
+            return objectMapper.readValue(response.getEntity().getContent().readAllBytes(), DeployResponse.class);
+        } catch (JsonProcessingException e) {
+            log.error("Object mapper could not convert payload to DeployResponse", e);
+            return null;
+        } catch (IOException e) {
+            log.error("HTTP deploy request failed", e);
+            return null;
+        }
+    }
+
+    @Override
     public boolean deleteApplication(String group, String version, String kind, String applicationName) {
         try {
             var request = new HttpPost(serverEndpoint + String.format("/delete/%s/%s/%s/%s", group, version, kind, applicationName));

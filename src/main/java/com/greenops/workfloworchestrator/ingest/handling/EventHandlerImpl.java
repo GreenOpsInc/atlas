@@ -97,17 +97,19 @@ public class EventHandlerImpl implements EventHandler {
     }
 
     private boolean handleTestCompletion(PipelineData pipelineData, String pipelineRepoUrl, TestCompletionEvent event) {
+        var step = pipelineData.getStep(event.getStepName());
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName());
         var deploymentLog = dbClient.fetchLatestLog(logKey);
         if (deploymentLog != null && !event.getSuccessful()) {
             deploymentLog.setBrokenTest(event.getTestName());
             deploymentLog.setBrokenTestLog(event.getLog());
             deploymentLog.setStatus(DeploymentLog.DeploymentStatus.FAILURE.name());
-            //If the dbClient operation fails, return that, otherwise the pipeline should stop given the step failure
-            return dbClient.updateHeadInList(logKey, deploymentLog);
+            //If the dbClient operation fails, return that, otherwise the pipeline should stop and rollback given the step failure
+            if (!dbClient.updateHeadInList(logKey, deploymentLog)) return false;
+            if (step.getRollback()) return rollback(pipelineData, pipelineRepoUrl, event);
+            return true;
         }
 
-        var step = pipelineData.getStep(event.getStepName());
         var completedTestNumber = getTestNumberFromTestKey(event.getTestName());
         if (completedTestNumber < 0 || step.getTests().size() <= completedTestNumber) {
             log.info("Malformed test key or tests have changed");
@@ -125,6 +127,51 @@ public class EventHandlerImpl implements EventHandler {
         } else {
             //This case should never be happening...log and see what the edge case is
             log.info("EDGE CASE: {}, {}", completedTest.shouldExecuteBefore(), completedTestNumber == step.getTests().size() - 1);
+        }
+        return true;
+    }
+
+    private boolean rollback(PipelineData pipelineData, String pipelineRepoUrl, TestCompletionEvent event) {
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName());
+        var deploymentLogList = dbClient.fetchLogList(logKey);
+        if (deploymentLogList == null || deploymentLogList.size() == 0) return false;
+        var currentLog = deploymentLogList.get(0);
+        int idx = 0;
+        if (currentLog.getUniqueVersionInstance() > 0) {
+            while (idx < deploymentLogList.size()) {
+                if (currentLog.getUniqueVersionNumber().equals(deploymentLogList.get(idx).getUniqueVersionNumber())
+                        && deploymentLogList.get(idx).getUniqueVersionInstance() == 0) {
+                    idx++;
+                    break;
+                }
+                idx++;
+            }
+        }
+        for (; idx < deploymentLogList.size(); idx++) {
+            if (deploymentLogList.get(idx).getStatus().equals(DeploymentLog.DeploymentStatus.SUCCESS.name())) {
+                var argoRevisionId = deploymentLogList.get(idx).getArgoRevisionId();
+                var gitCommitVersion = deploymentLogList.get(idx).getGitCommitVersion();
+
+                logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName());
+                var newLog = new DeploymentLog(
+                        deploymentLogList.get(idx).getUniqueVersionNumber(),
+                        deploymentLogList.get(idx).getUniqueVersionInstance() + 1,
+                        DeploymentLog.DeploymentStatus.PROGRESSING.name(),
+                        false,
+                        deploymentLogList.get(idx).getArgoApplicationName(),
+                        argoRevisionId,
+                        gitCommitVersion,
+                        null,
+                        null
+                );
+                if (!gitCommitVersion.equals(currentLog.getGitCommitVersion())) {
+                    if (!repoManagerApi.resetRepoVersion(gitCommitVersion, pipelineRepoUrl, event.getOrgName(), event.getTeamName()))
+                        return false;
+                }
+                if (!dbClient.insertValueInList(logKey, newLog)) return false;
+                return triggerStep(event.getPipelineName(), pipelineRepoUrl, pipelineData.getStep(event.getStepName()), event);
+
+            }
         }
         return true;
     }
@@ -168,6 +215,10 @@ public class EventHandlerImpl implements EventHandler {
         for (var stepName : childrenSteps) {
             var nextStep = pipelineData.getStep(stepName);
             if (areParentStepsComplete(stepName)) {
+                logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), nextStep.getName());
+                var gitCommitVersion = repoManagerApi.getCurrentPipelineCommitHash(pipelineRepoUrl, event.getOrgName(), event.getTeamName());
+                var newLog = new DeploymentLog(DeploymentLog.DeploymentStatus.PROGRESSING.name(), false, -1, gitCommitVersion);
+                if (!dbClient.insertValueInList(logKey, newLog)) return false;
                 if (!triggerStep(event.getPipelineName(), pipelineRepoUrl, nextStep, event)) return false;
             }
         }
@@ -175,10 +226,6 @@ public class EventHandlerImpl implements EventHandler {
     }
 
     private boolean triggerStep(String pipelineName, String pipelineRepoUrl, StepData stepData, Event event) {
-        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepData.getName());
-        var gitCommitVersion = repoManagerApi.getCurrentPipelineCommitHash(pipelineRepoUrl, event.getOrgName(), event.getTeamName());
-        var newLog = new DeploymentLog(DeploymentLog.DeploymentStatus.PROGRESSING.name(), false, gitCommitVersion);
-        if (!dbClient.insertValueInList(logKey, newLog)) return false;
         var beforeTestsExist = stepData.getTests().stream().anyMatch(Test::shouldExecuteBefore);
         if (beforeTestsExist) {
             return triggerTest(pipelineRepoUrl, stepData, true, event);
@@ -217,7 +264,24 @@ public class EventHandlerImpl implements EventHandler {
                 }
             }
         }
-        if (stepData.getArgoApplicationPath() != null) {
+
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepData.getName());
+        var deploymentLog = dbClient.fetchLatestLog(logKey);
+        if (deploymentLog == null) return false;
+
+        var argoApplicationName = "";
+        var revisionId = -1;
+
+        if ((stepData.getArgoApplicationPath() != null || stepData.getArgoApplication() != null) && deploymentLog.getUniqueVersionInstance() > 0) {
+            var deployResponse = clientWrapperApi.rollback(event.getOrgName(), deploymentLog.getArgoApplicationName(), deploymentLog.getArgoRevisionId());
+            if (!deployResponse.getSuccess()) {
+                log.error("Rolling back the Argo application failed.");
+                return false;
+            }
+            var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepData.getName(), WATCH_ARGO_APPLICATION_KEY, stepData.getArgoApplication(), deployResponse.getApplicationNamespace());
+            return clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
+        }
+        else if (stepData.getArgoApplicationPath() != null) {
             var getFileRequest = new GetFileRequest(pipelineRepoUrl, stepData.getArgoApplicationPath());
             var argoApplicationConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
             //TODO: The splitting of the config file should eventually be done on the client side
@@ -232,12 +296,21 @@ public class EventHandlerImpl implements EventHandler {
                     var watching = clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
                     if (!watching) return false;
                     log.info("Watching Argo application {}", stepData.getArgoApplication());
+                    argoApplicationName = deployResponse.getResourceName();
+                    revisionId = deployResponse.getRevisionId();
                 }
             }
         } else {
             //TODO: Expectation is argo application has already been created. Not currently supported.
         }
-        //TODO: Audit log
+
+        //Audit log updates
+        deploymentLog = dbClient.fetchLatestLog(logKey);
+        if (deploymentLog != null && revisionId > -1) {
+            deploymentLog.setArgoApplicationName(argoApplicationName);
+            deploymentLog.setArgoRevisionId(revisionId);
+            if (!dbClient.updateHeadInList(logKey, deploymentLog)) return false;
+        }
         return true;
     }
 

@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PreDestroy;
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -121,17 +122,27 @@ public class RedisDbClient implements DbClient {
             redisCommands.unwatch();
             redisCommands.watch(key);
             currentWatchedKey = key;
-            var result = objectType == ObjectType.SINGLE_LOG ? redisCommands.lindex(key, 0) : redisCommands.get(key);
-            //If the key doesn't exist, Redis will return null
-            if (result == null) {
+            var exists = redisCommands.exists(key);//objectType == ObjectType.SINGLE_LOG || objectType == ObjectType.LOG_LIST ? redisCommands.lindex(key, 0) : redisCommands.get(key);
+            //If the key doesn't exist, return null (1 is exists, 0 is does not exist)
+            if (exists == 0) {
                 return null;
             } else if (objectType == ObjectType.TEAM_SCHEMA) {
+                var result = redisCommands.get(key);
                 return objectMapper.readValue(result, TeamSchema.class);
             } else if (objectType == ObjectType.STRING_LIST) {
+                var result = redisCommands.get(key);
                 return objectMapper.readValue(result, objectMapper.getTypeFactory().constructCollectionType(List.class, String.class));
             } else if (objectType == ObjectType.LOG_LIST) {
-                return objectMapper.readValue(result, objectMapper.getTypeFactory().constructCollectionType(List.class, DeploymentLog.class));
+                //TODO: As logs get longer and longer, we cant be fetching a list of 100. We need to find a better way to get chunks of logs as needed.
+                var result = redisCommands.lrange(key, 0, -1);
+                var deploymentLogList = new ArrayList<DeploymentLog>();
+                for (var string : result) {
+                    var deploymentLog = objectMapper.readValue(string, DeploymentLog.class);
+                    deploymentLogList.add(deploymentLog);
+                }
+                return deploymentLogList;
             } else if (objectType == ObjectType.SINGLE_LOG) {
+                var result = redisCommands.lindex(key, 0);
                 return objectMapper.readValue(result, DeploymentLog.class);
             }
         } catch (JsonProcessingException e) {
