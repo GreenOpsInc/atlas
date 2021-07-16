@@ -213,6 +213,26 @@ public class PipelineApi {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
 
+    @PostMapping(value = "/sync/{orgName}/{teamName}/{pipelineName}")
+    public ResponseEntity<Void> syncPipeline(@PathVariable("orgName") String orgName,
+                                               @PathVariable("teamName") String teamName,
+                                               @PathVariable("pipelineName") String pipelineName,
+                                               @RequestBody GitRepoSchema gitRepo) {
+        if (!repoManagerApi.sync(gitRepo)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+
+        //TODO: TriggerEvents don't need all of this information. This should be replaced with a special type called a "TriggerEvent"
+        var triggerEvent = new ClientCompletionEvent("Healthy", orgName, teamName, pipelineName,"ATLAS_ROOT_DATA", "","","", gitRepo.getGitRepo());
+        try {
+            generateEvent(objectMapper.writeValueAsString(triggerEvent));
+        } catch (JsonProcessingException e) {
+            log.error("Serializing the event failed.", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping(value = "/client/generateEvent")
     public ResponseEntity<Void> generateEvent(@RequestBody String event) {
         kafkaClient.sendMessage(event);

@@ -73,4 +73,23 @@ public class RepoManagerApiImpl implements RepoManagerApi {
         }
         //TODO: Catch branches left separate for future processing, logic, and logging.
     }
+
+    @Override
+    public boolean sync(GitRepoSchema gitRepoSchema) {
+        try {
+            var requestBody = objectMapper.writeValueAsString(gitRepoSchema);
+            var request = new HttpPost(serverEndpoint + "/sync");
+            request.setEntity(new StringEntity(requestBody, ContentType.APPLICATION_JSON));
+            var response = httpClient.execute(request);
+            log.info("sync folder request for repo {} returned with status code {}", gitRepoSchema.getGitRepo(), response.getStatusLine().getStatusCode());
+            return response.getStatusLine().getStatusCode() == 200;
+        } catch (JsonProcessingException e) {
+            log.error("Object mapper could not convert Git repo schema for repo: {}", gitRepoSchema.getGitRepo(), e);
+            return false;
+        } catch (IOException e) {
+            log.error("HTTP request failed for repo: {}", gitRepoSchema.getGitRepo(), e);
+            return false;
+        }
+        //TODO: Catch branches left separate for future processing, logic, and logging.
+    }
 }

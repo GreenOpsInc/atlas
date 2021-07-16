@@ -6,4 +6,5 @@ public interface RepoManagerApi {
 
     boolean cloneRepo(GitRepoSchema gitRepoSchema);
     boolean deleteRepo(GitRepoSchema gitRepoSchema);
+    boolean sync(GitRepoSchema gitRepoSchema);
 }
