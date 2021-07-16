@@ -10,7 +10,7 @@ public interface RepoManager {
     boolean delete(GitRepoSchema gitRepoSchema);
     String getYamlFileContents(String gitRepoUrl, String filename);
     boolean sync(GitRepoSchema gitRepoSchema);
-    boolean resetToVersion(String gitCommit, GitRepoSchema gitRepoSchema);
+    boolean resetToVersion(String gitCommit, String gitRepoUrl);
     String getLatestCommitFromCache(String gitRepoUrl);
     boolean containsGitRepoSchema(GitRepoSchema gitRepoSchema);
 }

@@ -64,7 +64,7 @@ public class RepoManagerImpl implements RepoManager {
             if (exitCode == 0) {
                 log.info("Cloning repo {} was successful.", gitRepoSchema.getGitRepo());
                 var commitHash = new String(process.getInputStream().readAllBytes()).split("\n")[0];
-                gitRepos.add(new GitRepoCache(commitHash, gitRepoSchema));
+                gitRepos.add(new GitRepoCache(commitHash, commitHash, gitRepoSchema));
                 return true;
             } else {
                 log.info("Cloning repo {} was not successful. Cleaning up...", gitRepoSchema.getGitRepo());
@@ -82,9 +82,12 @@ public class RepoManagerImpl implements RepoManager {
     public boolean update(GitRepoSchema gitRepoSchema) {
         //There should only be one answer that fits the filter for oldGitRepoSchema
         var oldGitRepoCache = gitRepos.stream().filter(gitRepoCache -> gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo())).findFirst().orElse(null);
+        if (oldGitRepoCache == null) {
+            return false;
+        }
 
         gitRepos = gitRepos.stream().filter(gitRepoCache -> !gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toSet());
-        var newRepoCacheEntry = new GitRepoCache(getCurrentCommit(gitRepoSchema), gitRepoSchema);
+        var newRepoCacheEntry = new GitRepoCache(oldGitRepoCache.getRootCommitHash(), getCurrentCommit(gitRepoSchema), gitRepoSchema);
         gitRepos.add(newRepoCacheEntry);
         if (sync(gitRepoSchema)) {
             return true;
@@ -165,6 +168,13 @@ public class RepoManagerImpl implements RepoManager {
             int exitCode = process.waitFor();
             if (exitCode == 0) {
                 log.info("Pulling repo {} was successful.", cachedGitRepoSchema.getGitRepo());
+                var commitHash = getCurrentCommit(cachedGitRepoSchema);
+                if (commitHash == null) return false;
+                gitRepos = gitRepos.stream().filter(gitRepoCache -> !gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toSet());
+                var updatedCacheSchema = listOfGitRepos.get(0);
+                updatedCacheSchema.addCommitHashToHistory(commitHash);
+                updatedCacheSchema.setRootCommitHash(commitHash);
+                gitRepos.add(updatedCacheSchema);
                 return true;
             } else {
                 log.info("Pulling repo {} was not successful.", cachedGitRepoSchema.getGitRepo());
@@ -178,9 +188,9 @@ public class RepoManagerImpl implements RepoManager {
     }
 
     @Override
-    public boolean resetToVersion(String gitCommit, GitRepoSchema gitRepoSchema) {
+    public boolean resetToVersion(String gitCommit, String gitRepoUrl) {
         var listOfGitRepos = gitRepos.stream().filter(gitRepoCache ->
-                gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toList());
+                gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoUrl)).collect(Collectors.toList());
         if (listOfGitRepos.size() != 1) {
             //The size should never be greater than 1
             return false;
@@ -196,6 +206,10 @@ public class RepoManagerImpl implements RepoManager {
                     .start();
             int exitCode = process.waitFor();
             if (exitCode == 0) {
+                gitRepos = gitRepos.stream().filter(gitRepoCache -> !gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoUrl)).collect(Collectors.toSet());
+                var updatedCacheSchema = listOfGitRepos.get(0);
+                updatedCacheSchema.addCommitHashToHistory(gitCommit);
+                gitRepos.add(updatedCacheSchema);
                 log.info("Updating repo version {} was successful.", cachedGitRepoSchema.getGitRepo());
                 return true;
             } else {
@@ -303,7 +317,6 @@ public class RepoManagerImpl implements RepoManager {
                 if (!clone(pipelineSchema.getGitRepoSchema())) {
                     return false;
                 }
-                gitRepos.add(new GitRepoCache(getCurrentCommit(pipelineSchema.getGitRepoSchema()), pipelineSchema.getGitRepoSchema()));
             }
             log.info("Finished cloning pipeline repos for team {}", teamName);
         }

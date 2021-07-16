@@ -55,9 +55,14 @@ public class PipelineRepoApi {
         }
     }
 
-    @PostMapping(value = "resetToVersion/{gitCommit}")
-    ResponseEntity<Void> resetRepoToVersion(@PathVariable("gitCommit") String gitCommit, @RequestBody GitRepoSchema gitRepoSchema) {
-        if (repoManager.resetToVersion(gitCommit, gitRepoSchema)) {
+    @PostMapping(value = "resetToVersion/{orgName}/{teamName}/{gitCommit}")
+    ResponseEntity<Void> resetRepoToVersion(@PathVariable("orgName") String orgName,
+                                            @PathVariable("teamName") String teamName,
+                                            @PathVariable("gitCommit") String gitCommit,
+                                            @RequestBody String gitRepoUrl) {
+        if (repoManager.getOrgName().equals(orgName)
+                && repoManager.containsGitRepoSchema(new GitRepoSchema(gitRepoUrl, null, null))
+                && repoManager.resetToVersion(gitCommit, gitRepoUrl)) {
             return ResponseEntity.ok().build();
         } else {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
