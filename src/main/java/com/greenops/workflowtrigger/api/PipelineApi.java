@@ -173,7 +173,6 @@ public class PipelineApi {
                                                @PathVariable("teamName") String teamName,
                                                @PathVariable("pipelineName") String pipelineName,
                                                @RequestBody(required = false) GitRepoSchema gitRepo) {
-        var key = DbKey.makeDbTeamKey(orgName, teamName);
         var response = deletePipeline(orgName, teamName, pipelineName, gitRepo);
         if (!response.getStatusCode().is2xxSuccessful()) {
             return response;
