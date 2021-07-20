@@ -38,8 +38,20 @@ public class GitRepoSchema {
     public String getPathToRoot() {
         return pathToRoot;
     }
-
+  
     public GitCred getGitCred() {
         return gitCred;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if(o instanceof GitRepoSchema) {
+            return ((GitRepoSchema) o).gitRepo.equals(this.gitRepo)
+                    && ((GitRepoSchema) o).pathToRoot.equals(this.pathToRoot)
+                    && ((GitRepoSchema) o).gitCred.equals(this.gitCred);
+        }
+
+        return false;
+    }
+    
 }

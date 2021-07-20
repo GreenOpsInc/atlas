@@ -21,4 +21,12 @@ public class GitCredMachineUser implements GitCred {
         this.username = username;
         this.password = password;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o instanceof GitCredMachineUser) {
+            return ((GitCredMachineUser) o).password.equals(password) && ((GitCredMachineUser) o).username.equals(username);
+        }
+        return false;
+    }
 }

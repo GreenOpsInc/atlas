@@ -19,4 +19,12 @@ public class GitCredToken implements GitCred {
     public GitCredToken(String token) {
         this.token = token;
     }
+
+    @Override
+    public boolean equals(Object o){
+        if(o instanceof GitCredToken){
+            return token.equals(((GitCredToken) o).token);
+        }
+        return false;
+    }
 }

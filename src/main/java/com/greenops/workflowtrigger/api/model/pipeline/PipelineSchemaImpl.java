@@ -31,4 +31,13 @@ public class PipelineSchemaImpl implements PipelineSchema {
     public void setGitRepoSchema(GitRepoSchema gitRepoSchema) {
         this.gitRepoSchema = gitRepoSchema;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if(o instanceof PipelineSchemaImpl){
+            return ((PipelineSchemaImpl) o).gitRepoSchema.equals(gitRepoSchema)
+                    && ((PipelineSchemaImpl) o).pipelineName.equals(pipelineName);
+        }
+        return false;
+    }
 }

@@ -3,6 +3,7 @@ package com.greenops.workflowtrigger.api.model.pipeline;
 import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -79,6 +80,7 @@ public class TeamSchemaImpl implements TeamSchema {
         return pipelines;
     }
 
+
     @Override
     public PipelineSchema getPipelineSchema(String pipelineName) {
         var result = pipelines.stream().filter(
@@ -88,5 +90,19 @@ public class TeamSchemaImpl implements TeamSchema {
             return result.get(0);
         }
         return null;
+    }
+
+
+    @Override
+    public boolean equals(Object o) {
+        if (o instanceof TeamSchemaImpl) {
+            return (
+                    (TeamSchemaImpl) o).orgName.equals(orgName)
+                    && ((TeamSchemaImpl) o).parentTeam.equals(parentTeam)
+                    && ((TeamSchemaImpl) o).teamName.equals(teamName)
+                    && Arrays.deepEquals(pipelines.toArray(), ((TeamSchemaImpl) o).pipelines.toArray()
+            );
+        }
+        return false;
     }
 }
