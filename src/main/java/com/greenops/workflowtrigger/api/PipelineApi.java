@@ -11,6 +11,7 @@ import com.greenops.workflowtrigger.api.reposerver.RepoManagerApi;
 import com.greenops.workflowtrigger.dbclient.DbClient;
 import com.greenops.workflowtrigger.dbclient.DbKey;
 import com.greenops.workflowtrigger.kafka.KafkaClient;
+import com.greenops.workflowtrigger.kubernetesclient.KubernetesClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -27,15 +28,19 @@ import java.util.stream.Collectors;
 @RequestMapping("/")
 public class PipelineApi {
 
+    private static String GIT_CRED_SECRET_NAMESPACE = "gitcred";
+
     private final DbClient dbClient;
     private final KafkaClient kafkaClient;
+    private final KubernetesClient kubernetesClient;
     private final RepoManagerApi repoManagerApi;
     private final ObjectMapper objectMapper;
 
     @Autowired
-    public PipelineApi(DbClient dbClient, KafkaClient kafkaClient, RepoManagerApi repoManagerApi, ObjectMapper objectMapper) {
+    public PipelineApi(DbClient dbClient, KafkaClient kafkaClient, KubernetesClient kubernetesClient, RepoManagerApi repoManagerApi, ObjectMapper objectMapper) {
         this.dbClient = dbClient;
         this.kafkaClient = kafkaClient;
+        this.kubernetesClient = kubernetesClient;
         this.repoManagerApi = repoManagerApi;
         this.objectMapper = objectMapper;
     }
@@ -49,6 +54,11 @@ public class PipelineApi {
         if (dbClient.fetchTeamSchema(key) == null) {
             var newTeam = new TeamSchemaImpl(teamName, parentTeamName, orgName);
             if (pipelineSchemas != null) {
+                for (var pipelineSchema : pipelineSchemas) {
+                    if (!kubernetesClient.storeSecret(pipelineSchema.getGitRepoSchema().getGitCred(), GIT_CRED_SECRET_NAMESPACE, DbKey.makeSecretName(orgName, teamName, pipelineSchema.getPipelineName()))) {
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+                    }
+                }
                 pipelineSchemas.forEach(newTeam::addPipeline);
             }
             if (dbClient.store(key, newTeam)) {
@@ -100,6 +110,12 @@ public class PipelineApi {
     public ResponseEntity<Void> deleteTeam(@PathVariable("orgName") String orgName,
                                            @PathVariable("teamName") String teamName) {
         var key = DbKey.makeDbTeamKey(orgName, teamName);
+        var teamSchema = dbClient.fetchTeamSchema(key);
+        for (var pipelineSchema : teamSchema.getPipelineSchemas()) {
+            if (!kubernetesClient.storeSecret(null, GIT_CRED_SECRET_NAMESPACE, DbKey.makeSecretName(orgName, teamName, pipelineSchema.getPipelineName()))) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            }
+        }
         if (dbClient.store(key, null)) {
             removeTeamFromOrgList(orgName, teamName);
             return ResponseEntity.ok().build();
@@ -121,6 +137,10 @@ public class PipelineApi {
         }
         if (teamSchema.getPipelineSchema(pipelineName) != null) {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
+
+        if (!kubernetesClient.storeSecret(gitRepo.getGitCred(), GIT_CRED_SECRET_NAMESPACE, DbKey.makeSecretName(orgName, teamName, pipelineName))) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
 
         teamSchema.addPipeline(pipelineName, gitRepo);
@@ -199,6 +219,8 @@ public class PipelineApi {
         if (teamSchema.getPipelineSchema(pipelineName) == null) {
             return ResponseEntity.badRequest().build();
         }
+
+        kubernetesClient.storeSecret(null, GIT_CRED_SECRET_NAMESPACE, DbKey.makeSecretName(orgName, teamName, pipelineName));
 
         teamSchema.removePipeline(pipelineName);
 

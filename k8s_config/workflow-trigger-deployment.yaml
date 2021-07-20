@@ -31,7 +31,15 @@ spec:
     spec:
       containers:
         - name: workflow-trigger
-          image: workflow-trigger
+          image: atlasworkflowtrigger
+          imagePullPolicy: Never
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: kafka.default.svc.cluster.local:9092
+            - name: REPO_SERVER_ENDPOINT
+              value: http://atlasreposerver.default.svc.cluster.local:8081
+            - name: REDIS_ENDPOINT
+              value: redisserver.default.svc.cluster.local:6379
           resources:
             requests:
               cpu: 100m

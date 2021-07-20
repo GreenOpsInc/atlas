@@ -38,4 +38,8 @@ public class GitRepoSchema {
     public String getPathToRoot() {
         return pathToRoot;
     }
+
+    public GitCred getGitCred() {
+        return gitCred;
+    }
 }

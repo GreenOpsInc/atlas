@@ -7,11 +7,13 @@ import com.greenops.workflowtrigger.api.model.pipeline.PipelineSchema;
 import com.greenops.workflowtrigger.api.model.pipeline.TeamSchema;
 import com.greenops.workflowtrigger.api.model.pipeline.TeamSchemaImpl;
 import com.greenops.workflowtrigger.dbclient.DbClient;
+import com.greenops.workflowtrigger.kubernetesclient.KubernetesClient;
 import org.junit.ClassRule;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.testcontainers.containers.DockerComposeContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -32,6 +34,9 @@ public class RedisDbClientIT {
             new DockerComposeContainer<>(new File("src/test/test_config/docker-compose.yml"))
                     .withServices("redisserver")
                     .waitingFor("redisserver", Wait.forListeningPort());
+
+    @MockBean
+    KubernetesClient kubernetesClient;
 
     @Value("${application.redis-url}")
     String redisUrl;

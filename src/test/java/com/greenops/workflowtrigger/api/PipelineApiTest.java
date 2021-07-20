@@ -19,6 +19,7 @@ import com.greenops.workflowtrigger.api.reposerver.RepoManagerApi;
 import com.greenops.workflowtrigger.dbclient.DbClient;
 import com.greenops.workflowtrigger.dbclient.DbKey;
 import com.greenops.workflowtrigger.kafka.KafkaClient;
+import com.greenops.workflowtrigger.kubernetesclient.KubernetesClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -60,6 +61,9 @@ public class PipelineApiTest {
         kafkaClient = Mockito.mock(KafkaClient.class);
         Mockito.doNothing().when(kafkaClient).sendMessage(any(String.class));
 
+        var kubernetesClient = Mockito.mock(KubernetesClient.class);
+        Mockito.when(kubernetesClient.storeSecret(any(), any(), any())).thenReturn(true);
+        Mockito.when(kubernetesClient.readSecret(any(), any())).thenReturn(true);
 
         repoManagerApi = Mockito.mock(RepoManagerApi.class);
         Mockito.when(repoManagerApi.cloneRepo(any())).thenReturn(true);
@@ -74,7 +78,7 @@ public class PipelineApiTest {
 
         pipelineSchemaJson = objectMapper.writeValueAsString(pipelineSchema);
 
-        pipelineApi = new PipelineApi(dbClient, kafkaClient, repoManagerApi, objectMapper);
+        pipelineApi = new PipelineApi(dbClient, kafkaClient, kubernetesClient, repoManagerApi, objectMapper);
 
     }
 
