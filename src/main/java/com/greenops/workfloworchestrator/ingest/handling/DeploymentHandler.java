@@ -6,7 +6,7 @@ import com.greenops.workfloworchestrator.ingest.handling.util.deployment.ArgoDep
 
 public interface DeploymentHandler {
 
-    boolean deployApplicationInfrastructure(Event event, String pipelineRepoUrl, StepData stepData);
+    void deployApplicationInfrastructure(Event event, String pipelineRepoUrl, StepData stepData);
     ArgoDeploymentInfo deployArgoApplication(Event event, String pipelineRepoUrl, StepData stepData);
-    boolean rollbackArgoApplication(Event event, String pipelineRepoUrl, StepData stepData, String argoApplicationName, int argoRevisionId);
+    void rollbackArgoApplication(Event event, String pipelineRepoUrl, StepData stepData, String argoApplicationName, int argoRevisionId);
 }

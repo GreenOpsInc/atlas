@@ -3,6 +3,8 @@ package com.greenops.workfloworchestrator.ingest.apiclient.reposerver;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.workfloworchestrator.datamodel.requests.GetFileRequest;
+import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
+import com.greenops.workfloworchestrator.error.AtlasRetryableError;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
@@ -15,6 +17,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+
+import static com.greenops.workfloworchestrator.ingest.apiclient.util.ApiClientUtil.checkResponseStatus;
 
 @Slf4j
 @Component
@@ -47,13 +51,14 @@ public class RepoManagerApiImpl implements RepoManagerApi {
             request.setEntity(new StringEntity(requestBody, ContentType.APPLICATION_JSON));
             var response = httpClient.execute(request);
             log.info("Fetch file request for repo {} returned with status code {}", getFileRequest.getGitRepoUrl(), response.getStatusLine().getStatusCode());
+            checkResponseStatus(response);
             return new String(response.getEntity().getContent().readAllBytes());
         } catch (JsonProcessingException e) {
             log.error("Object mapper could not convert GetFileRequest", e);
-            return null;
+            throw new AtlasNonRetryableError(e);
         } catch (IOException e) {
             log.error("HTTP get file request failed for repo: {}", getFileRequest.getGitRepoUrl(), e);
-            return null;
+            throw new AtlasRetryableError(e);
         }
     }
 
@@ -64,24 +69,25 @@ public class RepoManagerApiImpl implements RepoManagerApi {
             request.setEntity(new StringEntity(gitRepoUrl, ContentType.APPLICATION_JSON));
             var response = httpClient.execute(request);
             log.info("Fetch version request for repo {} returned with status code {}", gitRepoUrl, response.getStatusLine().getStatusCode());
+            checkResponseStatus(response);
             return new String(response.getEntity().getContent().readAllBytes());
         } catch (IOException e) {
             log.error("HTTP get version request failed for repo: {}", gitRepoUrl, e);
-            return null;
+            throw new AtlasRetryableError(e);
         }
     }
 
     @Override
-    public boolean resetRepoVersion(String gitCommit, String gitRepoUrl, String orgName, String teamName) {
+    public void resetRepoVersion(String gitCommit, String gitRepoUrl, String orgName, String teamName) {
         try {
             var request = new HttpPost(serverRepoEndpoint + String.format("/%s/%s/%s/%s", CHANGE_VERSION_EXTENSION, orgName, teamName, gitCommit));
             request.setEntity(new StringEntity(gitRepoUrl, ContentType.DEFAULT_TEXT));
             var response = httpClient.execute(request);
             log.info("Change version request for repo {} returned with status code {}", gitRepoUrl, response.getStatusLine().getStatusCode());
-            return String.valueOf(response.getStatusLine().getStatusCode()).startsWith("2");
+            checkResponseStatus(response);
         } catch (IOException e) {
             log.error("HTTP Change version request failed for repo: {}", gitRepoUrl, e);
-            return false;
+            throw new AtlasRetryableError(e);
         }
     }
 }

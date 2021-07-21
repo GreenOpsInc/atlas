@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.workfloworchestrator.datamodel.auditlog.DeploymentLog;
 import com.greenops.workfloworchestrator.datamodel.pipelineschema.TeamSchema;
+import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
+import com.greenops.workfloworchestrator.error.AtlasRetryableError;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
@@ -45,21 +47,21 @@ public class RedisDbClient implements DbClient {
     }
 
     @Override
-    public boolean storeValue(String key, Object schema) {
-        return store(key, schema, ListStoreOperation.NONE);
+    public void storeValue(String key, Object schema) {
+        store(key, schema, ListStoreOperation.NONE);
     }
 
     @Override
-    public boolean insertValueInList(String key, Object schema) {
-        return store(key, schema, ListStoreOperation.INSERT);
+    public void insertValueInList(String key, Object schema) {
+        store(key, schema, ListStoreOperation.INSERT);
     }
 
     @Override
-    public boolean updateHeadInList(String key, Object schema) {
-        return store(key, schema, ListStoreOperation.UPDATE);
+    public void updateHeadInList(String key, Object schema) {
+        store(key, schema, ListStoreOperation.UPDATE);
     }
 
-    private boolean store(String key, Object schema, ListStoreOperation listStoreOperation) {
+    private void store(String key, Object schema, ListStoreOperation listStoreOperation) {
         try {
             log.info("Storing schema for key {}", key);
             if (!key.equals(currentWatchedKey)) {
@@ -89,9 +91,12 @@ public class RedisDbClient implements DbClient {
             }
             var result = redisCommands.exec();
             //Either all of the transaction is processed or all of it is discarded
-            return !result.wasDiscarded();
+            if (result.wasDiscarded()) {
+                throw new AtlasRetryableError("The transaction was interrupted");
+            }
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Jackson object mapping/serialization failed.");
+            log.error("Jackson object mapping/serialization failed.", e);
+            throw new AtlasNonRetryableError(e);
         }
     }
 
@@ -112,7 +117,9 @@ public class RedisDbClient implements DbClient {
 
     @Override
     public DeploymentLog fetchLatestLog(String key) {
-        return (DeploymentLog) fetch(key, ObjectType.SINGLE_LOG);
+        var deploymentLog = (DeploymentLog) fetch(key, ObjectType.SINGLE_LOG);
+        if (deploymentLog == null) throw new AtlasNonRetryableError("No deployment log exists");
+        return deploymentLog;
     }
 
     private Object fetch(String key, ObjectType objectType) {
@@ -146,8 +153,9 @@ public class RedisDbClient implements DbClient {
                 return objectMapper.readValue(result, DeploymentLog.class);
             }
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Jackson object mapping/serialization failed.");
+            log.error("Jackson object mapping/serialization failed.", e);
+            throw new AtlasNonRetryableError(e);
         }
-        return null;
+        throw new AtlasNonRetryableError("None of the ObjectTypes were matched");
     }
 }

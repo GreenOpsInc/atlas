@@ -16,9 +16,7 @@ public interface ClientWrapperApi {
 
     public DeployResponse rollback(String orgName, String appName, int revisionId);
 
-    public boolean deleteApplication(String group, String version, String kind, String applicationName);
+    public void deleteApplication(String group, String version, String kind, String applicationName);
 
-    public boolean checkStatus(String group, String version, String kind, String applicationName);
-
-    public boolean watchApplication(String orgName, WatchRequest watchRequest);
+    public void watchApplication(String orgName, WatchRequest watchRequest);
 }

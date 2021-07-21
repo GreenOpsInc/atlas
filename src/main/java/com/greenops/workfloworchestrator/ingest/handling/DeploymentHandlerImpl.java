@@ -4,6 +4,7 @@ import com.greenops.workfloworchestrator.datamodel.event.Event;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData;
 import com.greenops.workfloworchestrator.datamodel.requests.GetFileRequest;
 import com.greenops.workfloworchestrator.datamodel.requests.WatchRequest;
+import com.greenops.workfloworchestrator.error.AtlasRetryableError;
 import com.greenops.workfloworchestrator.ingest.apiclient.clientwrapper.ClientWrapperApi;
 import com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManagerApi;
 import com.greenops.workfloworchestrator.ingest.handling.util.deployment.ArgoDeploymentInfo;
@@ -30,7 +31,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
     }
 
     @Override
-    public boolean deployApplicationInfrastructure(Event event, String pipelineRepoUrl, StepData stepData) {
+    public void deployApplicationInfrastructure(Event event, String pipelineRepoUrl, StepData stepData) {
         if (stepData.getOtherDeploymentsPath() != null) {
             var getFileRequest = new GetFileRequest(pipelineRepoUrl, stepData.getOtherDeploymentsPath());
             var otherDeploymentsConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
@@ -38,12 +39,12 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
             for (var deploymentConfig : otherDeploymentsConfig.split("---")) {
                 var deployResponse = clientWrapperApi.deploy(event.getOrgName(), ClientWrapperApi.DEPLOY_KUBERNETES_REQUEST, Optional.of(deploymentConfig), Optional.empty());
                 if (!deployResponse.getSuccess()) {
-                    log.error("Deploying other resources failed.");
-                    return false;
+                    var message = "Deploying other resources failed.";
+                    log.error(message);
+                    throw new AtlasRetryableError(message);
                 }
             }
         }
-        return true;
     }
 
     @Override
@@ -60,8 +61,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
                     return null;
                 } else {
                     var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepData.getName(), WATCH_ARGO_APPLICATION_KEY, deployResponse.getResourceName(), deployResponse.getApplicationNamespace());
-                    var watching = clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
-                    if (!watching) return null;
+                    clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
                     log.info("Watching Argo application {}", deployResponse.getResourceName());
                     return new ArgoDeploymentInfo(deployResponse.getResourceName(), deployResponse.getRevisionId());
                 }
@@ -75,13 +75,14 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
     }
 
     @Override
-    public boolean rollbackArgoApplication(Event event, String pipelineRepoUrl, StepData stepData, String argoApplicationName, int argoRevisionId) {
+    public void rollbackArgoApplication(Event event, String pipelineRepoUrl, StepData stepData, String argoApplicationName, int argoRevisionId) {
         var deployResponse = clientWrapperApi.rollback(event.getOrgName(), argoApplicationName, argoRevisionId);
         if (!deployResponse.getSuccess()) {
-            log.error("Rolling back the Argo application failed.");
-            return false;
+            var message = "Rolling back the Argo application failed.";
+            log.error(message);
+            throw new AtlasRetryableError(message);
         }
         var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepData.getName(), WATCH_ARGO_APPLICATION_KEY, stepData.getArgoApplication(), deployResponse.getApplicationNamespace());
-        return clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
+        clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
     }
 }
