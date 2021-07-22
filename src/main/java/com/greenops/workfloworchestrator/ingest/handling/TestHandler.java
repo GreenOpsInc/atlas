@@ -6,6 +6,6 @@ import com.greenops.workfloworchestrator.datamodel.pipelinedata.Test;
 
 public interface TestHandler {
 
-    boolean triggerTest(String pipelineRepoUrl, StepData stepData, boolean beforeTest, Event event);
-    boolean createAndRunTest(String stepName, String pipelineRepoUrl, Test test, int testNumber, Event event);
+    void triggerTest(String pipelineRepoUrl, StepData stepData, boolean beforeTest, Event event);
+    void createAndRunTest(String stepName, String pipelineRepoUrl, Test test, int testNumber, Event event);
 }

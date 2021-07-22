@@ -6,6 +6,7 @@ import com.greenops.workfloworchestrator.datamodel.pipelinedata.Test;
 import com.greenops.workfloworchestrator.datamodel.requests.GetFileRequest;
 import com.greenops.workfloworchestrator.datamodel.requests.KubernetesCreationRequest;
 import com.greenops.workfloworchestrator.datamodel.requests.WatchRequest;
+import com.greenops.workfloworchestrator.error.AtlasRetryableError;
 import com.greenops.workfloworchestrator.ingest.apiclient.clientwrapper.ClientWrapperApi;
 import com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManagerApi;
 import com.greenops.workfloworchestrator.ingest.handling.testautomation.CommandBuilder;
@@ -35,17 +36,17 @@ public class TestHandlerImpl implements TestHandler {
     }
 
     @Override
-    public boolean triggerTest(String pipelineRepoUrl, StepData stepData, boolean beforeTest, Event event) {
+    public void triggerTest(String pipelineRepoUrl, StepData stepData, boolean beforeTest, Event event) {
         for (int i = 0; i < stepData.getTests().size(); i++) {
             if (beforeTest == stepData.getTests().get(i).shouldExecuteBefore()) {
-                return createAndRunTest(stepData.getName(), pipelineRepoUrl, stepData.getTests().get(i), i, event);
+                createAndRunTest(stepData.getName(), pipelineRepoUrl, stepData.getTests().get(i), i, event);
+                return;
             }
         }
-        return true;
     }
 
     @Override
-    public boolean createAndRunTest(String stepName, String pipelineRepoUrl, Test test, int testNumber, Event event) {
+    public void createAndRunTest(String stepName, String pipelineRepoUrl, Test test, int testNumber, Event event) {
         var getFileRequest = new GetFileRequest(pipelineRepoUrl, test.getPath());
         var testConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
         var testKey = makeTestKey(testNumber);
@@ -63,12 +64,10 @@ public class TestHandlerImpl implements TestHandler {
         var deployResponse = clientWrapperApi.deploy(event.getOrgName(), ClientWrapperApi.DEPLOY_TEST_REQUEST, Optional.empty(), Optional.of(creationRequest));
         if (deployResponse.getSuccess()) {
             var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepName, WATCH_TEST_KEY, testKey, deployResponse.getApplicationNamespace());
-            var watching = clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
-            if (!watching) return false;
+            clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
             log.info("Watching Job");
-            return true;
         } else {
-            return false;
+            throw new AtlasRetryableError("Test deployment was unsuccessful");
         }
     }
 }

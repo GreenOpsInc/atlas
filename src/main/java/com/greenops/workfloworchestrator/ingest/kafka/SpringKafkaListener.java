@@ -3,6 +3,7 @@ package com.greenops.workfloworchestrator.ingest.kafka;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.workfloworchestrator.datamodel.event.Event;
+import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.ingest.handling.EventHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,13 +27,11 @@ public class SpringKafkaListener {
     public void listen(String message, Acknowledgment ack) {
         try {
             var event = objectMapper.readValue(message, Event.class);
-            if (eventHandler.handleEvent(event)) {
-                ack.acknowledge();
-            } else {
-                //TODO: Send the message to the DLQ to process later
-            }
+            eventHandler.handleEvent(event);
+            ack.acknowledge();
         } catch (JsonProcessingException e) {
             log.error("ObjectMapper could not map message to Event", e);
+            throw new AtlasNonRetryableError(e);
         }
     }
 

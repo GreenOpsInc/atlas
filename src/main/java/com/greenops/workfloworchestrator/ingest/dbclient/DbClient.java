@@ -15,9 +15,9 @@ public interface DbClient {
         NONE, INSERT, UPDATE;
     }
 
-    public boolean storeValue(String key, Object schema);
-    public boolean insertValueInList(String key, Object schema);
-    public boolean updateHeadInList(String key, Object schema);
+    public void storeValue(String key, Object schema);
+    public void insertValueInList(String key, Object schema);
+    public void updateHeadInList(String key, Object schema);
     public TeamSchema fetchTeamSchema(String key);
     public List<String> fetchStringList(String key);
     public List<DeploymentLog> fetchLogList(String key);
