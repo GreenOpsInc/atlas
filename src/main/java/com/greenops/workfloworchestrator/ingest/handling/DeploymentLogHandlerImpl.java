@@ -9,6 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.ROOT_STEP_NAME;
+
 @Slf4j
 @Component
 public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
@@ -42,6 +44,8 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
     @Override
     public void markDeploymentSuccessful(Event event, String stepName) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
+        //TODO: Remove this line when the TriggerStep event is added
+        if (stepName.equals(ROOT_STEP_NAME)) return;
         var deploymentLog = dbClient.fetchLatestLog(logKey);
         deploymentLog.setDeploymentComplete(true);
         dbClient.updateHeadInList(logKey, deploymentLog);
@@ -50,6 +54,8 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
     @Override
     public void markStepSuccessful(Event event, String stepName) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
+        //TODO: Remove this line when the TriggerStep event is added
+        if (stepName.equals(ROOT_STEP_NAME)) return;
         var deploymentLog = dbClient.fetchLatestLog(logKey);
         //This check is largely redundant. Should never be the case
         if (deploymentLog.getBrokenTest() != null) {

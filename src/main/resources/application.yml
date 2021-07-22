@@ -10,6 +10,7 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     topic: greenops.eventing
+    dlqtopic: greenops.eventing.dlq
 application:
   repo-server-url: ${REPO_SERVER_ENDPOINT:http://localhost:8081}
   client-wrapper-url: ${CLIENT_WRAPPER_ENDPOINT:http://localhost:9091}

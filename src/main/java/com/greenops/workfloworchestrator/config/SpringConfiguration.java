@@ -31,9 +31,14 @@ import com.greenops.workfloworchestrator.datamodel.requests.DeployResponse;
 import com.greenops.workfloworchestrator.datamodel.requests.GetFileRequest;
 import com.greenops.workfloworchestrator.datamodel.requests.KubernetesCreationRequest;
 import com.greenops.workfloworchestrator.datamodel.requests.WatchRequest;
+import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
+import com.greenops.workfloworchestrator.ingest.kafka.KafkaClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.listener.ContainerAwareErrorHandler;
+import org.springframework.kafka.listener.SeekToCurrentErrorHandler;
+import org.springframework.util.backoff.FixedBackOff;
 
 @Configuration
 public class SpringConfiguration {
@@ -70,5 +75,22 @@ public class SpringConfiguration {
                 .addMixIn(GitCredToken.class, GitCredTokenMixin.class)
                 .addMixIn(GitCredOpen.class, GitCredOpen.class)
                 .addMixIn(DeploymentLog.class, DeploymentLogMixin.class);
+    }
+
+    @Bean
+    ContainerAwareErrorHandler errorHandler(KafkaClient kafkaClient) {
+        var errorHandler =
+                new SeekToCurrentErrorHandler((record, exception) -> {
+                    if (exception.getCause() instanceof AtlasNonRetryableError) {
+                        //send to DLQ
+                        kafkaClient.sendMessageToDlq((String)record.value());
+                    } else {
+                        //All should be instances of AtlasRetryableErrors
+                        //Send to back of topic to try again later
+                        kafkaClient.sendMessage((String)record.value());
+                    }
+                }, new FixedBackOff(100L, 5L));
+        errorHandler.addNotRetryableException(AtlasNonRetryableError.class);
+        return errorHandler;
     }
 }

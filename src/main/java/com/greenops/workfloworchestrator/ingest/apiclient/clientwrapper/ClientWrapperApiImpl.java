@@ -40,8 +40,8 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
 
     @Override
     public DeployResponse deploy(String orgName, String type, Optional<String> configPayload, Optional<KubernetesCreationRequest> kubernetesCreationRequest) {
+        var request = new HttpPost(serverEndpoint + String.format("/deploy/%s/%s", orgName, type));
         try {
-            var request = new HttpPost(serverEndpoint + String.format("/deploy/%s/%s", orgName, type));
             var body = type.equals(DEPLOY_TEST_REQUEST) ? objectMapper.writeValueAsString(kubernetesCreationRequest.get()) : configPayload.get();
             request.setEntity(new StringEntity(body, ContentType.DEFAULT_TEXT));
             var response = httpClient.execute(request);
@@ -53,13 +53,15 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
         } catch (IOException e) {
             log.error("HTTP deploy request failed", e);
             throw new AtlasRetryableError(e);
+        } finally {
+            request.releaseConnection();
         }
     }
 
     @Override
     public DeployResponse rollback(String orgName, String appName, int revisionId) {
+        var request = new HttpPost(serverEndpoint + String.format("/rollback/%s/%s/%d", orgName, appName, revisionId));
         try {
-            var request = new HttpPost(serverEndpoint + String.format("/rollback/%s/%s/%d", orgName, appName, revisionId));
             var response = httpClient.execute(request);
             checkResponseStatus(response);
             return objectMapper.readValue(response.getEntity().getContent().readAllBytes(), DeployResponse.class);
@@ -69,13 +71,15 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
         } catch (IOException e) {
             log.error("HTTP deploy request failed", e);
             throw new AtlasRetryableError(e);
+        } finally {
+            request.releaseConnection();
         }
     }
 
     @Override
     public void deleteApplication(String group, String version, String kind, String applicationName) {
+        var request = new HttpPost(serverEndpoint + String.format("/delete/%s/%s/%s/%s", group, version, kind, applicationName));
         try {
-            var request = new HttpPost(serverEndpoint + String.format("/delete/%s/%s/%s/%s", group, version, kind, applicationName));
             var response = httpClient.execute(request);
             checkResponseStatus(response);
         } catch (JsonProcessingException e) {
@@ -84,13 +88,15 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
         } catch (IOException e) {
             log.error("HTTP delete request failed", e);
             throw new AtlasRetryableError(e);
+        } finally {
+            request.releaseConnection();
         }
     }
 
     @Override
     public void watchApplication(String orgName, WatchRequest watchRequest) {
+        var request = new HttpPost(serverEndpoint + String.format("/watch/%s", orgName));
         try {
-            var request = new HttpPost(serverEndpoint + String.format("/watch/%s", orgName));
             var body = objectMapper.writeValueAsString(watchRequest);
             request.setEntity(new StringEntity(body, ContentType.DEFAULT_TEXT));
             var response = httpClient.execute(request);
@@ -101,6 +107,8 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
         } catch (IOException e) {
             log.error("HTTP delete request failed", e);
             throw new AtlasRetryableError(e);
+        } finally {
+            request.releaseConnection();
         }
     }
 }

@@ -45,9 +45,9 @@ public class RepoManagerApiImpl implements RepoManagerApi {
 
     @Override
     public String getFileFromRepo(GetFileRequest getFileRequest, String orgName, String teamName) {
+        var request = new HttpPost(serverDataEndpoint + String.format("/%s/%s/%s", GET_FILE_EXTENSION, orgName, teamName));
         try {
             var requestBody = objectMapper.writeValueAsString(getFileRequest);
-            var request = new HttpPost(serverDataEndpoint + String.format("/%s/%s/%s", GET_FILE_EXTENSION, orgName, teamName));
             request.setEntity(new StringEntity(requestBody, ContentType.APPLICATION_JSON));
             var response = httpClient.execute(request);
             log.info("Fetch file request for repo {} returned with status code {}", getFileRequest.getGitRepoUrl(), response.getStatusLine().getStatusCode());
@@ -59,13 +59,15 @@ public class RepoManagerApiImpl implements RepoManagerApi {
         } catch (IOException e) {
             log.error("HTTP get file request failed for repo: {}", getFileRequest.getGitRepoUrl(), e);
             throw new AtlasRetryableError(e);
+        } finally {
+            request.releaseConnection();
         }
     }
 
     @Override
     public String getCurrentPipelineCommitHash(String gitRepoUrl, String orgName, String teamName) {
+        var request = new HttpPost(serverDataEndpoint + String.format("/%s/%s/%s", GET_COMMIT_EXTENSION, orgName, teamName));
         try {
-            var request = new HttpPost(serverDataEndpoint + String.format("/%s/%s/%s", GET_COMMIT_EXTENSION, orgName, teamName));
             request.setEntity(new StringEntity(gitRepoUrl, ContentType.APPLICATION_JSON));
             var response = httpClient.execute(request);
             log.info("Fetch version request for repo {} returned with status code {}", gitRepoUrl, response.getStatusLine().getStatusCode());
@@ -74,13 +76,15 @@ public class RepoManagerApiImpl implements RepoManagerApi {
         } catch (IOException e) {
             log.error("HTTP get version request failed for repo: {}", gitRepoUrl, e);
             throw new AtlasRetryableError(e);
+        } finally {
+            request.releaseConnection();
         }
     }
 
     @Override
     public void resetRepoVersion(String gitCommit, String gitRepoUrl, String orgName, String teamName) {
+        var request = new HttpPost(serverRepoEndpoint + String.format("/%s/%s/%s/%s", CHANGE_VERSION_EXTENSION, orgName, teamName, gitCommit));
         try {
-            var request = new HttpPost(serverRepoEndpoint + String.format("/%s/%s/%s/%s", CHANGE_VERSION_EXTENSION, orgName, teamName, gitCommit));
             request.setEntity(new StringEntity(gitRepoUrl, ContentType.DEFAULT_TEXT));
             var response = httpClient.execute(request);
             log.info("Change version request for repo {} returned with status code {}", gitRepoUrl, response.getStatusLine().getStatusCode());
@@ -88,6 +92,8 @@ public class RepoManagerApiImpl implements RepoManagerApi {
         } catch (IOException e) {
             log.error("HTTP Change version request failed for repo: {}", gitRepoUrl, e);
             throw new AtlasRetryableError(e);
+        } finally {
+            request.releaseConnection();
         }
     }
 }
