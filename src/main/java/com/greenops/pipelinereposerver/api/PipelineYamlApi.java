@@ -35,7 +35,7 @@ public class PipelineYamlApi {
             return ResponseEntity.ok(fileContents);
         }
 
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
     }
 
     @PostMapping("/version/{orgName}/{teamName}")
@@ -46,11 +46,11 @@ public class PipelineYamlApi {
                 repoManager.containsGitRepoSchema(new GitRepoSchema(gitRepoUrl, null, null))) {
             String commitHash = repoManager.getLatestCommitFromCache(gitRepoUrl);
             if (commitHash == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
             }
             return ResponseEntity.ok(commitHash);
         }
 
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
     }
 }

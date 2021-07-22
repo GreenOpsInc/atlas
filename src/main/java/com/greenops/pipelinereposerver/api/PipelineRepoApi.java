@@ -60,12 +60,14 @@ public class PipelineRepoApi {
                                             @PathVariable("teamName") String teamName,
                                             @PathVariable("gitCommit") String gitCommit,
                                             @RequestBody String gitRepoUrl) {
-        if (repoManager.getOrgName().equals(orgName)
-                && repoManager.containsGitRepoSchema(new GitRepoSchema(gitRepoUrl, null, null))
-                && repoManager.resetToVersion(gitCommit, gitRepoUrl)) {
-            return ResponseEntity.ok().build();
+        if (repoManager.getOrgName().equals(orgName) && repoManager.containsGitRepoSchema(new GitRepoSchema(gitRepoUrl, null, null))) {
+            if (repoManager.resetToVersion(gitCommit, gitRepoUrl)) {
+                return ResponseEntity.ok().build();
+            } else {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            }
         } else {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
     }
 }

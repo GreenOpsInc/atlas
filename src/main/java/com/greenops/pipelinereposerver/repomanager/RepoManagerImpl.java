@@ -181,7 +181,7 @@ public class RepoManagerImpl implements RepoManager {
                 return false;
             }
         } catch (IOException | InterruptedException e) {
-            log.error("An error was thrown when attempting to clone the repo {}", cachedGitRepoSchema.getGitRepo(), e);
+            log.error("An error was thrown when attempting to sync the repo {}", cachedGitRepoSchema.getGitRepo(), e);
             delete(cachedGitRepoSchema);
             return false;
         }
