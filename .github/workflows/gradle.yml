@@ -15,7 +15,7 @@ jobs:
         with:
           java-version: '11'
           distribution: 'adopt'
-      - name: Build with Gradle
+      - name: Build docker iamge
         run: ./gradlew jibDockerBuild
       - name: Build with Gradle
         run: ./gradlew build
