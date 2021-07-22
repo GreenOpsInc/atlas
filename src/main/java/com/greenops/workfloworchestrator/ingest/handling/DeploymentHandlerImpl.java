@@ -77,6 +77,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
     @Override
     public void rollbackArgoApplication(Event event, String pipelineRepoUrl, StepData stepData, String argoApplicationName, int argoRevisionId) {
         var deployResponse = clientWrapperApi.rollback(event.getOrgName(), argoApplicationName, argoRevisionId);
+        log.info("Rolling back Argo application {}...", deployResponse.getResourceName());
         if (!deployResponse.getSuccess()) {
             var message = "Rolling back the Argo application failed.";
             log.error(message);
@@ -84,5 +85,6 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
         }
         var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepData.getName(), WATCH_ARGO_APPLICATION_KEY, stepData.getArgoApplication(), deployResponse.getApplicationNamespace());
         clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
+        log.info("Watching rolled back Argo application {}", deployResponse.getResourceName());
     }
 }
