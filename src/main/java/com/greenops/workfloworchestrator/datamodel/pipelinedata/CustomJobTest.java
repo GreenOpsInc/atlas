@@ -1,17 +1,17 @@
 package com.greenops.workfloworchestrator.datamodel.pipelinedata;
 
+import com.greenops.workfloworchestrator.datamodel.requests.KubernetesCreationRequest;
+
 import java.util.Map;
 
-public class CustomTest implements Test {
+public class CustomJobTest implements Test {
 
     private String path;
-    private boolean executeInApplicationPod;
     private boolean executeBeforeDeployment;
     private Map<String, String> variables;
 
-    CustomTest(String path, boolean executeInApplicationPod, boolean executeBeforeDeployment, Map<String, String> variables) {
+    CustomJobTest(String path, boolean executeBeforeDeployment, Map<String, String> variables) {
         this.path = path;
-        this.executeInApplicationPod = executeInApplicationPod;
         this.executeBeforeDeployment = executeBeforeDeployment;
         this.variables = variables;
     }
@@ -22,11 +22,6 @@ public class CustomTest implements Test {
     }
 
     @Override
-    public boolean shouldExecuteInPod() {
-        return executeInApplicationPod;
-    }
-
-    @Override
     public boolean shouldExecuteBefore() {
         return executeBeforeDeployment;
     }
@@ -34,5 +29,10 @@ public class CustomTest implements Test {
     @Override
     public Map<String, String> getVariables() {
         return variables;
+    }
+
+    @Override
+    public Object getPayload(int testNumber, String testConfig) {
+        return new KubernetesCreationRequest(testConfig, getVariables());
     }
 }

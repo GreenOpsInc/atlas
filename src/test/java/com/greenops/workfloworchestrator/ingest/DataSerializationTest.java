@@ -5,8 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.PipelineDataMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.StepDataMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.TestMixin;
-import com.greenops.workfloworchestrator.datamodel.pipelinedata.CustomTest;
+import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.InjectScriptTestMixin;
+import com.greenops.workfloworchestrator.datamodel.pipelinedata.InjectScriptTest;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.PipelineData;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.PipelineDataImpl;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.StepDataImpl;
@@ -24,7 +24,7 @@ public class DataSerializationTest {
         objectMapper = new ObjectMapper()
                 .addMixIn(PipelineDataImpl.class, PipelineDataMixin.class)
                 .addMixIn(StepDataImpl.class, StepDataMixin.class)
-                .addMixIn(CustomTest.class, TestMixin.class);
+                .addMixIn(InjectScriptTest.class, InjectScriptTestMixin.class);
     }
 
     //TODO: Obviously an incomplete test. This should be manually tested if the data model is updated.

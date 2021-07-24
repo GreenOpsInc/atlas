@@ -3,7 +3,6 @@ package com.greenops.workfloworchestrator.ingest.apiclient.clientwrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.workfloworchestrator.datamodel.requests.DeployResponse;
-import com.greenops.workfloworchestrator.datamodel.requests.KubernetesCreationRequest;
 import com.greenops.workfloworchestrator.datamodel.requests.WatchRequest;
 import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.error.AtlasRetryableError;
@@ -19,7 +18,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.Optional;
 
 import static com.greenops.workfloworchestrator.ingest.apiclient.util.ApiClientUtil.checkResponseStatus;
 
@@ -39,10 +37,10 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     }
 
     @Override
-    public DeployResponse deploy(String orgName, String type, Optional<String> configPayload, Optional<KubernetesCreationRequest> kubernetesCreationRequest) {
+    public DeployResponse deploy(String orgName, String type, Object payload) {
         var request = new HttpPost(serverEndpoint + String.format("/deploy/%s/%s", orgName, type));
         try {
-            var body = type.equals(DEPLOY_TEST_REQUEST) ? objectMapper.writeValueAsString(kubernetesCreationRequest.get()) : configPayload.get();
+            var body = type.equals(DEPLOY_TEST_REQUEST) ? objectMapper.writeValueAsString(payload) : (String)payload;
             request.setEntity(new StringEntity(body, ContentType.DEFAULT_TEXT));
             var response = httpClient.execute(request);
             checkResponseStatus(response);

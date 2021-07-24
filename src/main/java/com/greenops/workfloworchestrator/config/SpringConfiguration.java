@@ -15,9 +15,10 @@ import com.greenops.workfloworchestrator.datamodel.mixin.event.TestCompletionEve
 import com.greenops.workfloworchestrator.datamodel.mixin.git.GitCredMachineUserMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.git.GitCredTokenMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.git.GitRepoSchemaMixin;
+import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.CustomJobTestMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.PipelineDataMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.StepDataMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.TestMixin;
+import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.InjectScriptTestMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelineschema.PipelineSchemaMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelineschema.TeamSchemaMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.requests.DeployResponseMixin;
@@ -32,6 +33,7 @@ import com.greenops.workfloworchestrator.datamodel.requests.GetFileRequest;
 import com.greenops.workfloworchestrator.datamodel.requests.KubernetesCreationRequest;
 import com.greenops.workfloworchestrator.datamodel.requests.WatchRequest;
 import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
+import com.greenops.workfloworchestrator.error.AtlasRetryableError;
 import com.greenops.workfloworchestrator.ingest.kafka.KafkaClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -67,7 +69,8 @@ public class SpringConfiguration {
         return new ObjectMapper()
                 .addMixIn(PipelineDataImpl.class, PipelineDataMixin.class)
                 .addMixIn(StepDataImpl.class, StepDataMixin.class)
-                .addMixIn(CustomTest.class, TestMixin.class)
+                .addMixIn(InjectScriptTest.class, InjectScriptTestMixin.class)
+                .addMixIn(CustomJobTest.class, CustomJobTestMixin.class)
                 .addMixIn(PipelineSchemaImpl.class, PipelineSchemaMixin.class)
                 .addMixIn(TeamSchemaImpl.class, TeamSchemaMixin.class)
                 .addMixIn(GitRepoSchema.class, GitRepoSchemaMixin.class)
@@ -81,13 +84,13 @@ public class SpringConfiguration {
     ContainerAwareErrorHandler errorHandler(KafkaClient kafkaClient) {
         var errorHandler =
                 new SeekToCurrentErrorHandler((record, exception) -> {
-                    if (exception.getCause() instanceof AtlasNonRetryableError) {
-                        //send to DLQ
-                        kafkaClient.sendMessageToDlq((String)record.value());
-                    } else {
+                    if (exception.getCause() instanceof AtlasRetryableError) {
                         //All should be instances of AtlasRetryableErrors
                         //Send to back of topic to try again later
                         kafkaClient.sendMessage((String)record.value());
+                    } else {
+                        //send to DLQ
+                        kafkaClient.sendMessageToDlq((String)record.value());
                     }
                 }, new FixedBackOff(100L, 5L));
         errorHandler.addNotRetryableException(AtlasNonRetryableError.class);

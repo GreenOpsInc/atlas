@@ -19,6 +19,8 @@ public abstract class TestCompletionEventMixin {
     String log;
     @JsonProperty(value = "testName")
     String testName;
+    @JsonProperty(value = "testNumber")
+    int testNumber;
 
     @JsonCreator
     public TestCompletionEventMixin(@JsonProperty(value = "successful") boolean successful,
@@ -27,6 +29,7 @@ public abstract class TestCompletionEventMixin {
                                     @JsonProperty(value = "pipelineName") String pipelineName,
                                     @JsonProperty(value = "stepName") String stepName,
                                     @JsonProperty(value = "log") String log,
-                                    @JsonProperty(value = "testName") String testName) {
+                                    @JsonProperty(value = "testName") String testName,
+                                    @JsonProperty(value = "testNumber") int testNumber) {
     }
 }

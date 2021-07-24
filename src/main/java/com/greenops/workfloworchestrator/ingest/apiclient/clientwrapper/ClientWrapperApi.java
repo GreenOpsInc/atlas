@@ -1,18 +1,15 @@
 package com.greenops.workfloworchestrator.ingest.apiclient.clientwrapper;
 
 import com.greenops.workfloworchestrator.datamodel.requests.DeployResponse;
-import com.greenops.workfloworchestrator.datamodel.requests.KubernetesCreationRequest;
 import com.greenops.workfloworchestrator.datamodel.requests.WatchRequest;
-
-import java.util.Optional;
 
 public interface ClientWrapperApi {
 
-    public static final String DEPLOY_ARGO_REQUEST = "DeployArgoRequest";
-    public static final String DEPLOY_KUBERNETES_REQUEST = "DeployKubernetesRequest";
-    public static final String DEPLOY_TEST_REQUEST = "DeployTestRequest";
+    static final String DEPLOY_ARGO_REQUEST = "DeployArgoRequest";
+    static final String DEPLOY_KUBERNETES_REQUEST = "DeployKubernetesRequest";
+    static final String DEPLOY_TEST_REQUEST = "DeployTestRequest";
 
-    public DeployResponse deploy(String orgName, String type, Optional<String> configPayload, Optional<KubernetesCreationRequest> kubernetesCreationRequest);
+    public DeployResponse deploy(String orgName, String type, Object payload);
 
     public DeployResponse rollback(String orgName, String appName, int revisionId);
 

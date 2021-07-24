@@ -23,7 +23,6 @@ import java.util.stream.Collectors;
 
 import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.ROOT_STEP_NAME;
 import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.createRootStep;
-import static com.greenops.workfloworchestrator.ingest.handling.ClientKey.getTestNumberFromTestKey;
 import static com.greenops.workfloworchestrator.ingest.handling.util.deployment.ArgoDeploymentInfo.NO_OP_ARGO_DEPLOYMENT;
 
 @Slf4j
@@ -99,7 +98,7 @@ public class EventHandlerImpl implements EventHandler {
             return;
         }
 
-        var completedTestNumber = getTestNumberFromTestKey(event.getTestName());
+        var completedTestNumber = event.getTestNumber();
         if (completedTestNumber < 0 || step.getTests().size() <= completedTestNumber) {
             log.info("Malformed test key or tests have changed. This event will be ignored.");
             return;

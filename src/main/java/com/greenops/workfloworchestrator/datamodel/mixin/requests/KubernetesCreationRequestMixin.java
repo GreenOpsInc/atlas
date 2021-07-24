@@ -26,6 +26,9 @@ public abstract class KubernetesCreationRequestMixin {
     @JsonProperty(value = "args")
     List<String> args;
 
+    @JsonProperty(value = "configPayload")
+    String configPayload;
+
     @JsonProperty(value = "variables")
     Map<String, String> variables;
 
@@ -36,6 +39,7 @@ public abstract class KubernetesCreationRequestMixin {
                                           @JsonProperty(value = "imageName") String imageName,
                                           @JsonProperty(value = "command") List<String> command,
                                           @JsonProperty(value = "args") List<String> args,
+                                          @JsonProperty(value = "configPayload") String configPayload,
                                           @JsonProperty(value = "variables") Map<String, String> variables) {
     }
 }

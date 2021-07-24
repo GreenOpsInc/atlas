@@ -6,7 +6,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Map;
 
-public abstract class TestMixin {
+public abstract class InjectScriptTestMixin {
 
     @JsonProperty(value = "path")
     String path;
@@ -21,10 +21,10 @@ public abstract class TestMixin {
     Map<String, String> variables;
 
     @JsonCreator
-    public TestMixin(@JsonProperty(value = "path") String path,
-              @JsonProperty(value = "in_application_pod") boolean executeInApplicationPod,
-              @JsonProperty(value = "before") boolean executeBeforeDeployment,
-              @JsonProperty(value = "variables") Map<String, String> variables) {
+    public InjectScriptTestMixin(@JsonProperty(value = "path") String path,
+                                 @JsonProperty(value = "in_application_pod") boolean executeInApplicationPod,
+                                 @JsonProperty(value = "before") boolean executeBeforeDeployment,
+                                 @JsonProperty(value = "variables") Map<String, String> variables) {
     }
 
     @JsonIgnore

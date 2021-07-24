@@ -12,8 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.Optional;
-
 import static com.greenops.workfloworchestrator.ingest.handling.EventHandlerImpl.WATCH_ARGO_APPLICATION_KEY;
 import static com.greenops.workfloworchestrator.ingest.handling.util.deployment.ArgoDeploymentInfo.NO_OP_ARGO_DEPLOYMENT;
 
@@ -37,7 +35,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
             var otherDeploymentsConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
             //TODO: The splitting of the config file should eventually be done on the client side
             for (var deploymentConfig : otherDeploymentsConfig.split("---")) {
-                var deployResponse = clientWrapperApi.deploy(event.getOrgName(), ClientWrapperApi.DEPLOY_KUBERNETES_REQUEST, Optional.of(deploymentConfig), Optional.empty());
+                var deployResponse = clientWrapperApi.deploy(event.getOrgName(), ClientWrapperApi.DEPLOY_KUBERNETES_REQUEST, deploymentConfig);
                 if (!deployResponse.getSuccess()) {
                     var message = "Deploying other resources failed.";
                     log.error(message);
@@ -54,7 +52,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
             var argoApplicationConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
             //TODO: The splitting of the config file should eventually be done on the client side
             for (var applicationConfig : argoApplicationConfig.split("---")) {
-                var deployResponse = clientWrapperApi.deploy(event.getOrgName(), ClientWrapperApi.DEPLOY_ARGO_REQUEST, Optional.of(applicationConfig), Optional.empty());
+                var deployResponse = clientWrapperApi.deploy(event.getOrgName(), ClientWrapperApi.DEPLOY_ARGO_REQUEST, applicationConfig);
                 log.info("Deploying Argo application {}...", deployResponse.getResourceName());
                 if (!deployResponse.getSuccess()) {
                     log.error("Deploying the Argo application failed.");

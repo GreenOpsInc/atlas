@@ -9,9 +9,10 @@ public class TestCompletionEvent implements Event {
     private String stepName;
     private String log;
     private String testName;
+    private int testNumber;
 
     public TestCompletionEvent(boolean successful, String orgName, String teamName, String pipelineName, String stepName,
-                                 String log, String testName) {
+                                 String log, String testName, int testNumber) {
         this.successful = successful;
         this.orgName = orgName;
         this.teamName = teamName;
@@ -19,6 +20,7 @@ public class TestCompletionEvent implements Event {
         this.stepName = stepName;
         this.log = log;
         this.testName = testName;
+        this.testNumber = testNumber;
     }
 
     @Override
@@ -51,5 +53,9 @@ public class TestCompletionEvent implements Event {
 
     public String getLog() {
         return log;
+    }
+
+    public int getTestNumber() {
+        return testNumber;
     }
 }
