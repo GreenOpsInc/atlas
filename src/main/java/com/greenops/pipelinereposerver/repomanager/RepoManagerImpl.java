@@ -1,8 +1,10 @@
 package com.greenops.pipelinereposerver.repomanager;
 
+import com.greenops.pipelinereposerver.api.model.git.GitCred;
 import com.greenops.pipelinereposerver.api.model.git.GitRepoSchema;
 import com.greenops.pipelinereposerver.dbclient.DbClient;
 import com.greenops.pipelinereposerver.dbclient.DbKey;
+import com.greenops.pipelinereposerver.kubernetesclient.KubernetesClient;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,12 +31,12 @@ public class RepoManagerImpl implements RepoManager {
     private Set<GitRepoCache> gitRepos;
 
     @Autowired
-    public RepoManagerImpl(DbClient dbClient) {
+    public RepoManagerImpl(DbClient dbClient, KubernetesClient kubernetesClient) {
         this.gitRepos = new HashSet<>();
         if (!setupGitCli()) {
             throw new RuntimeException("Git could not be installed. Something may be wrong with the configuration.");
         }
-        if (!setupRepoCache(dbClient)) {
+        if (!setupRepoCache(dbClient, kubernetesClient)) {
             throw new RuntimeException("The org's repos could not be cloned correctly. Please restart to try again.");
         }
         dbClient.shutdown();
@@ -300,7 +302,7 @@ public class RepoManagerImpl implements RepoManager {
         }
     }
 
-    private boolean setupRepoCache(DbClient dbClient) {
+    private boolean setupRepoCache(DbClient dbClient, KubernetesClient kubernetesClient) {
         var listOfTeams = dbClient.fetchList(DbKey.makeDbListOfTeamsKey(orgName));
         if (listOfTeams == null) {
             log.info("No teams in org {}", orgName);
@@ -314,7 +316,14 @@ public class RepoManagerImpl implements RepoManager {
                 continue;
             }
             for (var pipelineSchema : teamSchema.getPipelineSchemas()) {
-                if (!clone(pipelineSchema.getGitRepoSchema())) {
+                var gitRepoSchema = pipelineSchema.getGitRepoSchema();
+                var secretName = DbKey.makeSecretName(teamSchema.getOrgName(), teamName, pipelineSchema.getPipelineName());
+                var gitCred = kubernetesClient.fetchGitCred(secretName);
+                if (gitCred == null) {
+                    throw new RuntimeException("Could not recover gitCred from kubernetes secrets");
+                }
+                gitRepoSchema.setGitCred(gitCred);
+                if (!clone(gitRepoSchema)) {
                     return false;
                 }
             }
