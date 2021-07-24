@@ -21,10 +21,15 @@ public class GitCredToken implements GitCred {
     }
 
     @Override
-    public boolean equals(Object o){
-        if(o instanceof GitCredToken){
+    public boolean equals(Object o) {
+        if (o instanceof GitCredToken) {
             return token.equals(((GitCredToken) o).token);
         }
         return false;
+    }
+
+    @Override
+    public void hide() {
+        token = HIDDEN;
     }
 }

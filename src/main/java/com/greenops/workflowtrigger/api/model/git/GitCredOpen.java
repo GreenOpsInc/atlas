@@ -8,4 +8,8 @@ public class GitCredOpen implements GitCred {
     public boolean equals(Object o) {
         return o instanceof GitCredOpen;
     }
+
+    @Override
+    public void hide() {
+    }
 }

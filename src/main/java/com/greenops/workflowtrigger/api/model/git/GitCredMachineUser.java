@@ -29,4 +29,10 @@ public class GitCredMachineUser implements GitCred {
         }
         return false;
     }
+
+    @Override
+    public void hide() {
+        username = HIDDEN;
+        password = HIDDEN;
+    }
 }

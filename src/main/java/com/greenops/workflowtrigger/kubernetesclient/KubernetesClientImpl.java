@@ -3,6 +3,7 @@ package com.greenops.workflowtrigger.kubernetesclient;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.greenops.workflowtrigger.api.model.git.GitCred;
 import io.kubernetes.client.ApiException;
 import io.kubernetes.client.Configuration;
 import io.kubernetes.client.apis.CoreV1Api;
@@ -10,9 +11,9 @@ import io.kubernetes.client.models.V1Namespace;
 import io.kubernetes.client.models.V1ObjectMeta;
 import io.kubernetes.client.models.V1Secret;
 import io.kubernetes.client.util.ClientBuilder;
+
 import java.io.IOException;
 
-import com.greenops.workflowtrigger.api.model.git.GitCred;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class KubernetesClientImpl implements KubernetesClient {
     private static final String SECRETS_KEY_NAME = "data";
+    private static final String GITCRED_NAMESPACE = "gitcred";
 
     private final CoreV1Api api;
     private final ObjectMapper objectMapper;
@@ -34,6 +36,24 @@ public class KubernetesClientImpl implements KubernetesClient {
     }
 
     @Override
+    public boolean storeGitCred(GitCred gitCred, String name) {
+        return storeSecret(gitCred, GITCRED_NAMESPACE, name);
+    }
+
+    @Override
+    public GitCred fetchGitCred(String name) {
+        var secret = readSecret(GITCRED_NAMESPACE, name);
+        var gitCredData = secret.getData().get(SECRETS_KEY_NAME);
+        try {
+            if (gitCredData == null) {
+                return null;
+            }
+            return objectMapper.readValue(gitCredData, GitCred.class);
+        } catch (IOException e) {
+            throw new RuntimeException("Could not deserialize gitCred.", e);
+        }
+    }
+
     public boolean storeSecret(Object object, String namespace, String name) {
         try {
             api.readNamespace(namespace, null, null, null);
@@ -58,17 +78,11 @@ public class KubernetesClientImpl implements KubernetesClient {
         return updateSecret(object, namespace, name);
     }
 
-    @Override
-    public Object readSecret(String namespace, String name) {
+    private V1Secret readSecret(String namespace, String name) {
         try {
             var secret = api.readNamespacedSecret(name, namespace, null, null, null);
-            var gitCredData = secret.getData().get(SECRETS_KEY_NAME);
-            try {
-                return objectMapper.readValue(gitCredData, GitCred.class);
-            } catch (Exception e) {
-                throw new RuntimeException("Could not deserialize gitCred.", e);
-            }
-        } catch (ApiException e){
+            return secret;
+        } catch (ApiException e) {
             log.error(String.format("Failed to read secret. Error: %s", e.getResponseBody()), e);
         }
         return null;

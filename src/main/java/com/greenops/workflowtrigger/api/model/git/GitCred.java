@@ -11,4 +11,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
                 @JsonSubTypes.Type(value = GitCredToken.class, name = "oauth")
         }
 )
-public interface GitCred {}
+public interface GitCred {
+    public static final String HIDDEN = "Hidden cred info";
+
+    public void hide();
+}

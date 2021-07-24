@@ -62,8 +62,8 @@ public class PipelineApiTest {
         Mockito.doNothing().when(kafkaClient).sendMessage(any(String.class));
 
         var kubernetesClient = Mockito.mock(KubernetesClient.class);
-        Mockito.when(kubernetesClient.storeSecret(any(), any(), any())).thenReturn(true);
-        Mockito.when(kubernetesClient.readSecret(any(), any())).thenReturn(true);
+        Mockito.when(kubernetesClient.storeGitCred(any(), any())).thenReturn(true);
+        Mockito.when(kubernetesClient.fetchGitCred(any())).thenReturn(null);
 
         repoManagerApi = Mockito.mock(RepoManagerApi.class);
         Mockito.when(repoManagerApi.cloneRepo(any())).thenReturn(true);

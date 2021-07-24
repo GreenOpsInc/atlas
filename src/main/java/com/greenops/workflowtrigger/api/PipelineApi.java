@@ -28,8 +28,6 @@ import java.util.stream.Collectors;
 @RequestMapping("/")
 public class PipelineApi {
 
-    private static String GIT_CRED_SECRET_NAMESPACE = "gitcred";
-
     private final DbClient dbClient;
     private final KafkaClient kafkaClient;
     private final KubernetesClient kubernetesClient;
@@ -55,9 +53,10 @@ public class PipelineApi {
             var newTeam = new TeamSchemaImpl(teamName, parentTeamName, orgName);
             if (pipelineSchemas != null) {
                 for (var pipelineSchema : pipelineSchemas) {
-                    if (!kubernetesClient.storeSecret(pipelineSchema.getGitRepoSchema().getGitCred(), GIT_CRED_SECRET_NAMESPACE, DbKey.makeSecretName(orgName, teamName, pipelineSchema.getPipelineName()))) {
+                    if (!kubernetesClient.storeGitCred(pipelineSchema.getGitRepoSchema().getGitCred(), DbKey.makeSecretName(orgName, teamName, pipelineSchema.getPipelineName()))) {
                         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
                     }
+                    pipelineSchema.getGitRepoSchema().getGitCred().hide();
                 }
                 pipelineSchemas.forEach(newTeam::addPipeline);
             }
@@ -79,9 +78,6 @@ public class PipelineApi {
         var teamSchema = dbClient.fetchTeamSchema(key);
         if (teamSchema == null) {
             return ResponseEntity.badRequest().build();
-        }
-        for (var pipelineSchema : teamSchema.getPipelineSchemas()) {
-            pipelineSchema.getGitRepoSchema().setGitCred(new GitCredOpen());
         }
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)
@@ -112,7 +108,7 @@ public class PipelineApi {
         var key = DbKey.makeDbTeamKey(orgName, teamName);
         var teamSchema = dbClient.fetchTeamSchema(key);
         for (var pipelineSchema : teamSchema.getPipelineSchemas()) {
-            if (!kubernetesClient.storeSecret(null, GIT_CRED_SECRET_NAMESPACE, DbKey.makeSecretName(orgName, teamName, pipelineSchema.getPipelineName()))) {
+            if (!kubernetesClient.storeGitCred(null, DbKey.makeSecretName(orgName, teamName, pipelineSchema.getPipelineName()))) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
             }
         }
@@ -139,22 +135,24 @@ public class PipelineApi {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
 
-        if (!kubernetesClient.storeSecret(gitRepo.getGitCred(), GIT_CRED_SECRET_NAMESPACE, DbKey.makeSecretName(orgName, teamName, pipelineName))) {
+        if (!kubernetesClient.storeGitCred(gitRepo.getGitCred(), DbKey.makeSecretName(orgName, teamName, pipelineName))) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
-
-        teamSchema.addPipeline(pipelineName, gitRepo);
 
         if (!repoManagerApi.cloneRepo(gitRepo)) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+
+        gitRepo.getGitCred().hide();
+
+        teamSchema.addPipeline(pipelineName, gitRepo);
 
         if (!dbClient.store(key, teamSchema)) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
 
         //TODO: TriggerEvents don't need all of this information. This should be replaced with a special type called a "TriggerEvent"
-        var triggerEvent = new ClientCompletionEvent("Healthy", orgName, teamName, pipelineName,"ATLAS_ROOT_DATA", "","","", gitRepo.getGitRepo());
+        var triggerEvent = new ClientCompletionEvent("Healthy", orgName, teamName, pipelineName, "ATLAS_ROOT_DATA", "", "", "", gitRepo.getGitRepo());
         try {
             generateEvent(objectMapper.writeValueAsString(triggerEvent));
         } catch (JsonProcessingException e) {
@@ -220,7 +218,7 @@ public class PipelineApi {
             return ResponseEntity.badRequest().build();
         }
 
-        kubernetesClient.storeSecret(null, GIT_CRED_SECRET_NAMESPACE, DbKey.makeSecretName(orgName, teamName, pipelineName));
+        kubernetesClient.storeGitCred(null, DbKey.makeSecretName(orgName, teamName, pipelineName));
 
         teamSchema.removePipeline(pipelineName);
 
@@ -236,15 +234,15 @@ public class PipelineApi {
 
     @PostMapping(value = "/sync/{orgName}/{teamName}/{pipelineName}")
     public ResponseEntity<Void> syncPipeline(@PathVariable("orgName") String orgName,
-                                               @PathVariable("teamName") String teamName,
-                                               @PathVariable("pipelineName") String pipelineName,
-                                               @RequestBody GitRepoSchema gitRepo) {
+                                             @PathVariable("teamName") String teamName,
+                                             @PathVariable("pipelineName") String pipelineName,
+                                             @RequestBody GitRepoSchema gitRepo) {
         if (!repoManagerApi.sync(gitRepo)) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
 
         //TODO: TriggerEvents don't need all of this information. This should be replaced with a special type called a "TriggerEvent"
-        var triggerEvent = new ClientCompletionEvent("Healthy", orgName, teamName, pipelineName,"ATLAS_ROOT_DATA", "","","", gitRepo.getGitRepo());
+        var triggerEvent = new ClientCompletionEvent("Healthy", orgName, teamName, pipelineName, "ATLAS_ROOT_DATA", "", "", "", gitRepo.getGitRepo());
         try {
             generateEvent(objectMapper.writeValueAsString(triggerEvent));
         } catch (JsonProcessingException e) {
