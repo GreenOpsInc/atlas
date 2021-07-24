@@ -13,6 +13,7 @@ type WatchRequest struct {
 	Type         string `json:"type"`
 	Name         string `json:"name"`
 	Namespace    string `json:"namespace"`
+	TestNumber   int    `json:"testNumber"`
 }
 
 type KubernetesCreationRequest struct {
@@ -22,5 +23,6 @@ type KubernetesCreationRequest struct {
 	ImageName  string            `json:"imageName"`
 	Command    []string          `json:"command"`
 	Args       []string          `json:"args"`
+	Config     string            `json:"configPayload"`
 	Variables  map[string]string `json:"variables"`
 }

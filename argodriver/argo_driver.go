@@ -84,7 +84,7 @@ func (a ArgoClientDriver) Deploy(configPayload string) (bool, string, string, in
 	defer ioCloser.Close()
 
 	applicationPayload := makeApplication(configPayload)
-	err = a.kubernetesClient.CheckAndCreateNamespace(applicationPayload.Spec.Destination.Namespace)
+	_, err = a.kubernetesClient.CheckAndCreateNamespace(applicationPayload.Spec.Destination.Namespace)
 	if err != nil {
 		return false, "", "", -1
 	}

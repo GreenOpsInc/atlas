@@ -48,6 +48,7 @@ func deploy(w http.ResponseWriter, r *http.Request) {
 				kubernetesCreationRequest.ImageName,
 				kubernetesCreationRequest.Command,
 				kubernetesCreationRequest.Args,
+				kubernetesCreationRequest.Config,
 				kubernetesCreationRequest.Variables,
 			)
 			revisionId = -1
@@ -142,6 +143,7 @@ func watch(w http.ResponseWriter, r *http.Request) {
 			TeamName:     watchRequest.TeamName,
 			PipelineName: watchRequest.PipelineName,
 			StepName:     watchRequest.StepName,
+			TestNumber:   watchRequest.TestNumber,
 		},
 		Name:                     watchRequest.Name,
 		Namespace:                watchRequest.Namespace,

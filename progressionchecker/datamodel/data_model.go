@@ -33,6 +33,7 @@ type WatchKeyMetaData struct {
 	TeamName     string
 	PipelineName string
 	StepName     string
+	TestNumber   int
 }
 type WatchKey struct {
 	WatchKeyMetaData

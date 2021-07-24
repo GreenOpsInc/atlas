@@ -21,7 +21,7 @@ const (
 	ProgressionChannelBufferSize int    = 100
 	DefaultMetricsServerAddress  string = "http://argocd-metrics.argocd.svc.cluster.local:8082/metrics"
 	//Command to get localhost address: "minikube ssh 'grep host.minikube.internal /etc/hosts | cut -f1'"
-	DefaultWorkflowTriggerAddress string = "http://atlasworkflowtrigger.default.svc.cluster.local:8080"
+	DefaultWorkflowTriggerAddress string = "http://workflowtrigger.default.svc.cluster.local:8080"
 	MetricsServerEnvVar           string = "ARGOCD_METRICS_SERVER_ADDR"
 	WorkflowTriggerEnvVar         string = "WORKFLOW_TRIGGER_SERVER_ADDR"
 	HttpRequestRetryLimit         int    = 3

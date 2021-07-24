@@ -38,16 +38,16 @@ type KubernetesClientGetRestricted interface {
 }
 
 type KubernetesClientNamespaceRestricted interface {
-	CheckAndCreateNamespace(namespace string) error
+	CheckAndCreateNamespace(namespace string) (string, error)
 }
 
 type KubernetesClient interface {
 	//TODO: Add parameters for Deploy
 	Deploy(configPayload string) (bool, string, string)
-	CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, variables map[string]string) (bool, string, string)
+	CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, existingConfig string, variables map[string]string) (bool, string, string)
 	//TODO: Add parameters for Delete
 	Delete(configPayload string) bool
-	CheckAndCreateNamespace(namespace string) error
+	CheckAndCreateNamespace(namespace string) (string, error)
 	GetLogs(podNamespace string, selector metav1.LabelSelector) (string, error)
 	GetJob(name string, namespace string) (batchv1.JobStatus, metav1.LabelSelector, int32)
 	GetSecret(name string, namespace string) map[string][]byte
@@ -97,8 +97,7 @@ func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string, stri
 		strongTypeObject := obj.(*batchv1.Job)
 		log.Printf("%s matched Job. Deploying...\n", strongTypeObject.Name)
 		resourceName = strongTypeObject.Name
-		namespace = strongTypeObject.Namespace
-		err = k.CheckAndCreateNamespace(namespace)
+		namespace, err = k.CheckAndCreateNamespace(strongTypeObject.Namespace)
 		if err != nil {
 			log.Printf("The namespace could not be created. Error was %s\n", err)
 			return false, "", ""
@@ -115,8 +114,7 @@ func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string, stri
 		strongTypeObject := obj.(*corev1.Service)
 		log.Printf("%s matched ReplicaSet. Deploying...\n", strongTypeObject.Name)
 		resourceName = strongTypeObject.Name
-		namespace = strongTypeObject.Namespace
-		err = k.CheckAndCreateNamespace(namespace)
+		namespace, err = k.CheckAndCreateNamespace(strongTypeObject.Namespace)
 		if err != nil {
 			log.Printf("The namespace could not be created. Error was %s\n", err)
 			return false, "", ""
@@ -133,8 +131,7 @@ func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string, stri
 		strongTypeObject := obj.(*appsv1.ReplicaSet)
 		log.Printf("%s matched ReplicaSet. Deploying...\n", strongTypeObject.Name)
 		resourceName = strongTypeObject.Name
-		namespace = strongTypeObject.Namespace
-		err = k.CheckAndCreateNamespace(namespace)
+		namespace, err = k.CheckAndCreateNamespace(strongTypeObject.Namespace)
 		if err != nil {
 			log.Printf("The namespace could not be created. Error was %s\n", err)
 			return false, "", ""
@@ -151,11 +148,7 @@ func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string, stri
 		strongTypeObject := obj.(*unstructured.Unstructured)
 		log.Printf("YAML file matched Unstructured of kind %s. Deploying...\n", groupVersionKind.Kind)
 		resourceName = strongTypeObject.GetName()
-		namespace = strongTypeObject.GetNamespace()
-		if namespace == "" {
-			namespace = corev1.NamespaceDefault
-		}
-		err = k.CheckAndCreateNamespace(namespace)
+		namespace, err = k.CheckAndCreateNamespace(strongTypeObject.GetNamespace())
 		if err != nil {
 			log.Printf("The namespace could not be created. Error was %s\n", err)
 			return false, "", ""
@@ -181,52 +174,80 @@ func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string, stri
 
 //CreateAndDeploy should only be used for ephemeral runs ONLY. "Kind" should just be discerning between a chron job or a job.
 //They are both of type "batch/v1".
-func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, variables map[string]string) (bool, string, string) {
+func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, existingConfig string, variables map[string]string) (bool, string, string) {
 	if imageName == "" {
 		imageName = DefaultContainer
 	}
 	if namespace == "" {
 		namespace = corev1.NamespaceDefault
 	}
+	var configPayload string
+
 	envVars := make([]corev1.EnvVar, 0)
 	for key, value := range variables {
 		envVars = append(envVars, corev1.EnvVar{Name: key, Value: value})
 	}
-	var containerSpec = corev1.Container{
-		Name:       objName,
-		Image:      imageName,
-		Command:    command,
-		Args:       args,
-		WorkingDir: "",
-		Ports:      nil,
-		EnvFrom:    nil,
-		Env:        envVars,
-		//There are a lot more parameters, probably won't need them in the near future
-	}
-	var configPayload string
-	if kind == JobKindName {
-		jobSpec := batchv1.Job{
-			TypeMeta:   metav1.TypeMeta{Kind: "Job", APIVersion: batchv1.SchemeGroupVersion.String()},
-			ObjectMeta: metav1.ObjectMeta{Name: objName, Namespace: namespace},
-			Spec: batchv1.JobSpec{
-				BackoffLimit: utilpointer.Int32Ptr(1),
-				Template: corev1.PodTemplateSpec{
-					Spec: corev1.PodSpec{
-						Containers:    []corev1.Container{containerSpec},
-						RestartPolicy: corev1.RestartPolicyNever,
-					},
-				},
-			},
-			Status: batchv1.JobStatus{},
-		}
-		data, err := json.Marshal(jobSpec)
+	if existingConfig != "" {
+		obj, _, err := getResourceObjectFromYAML(existingConfig)
 		if err != nil {
-			log.Printf("Error marshalling Job: %s", err)
 			return false, "", ""
 		}
-		configPayload = string(data)
-	} else if kind == CronJobKindName {
-		//TODO: Implement me
+		switch obj.(type) {
+		case *batchv1.Job:
+			strongTypeObject := obj.(*batchv1.Job)
+			//TODO: Should be a way to make this variable injection process simpler
+			for idx, val := range strongTypeObject.Spec.Template.Spec.Containers {
+				for envidx, _ := range envVars {
+					strongTypeObject.Spec.Template.Spec.Containers[idx].Env = append(val.Env, envVars[envidx])
+				}
+			}
+			var data []byte
+			data, err = json.Marshal(strongTypeObject)
+			if err != nil {
+				log.Printf("Error marshalling Job: %s", err)
+				return false, "", ""
+			}
+			configPayload = string(data)
+		default:
+			log.Printf("Generation only works with Jobs for now.\n")
+			return false, "", ""
+		}
+	} else {
+		var containerSpec = corev1.Container{
+			Name:       objName,
+			Image:      imageName,
+			Command:    command,
+			Args:       args,
+			WorkingDir: "",
+			Ports:      nil,
+			EnvFrom:    nil,
+			Env:        envVars,
+			//There are a lot more parameters, probably won't need them in the near future
+		}
+		if kind == JobKindName {
+			jobSpec := batchv1.Job{
+				TypeMeta:   metav1.TypeMeta{Kind: "Job", APIVersion: batchv1.SchemeGroupVersion.String()},
+				ObjectMeta: metav1.ObjectMeta{Name: objName, Namespace: namespace},
+				Spec: batchv1.JobSpec{
+					BackoffLimit: utilpointer.Int32Ptr(1),
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers:    []corev1.Container{containerSpec},
+							RestartPolicy: corev1.RestartPolicyNever,
+						},
+					},
+				},
+				Status: batchv1.JobStatus{},
+			}
+			data, err := json.Marshal(jobSpec)
+			if err != nil {
+				log.Printf("Error marshalling Job: %s", err)
+				return false, "", ""
+			}
+			configPayload = string(data)
+		} else if kind == CronJobKindName {
+			//TODO: Implement me
+		}
 	}
 	return k.Deploy(configPayload)
 }
@@ -299,9 +320,12 @@ func (k KubernetesClientDriver) Delete(configPayload string) bool {
 	return true
 }
 
-func (k KubernetesClientDriver) CheckAndCreateNamespace(namespace string) error {
+func (k KubernetesClientDriver) CheckAndCreateNamespace(namespace string) (string, error) {
+	if namespace == "" {
+		namespace = corev1.NamespaceDefault
+	}
 	if _, err := k.client.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{}); err == nil {
-		return nil
+		return namespace, nil
 	}
 	newNamespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -313,7 +337,7 @@ func (k KubernetesClientDriver) CheckAndCreateNamespace(namespace string) error 
 	if err != nil && errors.IsAlreadyExists(err) {
 		err = nil
 	}
-	return err
+	return namespace, err
 }
 
 type GetLogs func(podName string, podNamespace string, selector metav1.LabelSelector)

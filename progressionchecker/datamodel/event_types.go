@@ -33,6 +33,7 @@ type TestEventInfo struct {
 	Successful bool   `json:"successful"`
 	Log        string `json:"log"`
 	TestName   string `json:"testName"`
+	TestNumber int    `json:"testNumber"`
 }
 
 // **
@@ -78,5 +79,6 @@ func MakeTestEvent(key WatchKey, successful bool, logs string) EventInfo {
 		Successful: successful,
 		Log:        logs,
 		TestName:   key.Name,
+		TestNumber: key.TestNumber,
 	}
 }
