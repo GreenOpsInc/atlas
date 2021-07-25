@@ -48,6 +48,11 @@ public class RepoManagerImpl implements RepoManager {
     }
 
     @Override
+    public Set<GitRepoCache> getGitRepos() {
+        return gitRepos;
+    }
+
+    @Override
     public boolean clone(GitRepoSchema gitRepoSchema) {
         if (containsGitRepoSchema(gitRepoSchema)) {
             return true;
@@ -240,7 +245,7 @@ public class RepoManagerImpl implements RepoManager {
         return gitRepos.stream().anyMatch(gitRepoCache -> gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo()));
     }
 
-    private String getCurrentCommit(GitRepoSchema gitRepoSchema) {
+    public String getCurrentCommit(GitRepoSchema gitRepoSchema) {
         try {
             var command = new CommandBuilder()
                     .gitLog(1, true)
