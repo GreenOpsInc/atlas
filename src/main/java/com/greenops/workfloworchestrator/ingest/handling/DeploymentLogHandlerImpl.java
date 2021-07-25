@@ -86,7 +86,8 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
     @Override
     public String makeRollbackDeploymentLog(Event event, String stepName) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
-        var deploymentLogList = dbClient.fetchLogList(logKey);
+        var logIncrement = 0;
+        var deploymentLogList = dbClient.fetchLogList(logKey, logIncrement);
         if (deploymentLogList == null || deploymentLogList.size() == 0) return "";
         var currentLog = deploymentLogList.get(0);
         //This means that there was probably an error during the execution of the step, and that the log was added but the re-triggering process was not completed
@@ -102,9 +103,14 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
                     break;
                 }
                 idx++;
+                if (idx == deploymentLogList.size()) {
+                    logIncrement++;
+                    deploymentLogList = dbClient.fetchLogList(logKey, logIncrement);
+                    idx = 0;
+                }
             }
         }
-        for (; idx < deploymentLogList.size(); idx++) {
+        while (idx < deploymentLogList.size()) {
             if (deploymentLogList.get(idx).getStatus().equals(DeploymentLog.DeploymentStatus.SUCCESS.name())) {
                 var gitCommitVersion = deploymentLogList.get(idx).getGitCommitVersion();
 
@@ -122,6 +128,12 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
                 );
                 dbClient.insertValueInList(logKey, newLog);
                 return gitCommitVersion;
+            }
+            idx++;
+            if (idx == deploymentLogList.size()) {
+                logIncrement++;
+                deploymentLogList = dbClient.fetchLogList(logKey, logIncrement);
+                idx = 0;
             }
         }
         return "";

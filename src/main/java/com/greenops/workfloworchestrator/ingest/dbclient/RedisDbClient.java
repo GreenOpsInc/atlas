@@ -21,7 +21,6 @@ import java.util.List;
 @Slf4j
 @Component
 public class RedisDbClient implements DbClient {
-    //TODO: Write Redis IT
     private static final String REDIS_SUCCESS_MESSAGE = "OK";
     //TODO: Eventually we should have a configuration factory/file which will choose which component to pick. For now this is fine.
     private final RedisClient redisClient;
@@ -102,34 +101,35 @@ public class RedisDbClient implements DbClient {
 
     @Override
     public TeamSchema fetchTeamSchema(String key) {
-        return (TeamSchema) fetch(key, ObjectType.TEAM_SCHEMA);
+        return (TeamSchema) fetch(key, ObjectType.TEAM_SCHEMA, -1);
     }
 
     @Override
     public List<String> fetchStringList(String key) {
-        return (List<String>) fetch(key, ObjectType.STRING_LIST);
+        return (List<String>) fetch(key, ObjectType.STRING_LIST, -1);
     }
 
     @Override
-    public List<DeploymentLog> fetchLogList(String key) {
-        return (List<DeploymentLog>) fetch(key, ObjectType.LOG_LIST);
+    public List<DeploymentLog> fetchLogList(String key, int increment) {
+        return (List<DeploymentLog>) fetch(key, ObjectType.LOG_LIST, increment);
+
     }
 
     @Override
     public DeploymentLog fetchLatestLog(String key) {
-        var deploymentLog = (DeploymentLog) fetch(key, ObjectType.SINGLE_LOG);
+        var deploymentLog = (DeploymentLog) fetch(key, ObjectType.SINGLE_LOG, -1);
         if (deploymentLog == null) throw new AtlasNonRetryableError("No deployment log exists");
         return deploymentLog;
     }
 
-    private Object fetch(String key, ObjectType objectType) {
+    private Object fetch(String key, ObjectType objectType, int increment) {
         try {
             log.info("Fetching schema for key {}", key);
             //This will ensure that the list of watched keys is kept to one, so no leakage will happen.
             redisCommands.unwatch();
             redisCommands.watch(key);
             currentWatchedKey = key;
-            var exists = redisCommands.exists(key);//objectType == ObjectType.SINGLE_LOG || objectType == ObjectType.LOG_LIST ? redisCommands.lindex(key, 0) : redisCommands.get(key);
+            var exists = redisCommands.exists(key);
             //If the key doesn't exist, return null (1 is exists, 0 is does not exist)
             if (exists == 0) {
                 return null;
@@ -141,7 +141,8 @@ public class RedisDbClient implements DbClient {
                 return objectMapper.readValue(result, objectMapper.getTypeFactory().constructCollectionType(List.class, String.class));
             } else if (objectType == ObjectType.LOG_LIST) {
                 //TODO: As logs get longer and longer, we cant be fetching a list of 100. We need to find a better way to get chunks of logs as needed.
-                var result = redisCommands.lrange(key, 0, -1);
+                var startIdx = increment * LOG_INCREMENT;
+                var result = redisCommands.lrange(key, startIdx, startIdx + LOG_INCREMENT - 1);
                 var deploymentLogList = new ArrayList<DeploymentLog>();
                 for (var string : result) {
                     var deploymentLog = objectMapper.readValue(string, DeploymentLog.class);
