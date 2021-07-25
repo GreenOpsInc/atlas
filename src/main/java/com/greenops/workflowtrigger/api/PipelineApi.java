@@ -60,13 +60,10 @@ public class PipelineApi {
                 }
                 pipelineSchemas.forEach(newTeam::addPipeline);
             }
-            if (dbClient.store(key, newTeam)) {
-                addTeamToOrgList(newTeam.getOrgName(), newTeam.getTeamName());
-                log.info("Created new team {}", newTeam.getTeamName());
-                return ResponseEntity.ok().build();
-            } else {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            }
+            dbClient.storeValue(key, newTeam);
+            addTeamToOrgList(newTeam.getOrgName(), newTeam.getTeamName());
+            log.info("Created new team {}", newTeam.getTeamName());
+            return ResponseEntity.ok().build();
         }
         return ResponseEntity.badRequest().build();
     }
@@ -112,12 +109,9 @@ public class PipelineApi {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
             }
         }
-        if (dbClient.store(key, null)) {
-            removeTeamFromOrgList(orgName, teamName);
-            return ResponseEntity.ok().build();
-        } else {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        dbClient.storeValue(key, null);
+        removeTeamFromOrgList(orgName, teamName);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping(value = "/pipeline/{orgName}/{teamName}/{pipelineName}")
@@ -147,9 +141,7 @@ public class PipelineApi {
 
         teamSchema.addPipeline(pipelineName, gitRepo);
 
-        if (!dbClient.store(key, teamSchema)) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        dbClient.storeValue(key, teamSchema);
 
         //TODO: TriggerEvents don't need all of this information. This should be replaced with a special type called a "TriggerEvent"
         var triggerEvent = new ClientCompletionEvent("Healthy", orgName, teamName, pipelineName, "ATLAS_ROOT_DATA", "", "", "", gitRepo.getGitRepo());
@@ -226,10 +218,8 @@ public class PipelineApi {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
 
-        if (dbClient.store(key, teamSchema)) {
-            return ResponseEntity.ok().build();
-        }
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        dbClient.storeValue(key, teamSchema);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping(value = "/sync/{orgName}/{teamName}/{pipelineName}")
@@ -260,28 +250,19 @@ public class PipelineApi {
 
     private void removeTeamFromOrgList(String orgName, String teamName) {
         var key = DbKey.makeDbListOfTeamsKey(orgName);
-        var status = false;
-        while (!status) {
-            var listOfTeams = dbClient.fetchList(key);
-            if (listOfTeams == null) listOfTeams = new ArrayList<>();
-            listOfTeams = listOfTeams.stream().filter(name -> !name.equals(teamName)).collect(Collectors.toList());
-            status = dbClient.store(key, listOfTeams);
-        }
+        var listOfTeams = dbClient.fetchStringList(key);
+        if (listOfTeams == null) listOfTeams = new ArrayList<>();
+        listOfTeams = listOfTeams.stream().filter(name -> !name.equals(teamName)).collect(Collectors.toList());
+        dbClient.storeValue(key, listOfTeams);
     }
 
     private void addTeamToOrgList(String orgName, String teamName) {
         var key = DbKey.makeDbListOfTeamsKey(orgName);
-        var status = false;
-        while (!status) {
-            var listOfTeams = dbClient.fetchList(key);
-            if (listOfTeams == null) listOfTeams = new ArrayList<>();
-            if (listOfTeams.stream().noneMatch(name -> name.equals(teamName))) {
-                listOfTeams.add(teamName);
-                status = dbClient.store(key, listOfTeams);
-
-            } else {
-                status = true;
-            }
+        var listOfTeams = dbClient.fetchStringList(key);
+        if (listOfTeams == null) listOfTeams = new ArrayList<>();
+        if (listOfTeams.stream().noneMatch(name -> name.equals(teamName))) {
+            listOfTeams.add(teamName);
+            dbClient.storeValue(key, listOfTeams);
         }
     }
 

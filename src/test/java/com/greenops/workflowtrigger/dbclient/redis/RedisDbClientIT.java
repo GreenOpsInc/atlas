@@ -22,7 +22,6 @@ import java.io.File;
 import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 @SpringBootTest
 @Testcontainers
@@ -70,8 +69,11 @@ public class RedisDbClientIT {
                 "pipeline1",
                 new GitRepoSchema("http://fake.com/repo.git", "/", new GitCredOpen())
         );
-        var status = redisDbClient.store("team-test-key", originalTeam);
-        assertTrue(status);
+        try {
+            redisDbClient.storeValue("team-test-key", originalTeam);
+        } catch (RuntimeException e) {
+            fail();
+        }
         var fetchedTeam = redisDbClient.fetchTeamSchema("team-test-key");
         assertNotNull(fetchedTeam);
         assertEquals(originalTeam.getTeamName(), fetchedTeam.getTeamName());
@@ -83,9 +85,12 @@ public class RedisDbClientIT {
         var teamList = new ArrayList<>();
         teamList.add("team1");
         teamList.add("team2");
-        var status = redisDbClient.store("list-test-key", teamList);
-        assertTrue(status);
-        var fetchedList = redisDbClient.fetchList("list-test-key");
+        try {
+            redisDbClient.storeValue("list-test-key", teamList);
+        } catch (RuntimeException e) {
+            fail();
+        }
+        var fetchedList = redisDbClient.fetchStringList("list-test-key");
         assertNotNull(fetchedList);
         assertEquals(teamList, fetchedList);
     }
@@ -93,7 +98,7 @@ public class RedisDbClientIT {
     @Test
     void redisDbClientFetchesNonexistentKeyReturnsNull() {
         var fetchedTeam = redisDbClient.fetchTeamSchema("nonexistant-key1");
-        var fetchedList = redisDbClient.fetchList("nonexistant-key2");
+        var fetchedList = redisDbClient.fetchStringList("nonexistant-key2");
         assertNull(fetchedTeam);
         assertNull(fetchedList);
     }
@@ -106,11 +111,17 @@ public class RedisDbClientIT {
         var newTeam2 = new TeamSchemaImpl("team2", TeamSchema.ROOT_TEAM, "test_organization");
 
         var fetchedTeam = redisDbClient.fetchTeamSchema(testKey);
-        var status = redisDbClient2.store(testKey, newTeam1);
-        assumeTrue(status);
+        try {
+            redisDbClient2.storeValue(testKey, newTeam1);
+        } catch (RuntimeException e) {
+            fail();
+        }
 
-        status = redisDbClient.store(testKey, newTeam2);
-        assertFalse(status);
+        try {
+            redisDbClient.storeValue(testKey, newTeam2);
+        } catch (RuntimeException e) {
+            //Should be throwing an error.
+        }
 
         fetchedTeam = redisDbClient.fetchTeamSchema(testKey);
         assertTeamsEqual(fetchedTeam, newTeam1);
@@ -127,11 +138,17 @@ public class RedisDbClientIT {
         var newTeam2 = new TeamSchemaImpl("team2", TeamSchema.ROOT_TEAM, "test_organization");
 
         var fetchedTeam = redisDbClient.fetchTeamSchema(testKey1);
-        var status = redisDbClient2.store(testKey1, newTeam1);
-        assumeTrue(status);
+        try {
+            redisDbClient2.storeValue(testKey1, newTeam1);
+        } catch (RuntimeException e) {
+            fail();
+        }
 
-        status = redisDbClient.store(testKey2, newTeam2);
-        assertTrue(status);
+        try {
+            redisDbClient.storeValue(testKey2, newTeam2);
+        } catch (RuntimeException e) {
+            fail();
+        }
 
         fetchedTeam = redisDbClient.fetchTeamSchema(testKey2);
         assertTeamsEqual(fetchedTeam, newTeam2);

@@ -28,8 +28,10 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 
@@ -84,7 +86,6 @@ public class PipelineApiTest {
 
     @Test
     public void createPipelineReturnsOk() {
-        when(dbClient.store(Mockito.anyString(), any())).thenReturn(true);
         when(dbClient.fetchTeamSchema(DbKey.makeDbTeamKey("org name", "team1"))).thenReturn(teamSchemaNew);
         when(repoManagerApi.cloneRepo(any())).thenReturn(true);
         assertEquals(pipelineApi.createPipeline("org name", "team1", "pipeline1", gitRepoSchema), ResponseEntity.ok().build());
@@ -100,7 +101,6 @@ public class PipelineApiTest {
 
     @Test
     public void updatePipelineReturnsOk() {
-        when(dbClient.store(Mockito.anyString(), any())).thenReturn(true);
         when(dbClient.fetchTeamSchema(DbKey.makeDbTeamKey("org name", "team2"))).thenReturn(teamSchemaOld);
         when(repoManagerApi.cloneRepo(any())).thenReturn(true);
         assertEquals(pipelineApi.updatePipeline("org name", "team2", "pipeline1", gitRepoSchema), ResponseEntity.ok().build());
@@ -108,7 +108,6 @@ public class PipelineApiTest {
 
     @Test
     public void deletePipelineReturnsOk() {
-        when(dbClient.store(Mockito.anyString(), any())).thenReturn(true);
         when(dbClient.fetchTeamSchema(DbKey.makeDbTeamKey("org name", "team2"))).thenReturn(teamSchemaOld);
         when(repoManagerApi.deleteRepo(any())).thenReturn(true);
         assertEquals(pipelineApi.deletePipeline("org name", "team2", "pipeline1", gitRepoSchema), ResponseEntity.ok().build());
@@ -116,7 +115,6 @@ public class PipelineApiTest {
 
     @Test
     public void createPipelineFailsWhenTeamDoesNotExist() {
-        when(dbClient.store(Mockito.anyString(), any())).thenReturn(true);
         when(dbClient.fetchTeamSchema(any())).thenReturn(null);
         assertEquals(pipelineApi.createPipeline("org name", "team3", "pipeline2", gitRepoSchema), ResponseEntity.badRequest().build());
 
@@ -138,8 +136,8 @@ public class PipelineApiTest {
     @Test
     public void createPipelineFailsWhenDbClientFails() {
         when(dbClient.fetchTeamSchema(DbKey.makeDbTeamKey("org name", "team1"))).thenReturn(teamSchemaNew);
-        when(dbClient.store(any(), any())).thenReturn(false);
-        assertEquals(pipelineApi.createPipeline("org name", "team1", "pipeline1", gitRepoSchema), ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build());
+        doThrow(new RuntimeException("Failure")).when(dbClient).storeValue(any(), any());
+        assertThrows(RuntimeException.class, () -> pipelineApi.createPipeline("org name", "team1", "pipeline1", gitRepoSchema));
     }
 
     @Test
@@ -176,7 +174,7 @@ public class PipelineApiTest {
     @Test
     public void deletePipelineFailsWhenDbClientFails() {
         when(dbClient.fetchTeamSchema(DbKey.makeDbTeamKey("org name", "team2"))).thenReturn(teamSchemaOld);
-        when(dbClient.store(any(), any())).thenReturn(false);
-        assertEquals(pipelineApi.deletePipeline("org name", "team2", "pipeline1", gitRepoSchema), ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build());
+        doThrow(new RuntimeException("Failure")).when(dbClient).storeValue(any(), any());
+        assertThrows(RuntimeException.class, () -> pipelineApi.deletePipeline("org name", "team2", "pipeline1", gitRepoSchema));
     }
 }
