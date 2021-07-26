@@ -9,6 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.ROOT_STEP_NAME;
 
 @Slf4j
@@ -77,8 +79,14 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
     }
 
     @Override
-    public boolean areParentStepsComplete(String stepName) {
-        //TODO: Check redis and implement the flow for ensuring the parent steps have all been completed
+    public boolean areParentStepsComplete(Event event, List<String> parentSteps) {
+        for (var parentStepName : parentSteps) {
+            var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), parentStepName);
+            var deploymentLog = dbClient.fetchLatestLog(logKey);
+            if (deploymentLog.getUniqueVersionInstance() != 0 || !deploymentLog.getStatus().equals(DeploymentLog.DeploymentStatus.SUCCESS.name())) {
+                return false;
+            }
+        }
         return true;
     }
 

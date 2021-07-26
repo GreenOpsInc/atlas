@@ -124,7 +124,8 @@ public class EventHandlerImpl implements EventHandler {
         var childrenSteps = pipelineData.getChildrenSteps(step.getName());
         for (var stepName : childrenSteps) {
             var nextStep = pipelineData.getStep(stepName);
-            if (deploymentLogHandler.areParentStepsComplete(stepName)) {
+            var parentSteps = pipelineData.getParentSteps(stepName);
+            if (deploymentLogHandler.areParentStepsComplete(event, parentSteps)) {
                 deploymentLogHandler.initializeNewStepLog(
                         event,
                         nextStep.getName(),

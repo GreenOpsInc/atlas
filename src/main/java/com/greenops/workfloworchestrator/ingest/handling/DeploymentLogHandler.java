@@ -2,6 +2,8 @@ package com.greenops.workfloworchestrator.ingest.handling;
 
 import com.greenops.workfloworchestrator.datamodel.event.Event;
 
+import java.util.List;
+
 public interface DeploymentLogHandler {
 
     void updateStepDeploymentLog(Event event, String stepName, String argoApplicationName, int revisionId);
@@ -14,7 +16,7 @@ public interface DeploymentLogHandler {
 
     void markStepFailedWithBrokenTest(Event event, String stepName, String testName, String testLog);
 
-    boolean areParentStepsComplete(String stepName);
+    boolean areParentStepsComplete(Event event, List<String> parentSteps);
 
     String makeRollbackDeploymentLog(Event event, String stepName);
 }
