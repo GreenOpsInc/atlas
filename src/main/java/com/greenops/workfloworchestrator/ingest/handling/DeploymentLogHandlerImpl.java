@@ -81,6 +81,7 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
     @Override
     public boolean areParentStepsComplete(Event event, List<String> parentSteps) {
         for (var parentStepName : parentSteps) {
+            if (parentStepName.equals(ROOT_STEP_NAME)) continue;
             var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), parentStepName);
             var deploymentLog = dbClient.fetchLatestLog(logKey);
             if (deploymentLog.getUniqueVersionInstance() != 0 || !deploymentLog.getStatus().equals(DeploymentLog.DeploymentStatus.SUCCESS.name())) {
