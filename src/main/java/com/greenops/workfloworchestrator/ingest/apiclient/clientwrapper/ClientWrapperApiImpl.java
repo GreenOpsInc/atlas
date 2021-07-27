@@ -75,6 +75,47 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     }
 
     @Override
+    public void delete(String orgName, String type, String resourceName, String resourceNamespace, String group, String version, String kind) {
+        var request = new HttpPost(serverEndpoint + String.format("/delete/%s/%s/%s/%s/%s/%s/%s", orgName, type, resourceName, resourceNamespace, group, version, kind));
+        try {
+            var response = httpClient.execute(request);
+            checkResponseStatus(response);
+            if (!objectMapper.readValue(response.getEntity().getContent().readAllBytes(), Boolean.class)) {
+                throw new AtlasRetryableError("Delete request failed.");
+            }
+        } catch (JsonProcessingException e) {
+            log.error("Object mapper could not convert payload to boolean", e);
+            throw new AtlasNonRetryableError(e);
+        } catch (IOException e) {
+            log.error("HTTP delete request failed", e);
+            throw new AtlasRetryableError(e);
+        } finally {
+            request.releaseConnection();
+        }
+    }
+
+    @Override
+    public void delete(String orgName, String type, String configPayload) {
+        var request = new HttpPost(serverEndpoint + String.format("/delete/%s/%s", orgName, type));
+        try {
+            request.setEntity(new StringEntity(configPayload, ContentType.DEFAULT_TEXT));
+            var response = httpClient.execute(request);
+            checkResponseStatus(response);
+            if (!objectMapper.readValue(response.getEntity().getContent().readAllBytes(), Boolean.class)) {
+                throw new AtlasRetryableError("Delete request failed.");
+            }
+        } catch (JsonProcessingException e) {
+            log.error("Object mapper could not convert payload to boolean", e);
+            throw new AtlasNonRetryableError(e);
+        } catch (IOException e) {
+            log.error("HTTP delete request failed", e);
+            throw new AtlasRetryableError(e);
+        } finally {
+            request.releaseConnection();
+        }
+    }
+
+    @Override
     public void deleteApplication(String group, String version, String kind, String applicationName) {
         var request = new HttpPost(serverEndpoint + String.format("/delete/%s/%s/%s/%s", group, version, kind, applicationName));
         try {
