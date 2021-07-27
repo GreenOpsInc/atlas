@@ -6,6 +6,7 @@ import com.greenops.pipelinereposerver.api.model.git.GitCredOpen;
 import com.greenops.pipelinereposerver.api.model.git.GitCredToken;
 import com.greenops.pipelinereposerver.api.model.git.GitRepoSchema;
 import com.greenops.pipelinereposerver.dbclient.DbClient;
+import com.greenops.pipelinereposerver.kubernetesclient.KubernetesClient;
 import org.apache.tomcat.util.http.fileupload.FileUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class RepoManagerTests {
     private RepoManager repoManager;
     private DbClient dbClient;
+    private KubernetesClient kubernetesClient;
     private Path testFolderPath;
     private final String oldCommitHashPrivate = "43ffa3176fe4442b68eb52300721b03916f35fdd";
     private final String latestCommitHashPrivate = "36773475e7d293f94d2c26db5ec7b1cfb9ad0458";
@@ -48,7 +50,8 @@ public class RepoManagerTests {
     @BeforeEach
     public void beforeEach() throws IOException {
         dbClient = Mockito.mock(DbClient.class);
-        repoManager = new RepoManagerImpl(dbClient);
+        kubernetesClient = Mockito.mock(KubernetesClient.class);
+        repoManager = new RepoManagerImpl(dbClient, kubernetesClient);
         testFolderPath = Paths.get(System.getProperty("user.dir"), repoManager.getOrgName(), "tmp");
     }
 
