@@ -4,6 +4,9 @@ const (
 	DeployArgoRequest       string = "DeployArgoRequest"
 	DeployKubernetesRequest string = "DeployKubernetesRequest"
 	DeployTestRequest       string = "DeployTestRequest"
+	DeleteArgoRequest       string = "DeleteArgoRequest"
+	DeleteKubernetesRequest string = "DeleteKubernetesRequest"
+	DeleteTestRequest       string = "DeleteTestRequest"
 )
 
 type WatchRequest struct {

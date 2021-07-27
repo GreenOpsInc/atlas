@@ -54,7 +54,7 @@ func deploy(w http.ResponseWriter, r *http.Request) {
 			revisionId = -1
 		}
 	} else {
-		success, resourceName, appNamespace = drivers.k8sDriver.Deploy(stringReqBody)
+		success, resourceName, appNamespace = drivers.k8sDriver.Deploy(&stringReqBody)
 		revisionId = -1
 	}
 
@@ -83,6 +83,33 @@ func rollbackArgoApp(w http.ResponseWriter, r *http.Request) {
 			AppNamespace: appNamespace,
 			RevisionId:   revisionId,
 		})
+}
+
+func deleteResource(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	//deleteType := vars["type"]
+	resourceName := vars["resourceName"]
+	resourceNamespace := vars["resourceNamespace"]
+	resourceGroup := vars["group"]
+	resourceVersion := vars["version"]
+	resourceKind := vars["kind"]
+	success := drivers.k8sDriver.Delete(resourceName, resourceNamespace, schema.GroupVersionKind{
+		Group:   resourceGroup,
+		Version: resourceVersion,
+		Kind:    resourceKind,
+	})
+
+	json.NewEncoder(w).Encode(success)
+}
+
+func deleteResourceFromConfig(w http.ResponseWriter, r *http.Request) {
+	//vars := mux.Vars(r)
+	//deleteType := vars["type"]
+	byteReqBody, _ := ioutil.ReadAll(r.Body)
+	stringReqBody := string(byteReqBody)
+	success := drivers.k8sDriver.DeleteBasedOnConfig(&stringReqBody)
+
+	json.NewEncoder(w).Encode(success)
 }
 
 func deleteApplication(w http.ResponseWriter, r *http.Request) {
@@ -159,6 +186,8 @@ func watch(w http.ResponseWriter, r *http.Request) {
 func handleRequests() {
 	myRouter := mux.NewRouter().StrictSlash(true)
 	myRouter.HandleFunc("/deploy/{orgName}/{type}", deploy).Methods("POST")
+	myRouter.HandleFunc("/delete/{orgName}/{type}/{resourceName}/{resourceNamespace}/{group}/{version}{kind}", deleteResource).Methods("POST")
+	myRouter.HandleFunc("/delete/{orgName}/{type}", deleteResourceFromConfig).Methods("POST")
 	myRouter.HandleFunc("/rollback/{orgName}/{appName}/{revisionId}", rollbackArgoApp).Methods("POST")
 	myRouter.HandleFunc("/delete/{group}/{version}/{kind}/{name}", deleteApplication).Methods("POST")
 	myRouter.HandleFunc("/checkStatus/{group}/{version}/{kind}/{name}", checkStatus).Methods("GET")

@@ -28,12 +28,16 @@ import (
 
 const (
 	DefaultContainer string = "alpine:3.14"
-	JobKindName      string = "Job"
-	CronJobKindName  string = "CronJob"
+	JobType          string = "Job"
+	CronJobType      string = "CronJob"
+	PodType          string = "Pod"
+	ServiceType      string = "Service"
+	ReplicaSetType   string = "ReplicaSet"
 )
 
 type KubernetesClientGetRestricted interface {
 	GetJob(name string, namespace string) (batchv1.JobStatus, metav1.LabelSelector, int32)
+	Delete(resourceName string, resourceNamespace string, gvk schema.GroupVersionKind) bool
 	GetLogs(podNamespace string, selector metav1.LabelSelector) (string, error)
 }
 
@@ -43,10 +47,11 @@ type KubernetesClientNamespaceRestricted interface {
 
 type KubernetesClient interface {
 	//TODO: Add parameters for Deploy
-	Deploy(configPayload string) (bool, string, string)
+	Deploy(configPayload *string) (bool, string, string)
 	CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, existingConfig string, variables map[string]string) (bool, string, string)
 	//TODO: Add parameters for Delete
-	Delete(configPayload string) bool
+	Delete(resourceName string, resourceNamespace string, gvk schema.GroupVersionKind) bool
+	DeleteBasedOnConfig(configPayload *string) bool
 	CheckAndCreateNamespace(namespace string) (string, error)
 	GetLogs(podNamespace string, selector metav1.LabelSelector) (string, error)
 	GetJob(name string, namespace string) (batchv1.JobStatus, metav1.LabelSelector, int32)
@@ -82,9 +87,9 @@ func New() KubernetesClient {
 	return client
 }
 
-func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string, string) {
+func (k KubernetesClientDriver) Deploy(configPayload *string) (bool, string, string) {
 	//TODO: This method currently expects only one object per file. Add in support for separate YAML files combined into one. This can be done by splitting on the "---" string.
-	obj, groupVersionKind, err := getResourceObjectFromYAML(configPayload)
+	obj, groupVersionKind, err := getResourceObjectFromYAML(*configPayload)
 	if err != nil {
 		return false, "", ""
 	}
@@ -105,7 +110,7 @@ func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string, stri
 		_, err = k.client.BatchV1().Jobs(namespace).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
-				return k.deleteAndDeploy(&configPayload)
+				return k.deleteAndDeploy(configPayload)
 			}
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
 			return false, "", ""
@@ -122,7 +127,7 @@ func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string, stri
 		_, err = k.client.CoreV1().Services(namespace).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
-				return k.deleteAndDeploy(&configPayload)
+				return k.deleteAndDeploy(configPayload)
 			}
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
 			return false, "", ""
@@ -139,7 +144,7 @@ func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string, stri
 		_, err = k.client.AppsV1().ReplicaSets(namespace).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
-				return k.deleteAndDeploy(&configPayload)
+				return k.deleteAndDeploy(configPayload)
 			}
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
 			return false, "", ""
@@ -160,7 +165,7 @@ func (k KubernetesClientDriver) Deploy(configPayload string) (bool, string, stri
 		}).Namespace(namespace).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
-				return k.deleteAndDeploy(&configPayload)
+				return k.deleteAndDeploy(configPayload)
 			}
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
 			return false, "", ""
@@ -224,7 +229,7 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 			Env:        envVars,
 			//There are a lot more parameters, probably won't need them in the near future
 		}
-		if kind == JobKindName {
+		if kind == JobType {
 			jobSpec := batchv1.Job{
 				TypeMeta:   metav1.TypeMeta{Kind: "Job", APIVersion: batchv1.SchemeGroupVersion.String()},
 				ObjectMeta: metav1.ObjectMeta{Name: objName, Namespace: namespace},
@@ -245,76 +250,75 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 				return false, "", ""
 			}
 			configPayload = string(data)
-		} else if kind == CronJobKindName {
+		} else if kind == CronJobType {
 			//TODO: Implement me
 		}
 	}
-	return k.Deploy(configPayload)
+	return k.Deploy(&configPayload)
 }
 
 func (k KubernetesClientDriver) deleteAndDeploy(configPayload *string) (bool, string, string) {
-	success := k.Delete(*configPayload)
+	success := k.DeleteBasedOnConfig(configPayload)
 	if success {
-		return k.Deploy(*configPayload)
+		return k.Deploy(configPayload)
 	}
 	log.Printf("Failed to delete the existing resource successfully. Aborting deploy.")
 	return false, "", ""
 }
 
-func (k KubernetesClientDriver) Delete(configPayload string) bool {
-	//TODO: This method currently expects only one object per file. Add in support for separate YAML files combined into one. This can be done by splitting on the "---" string.
-	obj, groupVersionKind, err := getResourceObjectFromYAML(configPayload)
-	if err != nil {
-		return false
-	}
-	switch obj.(type) {
-	//TODO: Types like Pod, Deployment, StatefulSet, etc are missing. They would be almost an exact copy of the ReplicaSet case. Namespaces also need to be added in.
-	//TODO: This current flow uses Create, just because it is simpler. Should eventually transition to Apply, which will cover more error cases.
-	case *batchv1.Job:
-		strongTypeObject := obj.(*batchv1.Job)
-		log.Printf("%s matched ReplicaSet. Deploying...\n", strongTypeObject.Name)
-		namespace := strongTypeObject.Namespace
-		err = k.client.BatchV1().Jobs(namespace).Delete(context.TODO(), strongTypeObject.GetName(), metav1.DeleteOptions{})
-		if err != nil {
-			log.Printf("The deploy step threw an error. Error was %s\n", err)
-			return false
-		}
-	case *corev1.Service:
-		strongTypeObject := obj.(*corev1.Service)
-		log.Printf("%s matched ReplicaSet. Deleting...\n", strongTypeObject.Name)
-		namespace := strongTypeObject.Namespace
-		err = k.client.CoreV1().Services(namespace).Delete(context.TODO(), strongTypeObject.GetName(), metav1.DeleteOptions{})
+func (k KubernetesClientDriver) Delete(resourceName string, resourceNamespace string, gvk schema.GroupVersionKind) bool {
+	switch gvk.Kind {
+	case JobType:
+		err := k.client.BatchV1().Jobs(resourceNamespace).Delete(context.TODO(), resourceName, metav1.DeleteOptions{})
 		if err != nil {
 			log.Printf("The delete step threw an error. Error was %s\n", err)
 			return false
 		}
-	case *appsv1.ReplicaSet:
-		strongTypeObject := obj.(*appsv1.ReplicaSet)
-		log.Printf("%s matched ReplicaSet. Deleting...\n", strongTypeObject.Name)
-		namespace := strongTypeObject.Namespace
-		err = k.client.AppsV1().ReplicaSets(namespace).Delete(context.TODO(), strongTypeObject.GetName(), metav1.DeleteOptions{})
+	case ServiceType:
+		err := k.client.CoreV1().Services(resourceNamespace).Delete(context.TODO(), resourceName, metav1.DeleteOptions{})
 		if err != nil {
 			log.Printf("The delete step threw an error. Error was %s\n", err)
 			return false
 		}
-	case *unstructured.Unstructured:
-		strongTypeObject := obj.(*unstructured.Unstructured)
-		log.Printf("YAML file matched Unstructured of kind %s. Deleting...\n", groupVersionKind.Kind)
-		namespace := strongTypeObject.GetNamespace()
-		if namespace == "" {
-			namespace = corev1.NamespaceDefault
-		}
-		err = k.dynamicClient.Resource(schema.GroupVersionResource{
-			Group:    groupVersionKind.Group,
-			Version:  groupVersionKind.Version,
-			Resource: getPluralResourceNameFromKind(groupVersionKind.Kind),
-		}).Namespace(namespace).Delete(context.TODO(), strongTypeObject.GetName(), metav1.DeleteOptions{})
+	case ReplicaSetType:
+		err := k.client.AppsV1().ReplicaSets(resourceNamespace).Delete(context.TODO(), resourceName, metav1.DeleteOptions{})
 		if err != nil {
 			log.Printf("The delete step threw an error. Error was %s\n", err)
 			return false
 		}
 	default:
-		log.Printf("There was no matching type for the input.\n")
+		//GVK may not be fully populated. If it isn't this will fail.
+		log.Printf("Default case. Unstructured of kind %s. Deleting...\n", gvk.Kind)
+		namespace, _ := k.CheckAndCreateNamespace(resourceNamespace)
+		err := k.dynamicClient.Resource(schema.GroupVersionResource{
+			Group:    gvk.Group,
+			Version:  gvk.Version,
+			Resource: getPluralResourceNameFromKind(gvk.Kind),
+		}).Namespace(namespace).Delete(context.TODO(), resourceName, metav1.DeleteOptions{})
+		if err != nil {
+			log.Printf("The delete step threw an error. Error was %s\n", err)
+			return false
+		}
+	}
+	return true
+}
+
+func (k KubernetesClientDriver) DeleteBasedOnConfig(configPayload *string) bool {
+	//TODO: This method currently expects only one object per file. Add in support for separate YAML files combined into one. This can be done by splitting on the "---" string.
+	obj, groupVersionKind, err := getResourceObjectFromYAML(*configPayload)
+	if err != nil {
+		return false
+	}
+	strongTypeObject := obj.(*unstructured.Unstructured)
+	log.Printf("YAML file matched Unstructured of kind %s. Deleting...\n", groupVersionKind.Kind)
+	namespace, _ := k.CheckAndCreateNamespace(strongTypeObject.GetNamespace())
+	err = k.dynamicClient.Resource(schema.GroupVersionResource{
+		Group:    groupVersionKind.Group,
+		Version:  groupVersionKind.Version,
+		Resource: getPluralResourceNameFromKind(groupVersionKind.Kind),
+	}).Namespace(namespace).Delete(context.TODO(), strongTypeObject.GetName(), metav1.DeleteOptions{})
+	if err != nil {
+		log.Printf("The delete step threw an error. Error was %s\n", err)
 		return false
 	}
 	return true

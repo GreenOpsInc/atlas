@@ -8,6 +8,7 @@ import (
 	"greenops.io/client/k8sdriver"
 	"greenops.io/client/progressionchecker/datamodel"
 	"io"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"log"
 	"net/http"
 	"os"
@@ -118,9 +119,14 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 					for i := 0; i < HttpRequestRetryLimit; i++ {
 						if !watchKey.GeneratedCompletionEvent && generateEvent(eventInfo, workflowTriggerAddress) {
 							log.Printf("Generated Test Completion event for %s", watchKey.Name)
-							//TODO: Should also be deleting the Job after completion
 							watchKey.GeneratedCompletionEvent = true
 							watchedApplications[mapKey] = watchKey
+							if !kubernetesClient.Delete(watchKey.Name, watchKey.Namespace, schema.GroupVersionKind{Kind: k8sdriver.JobType}) {
+								continue
+							}
+							deleteKeys = append(deleteKeys, mapKey)
+							break
+						} else if kubernetesClient.Delete(watchKey.Name, watchKey.Namespace, schema.GroupVersionKind{Kind: k8sdriver.JobType}) {
 							deleteKeys = append(deleteKeys, mapKey)
 							break
 						}
