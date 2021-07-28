@@ -64,10 +64,18 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
                     return new ArgoDeploymentInfo(deployResponse.getResourceName(), deployResponse.getRevisionId());
                 }
             }
-        } else {
-            //stepData.getArgoApplication() != null
-            //TODO: Expectation is argo application has already been created. Implement this.
-            return null;
+        } else { //stepData.getArgoApplication() != null
+            var deployResponse = clientWrapperApi.deployArgoAppByName(event.getOrgName(), stepData.getArgoApplication());
+            log.info("Syncing the Argo application {}...", deployResponse.getResourceName());
+            if (!deployResponse.getSuccess()) {
+                log.error("Syncing the Argo application failed.");
+                return null;
+            } else {
+                var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepData.getName(), WATCH_ARGO_APPLICATION_KEY, deployResponse.getResourceName(), deployResponse.getApplicationNamespace());
+                clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
+                log.info("Watching Argo application {}", deployResponse.getResourceName());
+                return new ArgoDeploymentInfo(deployResponse.getResourceName(), deployResponse.getRevisionId());
+            }
         }
         return NO_OP_ARGO_DEPLOYMENT;
     }

@@ -57,6 +57,24 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     }
 
     @Override
+    public DeployResponse deployArgoAppByName(String orgName, String appName) {
+        var request = new HttpPost(serverEndpoint + String.format("/deploy/%s/%s/%s", orgName, DEPLOY_ARGO_REQUEST, appName));
+        try {
+            var response = httpClient.execute(request);
+            checkResponseStatus(response);
+            return objectMapper.readValue(response.getEntity().getContent().readAllBytes(), DeployResponse.class);
+        } catch (JsonProcessingException e) {
+            log.error("Object mapper could not convert payload to DeployResponse", e);
+            throw new AtlasNonRetryableError(e);
+        } catch (IOException e) {
+            log.error("HTTP deploy request failed", e);
+            throw new AtlasRetryableError(e);
+        } finally {
+            request.releaseConnection();
+        }
+    }
+
+    @Override
     public DeployResponse rollback(String orgName, String appName, int revisionId) {
         var request = new HttpPost(serverEndpoint + String.format("/rollback/%s/%s/%d", orgName, appName, revisionId));
         try {
