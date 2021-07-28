@@ -68,6 +68,26 @@ func deploy(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
+func deployArgoAppByName(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	//requestType := vars["type"]
+	argoAppName := vars["argoAppName"]
+	var success bool
+	var resourceName string
+	var appNamespace string
+	var revisionId int64
+	success, resourceName, appNamespace, revisionId = drivers.argoDriver.Sync(argoAppName)
+
+	json.NewEncoder(w).Encode(
+		requestdatatypes.DeployResponse{
+			Success:      success,
+			ResourceName: resourceName,
+			AppNamespace: appNamespace,
+			RevisionId:   revisionId,
+		},
+	)
+}
+
 func rollbackArgoApp(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	appName := vars["appName"]
@@ -186,6 +206,7 @@ func watch(w http.ResponseWriter, r *http.Request) {
 func handleRequests() {
 	myRouter := mux.NewRouter().StrictSlash(true)
 	myRouter.HandleFunc("/deploy/{orgName}/{type}", deploy).Methods("POST")
+	myRouter.HandleFunc("/deploy/{orgName}/{type}/{argoAppName}", deployArgoAppByName).Methods("POST")
 	myRouter.HandleFunc("/delete/{orgName}/{type}/{resourceName}/{resourceNamespace}/{group}/{version}{kind}", deleteResource).Methods("POST")
 	myRouter.HandleFunc("/delete/{orgName}/{type}", deleteResourceFromConfig).Methods("POST")
 	myRouter.HandleFunc("/rollback/{orgName}/{appName}/{revisionId}", rollbackArgoApp).Methods("POST")

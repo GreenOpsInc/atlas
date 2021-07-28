@@ -28,6 +28,7 @@ const (
 
 type ArgoClient interface {
 	Deploy(configPayload string) (bool, string, string, int64)
+	Sync(configPayload string) (bool, string, string, int64)
 	Delete(applicationName string) bool
 	Rollback(appName string, appId string) (bool, string, string)
 	//TODO: Update parameters & return type for CheckStatus
@@ -98,15 +99,25 @@ func (a ArgoClientDriver) Deploy(configPayload string) (bool, string, string, in
 		return false, "", "", -1
 	}
 
+	log.Printf("Deploying Argo application named %s\n", argoApplication.Name)
+	return a.Sync(argoApplication.Name)
+}
+
+func (a ArgoClientDriver) Sync(applicationName string) (bool, string, string, int64) {
+	ioCloser, applicationClient, err := a.client.NewApplicationClient()
+	if err != nil {
+		log.Printf("The deploy application client could not be made. Error was %s\n", err)
+		return false, "", "", -1
+	}
+	defer ioCloser.Close()
 	//Sync() returns the current state of the application and triggers the synchronization of the application, so the return
 	//value is not useful in this case
-	_, err = applicationClient.Sync(context.TODO(), &application.ApplicationSyncRequest{Name: &argoApplication.Name})
+	var argoApplication *v1alpha1.Application
+	argoApplication, err = applicationClient.Sync(context.TODO(), &application.ApplicationSyncRequest{Name: &applicationName})
 	if err != nil {
 		log.Printf("Syncing threw an error. Error was %s\n", err)
 		return false, "", "", -1
 	}
-	log.Printf("Deployed Argo application named %s\n", argoApplication.Name)
-	//TODO: Syncing takes time. Right now, we can assume that apps will deploy properly. In the future, we will have to see whether we can blindly return true or not.
 	return true, argoApplication.Name, argoApplication.Namespace, argoApplication.Status.History.LastRevisionHistory().ID
 }
 
@@ -149,13 +160,6 @@ func (a ArgoClientDriver) Rollback(appName string, appId string) (bool, string, 
 		return false, "", ""
 	}
 
-	//Sync() returns the current state of the application and triggers the synchronization of the application, so the return
-	//value is not useful in this case
-	//_, err = applicationClient.Sync(context.TODO(), &application.ApplicationSyncRequest{Name: &argoApplication.Name})
-	//if err != nil {
-	//	log.Printf("Syncing threw an error. Error was %s\n", err)
-	//	return false, "", ""
-	//}
 	log.Printf("Rolled back Argo application named %s\n", argoApplication.Name)
 	//TODO: Syncing takes time. Right now, we can assume that apps will deploy properly. In the future, we will have to see whether we can blindly return true or not.
 	return true, argoApplication.Name, argoApplication.Namespace
