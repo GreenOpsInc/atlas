@@ -267,21 +267,22 @@ func (k KubernetesClientDriver) deleteAndDeploy(configPayload *string) (bool, st
 }
 
 func (k KubernetesClientDriver) Delete(resourceName string, resourceNamespace string, gvk schema.GroupVersionKind) bool {
+	deletionPropogationPolicy := metav1.DeletePropagationBackground
 	switch gvk.Kind {
 	case JobType:
-		err := k.client.BatchV1().Jobs(resourceNamespace).Delete(context.TODO(), resourceName, metav1.DeleteOptions{})
+		err := k.client.BatchV1().Jobs(resourceNamespace).Delete(context.TODO(), resourceName, metav1.DeleteOptions{PropagationPolicy: &deletionPropogationPolicy})
 		if err != nil {
 			log.Printf("The delete step threw an error. Error was %s\n", err)
 			return false
 		}
 	case ServiceType:
-		err := k.client.CoreV1().Services(resourceNamespace).Delete(context.TODO(), resourceName, metav1.DeleteOptions{})
+		err := k.client.CoreV1().Services(resourceNamespace).Delete(context.TODO(), resourceName, metav1.DeleteOptions{PropagationPolicy: &deletionPropogationPolicy})
 		if err != nil {
 			log.Printf("The delete step threw an error. Error was %s\n", err)
 			return false
 		}
 	case ReplicaSetType:
-		err := k.client.AppsV1().ReplicaSets(resourceNamespace).Delete(context.TODO(), resourceName, metav1.DeleteOptions{})
+		err := k.client.AppsV1().ReplicaSets(resourceNamespace).Delete(context.TODO(), resourceName, metav1.DeleteOptions{PropagationPolicy: &deletionPropogationPolicy})
 		if err != nil {
 			log.Printf("The delete step threw an error. Error was %s\n", err)
 			return false
@@ -294,7 +295,7 @@ func (k KubernetesClientDriver) Delete(resourceName string, resourceNamespace st
 			Group:    gvk.Group,
 			Version:  gvk.Version,
 			Resource: getPluralResourceNameFromKind(gvk.Kind),
-		}).Namespace(namespace).Delete(context.TODO(), resourceName, metav1.DeleteOptions{})
+		}).Namespace(namespace).Delete(context.TODO(), resourceName, metav1.DeleteOptions{PropagationPolicy: &deletionPropogationPolicy})
 		if err != nil {
 			log.Printf("The delete step threw an error. Error was %s\n", err)
 			return false
@@ -305,6 +306,7 @@ func (k KubernetesClientDriver) Delete(resourceName string, resourceNamespace st
 
 func (k KubernetesClientDriver) DeleteBasedOnConfig(configPayload *string) bool {
 	//TODO: This method currently expects only one object per file. Add in support for separate YAML files combined into one. This can be done by splitting on the "---" string.
+	deletionPropogationPolicy := metav1.DeletePropagationBackground
 	obj, groupVersionKind, err := getResourceObjectFromYAML(*configPayload)
 	if err != nil {
 		return false
@@ -316,7 +318,7 @@ func (k KubernetesClientDriver) DeleteBasedOnConfig(configPayload *string) bool 
 		Group:    groupVersionKind.Group,
 		Version:  groupVersionKind.Version,
 		Resource: getPluralResourceNameFromKind(groupVersionKind.Kind),
-	}).Namespace(namespace).Delete(context.TODO(), strongTypeObject.GetName(), metav1.DeleteOptions{})
+	}).Namespace(namespace).Delete(context.TODO(), strongTypeObject.GetName(), metav1.DeleteOptions{PropagationPolicy: &deletionPropogationPolicy})
 	if err != nil {
 		log.Printf("The delete step threw an error. Error was %s\n", err)
 		return false
