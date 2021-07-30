@@ -3,6 +3,8 @@ package com.greenops.workfloworchestrator.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.greenops.workfloworchestrator.datamodel.auditlog.DeploymentLog;
+import com.greenops.workfloworchestrator.datamodel.event.ApplicationInfraCompletionEvent;
+import com.greenops.workfloworchestrator.datamodel.event.ApplicationInfraTriggerEvent;
 import com.greenops.workfloworchestrator.datamodel.event.ClientCompletionEvent;
 import com.greenops.workfloworchestrator.datamodel.event.TestCompletionEvent;
 import com.greenops.workfloworchestrator.datamodel.git.GitCredMachineUser;
@@ -10,6 +12,7 @@ import com.greenops.workfloworchestrator.datamodel.git.GitCredOpen;
 import com.greenops.workfloworchestrator.datamodel.git.GitCredToken;
 import com.greenops.workfloworchestrator.datamodel.git.GitRepoSchema;
 import com.greenops.workfloworchestrator.datamodel.mixin.auditlog.DeploymentLogMixin;
+import com.greenops.workfloworchestrator.datamodel.mixin.event.ApplicationInfraCompletionEventMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.event.ClientCompletionEventMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.event.TestCompletionEventMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.git.GitCredMachineUserMixin;
@@ -57,6 +60,8 @@ public class SpringConfiguration {
         return new ObjectMapper()
                 .addMixIn(ClientCompletionEvent.class, ClientCompletionEventMixin.class)
                 .addMixIn(TestCompletionEvent.class, TestCompletionEventMixin.class)
+                .addMixIn(ApplicationInfraTriggerEvent.class, ApplicationInfraTriggerEvent.class)
+                .addMixIn(ApplicationInfraCompletionEvent.class, ApplicationInfraCompletionEventMixin.class)
                 .addMixIn(GetFileRequest.class, GetFileRequestMixin.class)
                 .addMixIn(WatchRequest.class, WatchRequestMixin.class)
                 .addMixIn(KubernetesCreationRequest.class, KubernetesCreationRequestMixin.class)

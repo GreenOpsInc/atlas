@@ -19,4 +19,10 @@ public interface DeploymentLogHandler {
     boolean areParentStepsComplete(Event event, List<String> parentSteps);
 
     String makeRollbackDeploymentLog(Event event, String stepName);
+
+    String getCurrentGitCommitHash(Event event, String stepName);
+
+    String getLastSuccessfulStepGitCommitHash(Event event, String stepName);
+
+    String getLastSuccessfulDeploymentGitCommitHash(Event event, String stepName);
 }

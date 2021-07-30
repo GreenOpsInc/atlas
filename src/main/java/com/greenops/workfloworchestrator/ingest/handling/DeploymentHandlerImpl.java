@@ -29,12 +29,29 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
     }
 
     @Override
-    public void deployApplicationInfrastructure(Event event, String pipelineRepoUrl, StepData stepData) {
+    public void deleteApplicationInfrastructure(Event event, String pipelineRepoUrl, StepData stepData, String gitCommitHash) {
         if (stepData.getOtherDeploymentsPath() != null) {
-            var getFileRequest = new GetFileRequest(pipelineRepoUrl, stepData.getOtherDeploymentsPath());
+            var getFileRequest = new GetFileRequest(pipelineRepoUrl, stepData.getOtherDeploymentsPath(), gitCommitHash);
             var otherDeploymentsConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
+            for (var deploymentConfig : otherDeploymentsConfig.split("---")) {
+                if (!deploymentConfig.contains("Kind:")) continue;
+                clientWrapperApi.delete(event.getOrgName(), ClientWrapperApi.DELETE_KUBERNETES_REQUEST, deploymentConfig);
+            }
+        }
+    }
+
+    @Override
+    public void deployApplicationInfrastructure(Event event, String pipelineRepoUrl, StepData stepData, String gitCommitHash) {
+        if (stepData.getOtherDeploymentsPath() != null) {
+            var getFileRequest = new GetFileRequest(pipelineRepoUrl, stepData.getOtherDeploymentsPath(), gitCommitHash);
+            var otherDeploymentsConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
+            for (var deploymentConfig : otherDeploymentsConfig.split("---")) {
+                if (!deploymentConfig.contains("Kind:")) continue;
+                clientWrapperApi.delete(event.getOrgName(), ClientWrapperApi.DELETE_KUBERNETES_REQUEST, deploymentConfig);
+            }
             //TODO: The splitting of the config file should eventually be done on the client side
             for (var deploymentConfig : otherDeploymentsConfig.split("---")) {
+                if (!deploymentConfig.contains("Kind:")) continue;
                 var deployResponse = clientWrapperApi.deploy(event.getOrgName(), ClientWrapperApi.DEPLOY_KUBERNETES_REQUEST, deploymentConfig);
                 if (!deployResponse.getSuccess()) {
                     var message = "Deploying other resources failed.";
@@ -46,9 +63,9 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
     }
 
     @Override
-    public ArgoDeploymentInfo deployArgoApplication(Event event, String pipelineRepoUrl, StepData stepData) {
+    public ArgoDeploymentInfo deployArgoApplication(Event event, String pipelineRepoUrl, StepData stepData, String gitCommitHash) {
         if (stepData.getArgoApplicationPath() != null) {
-            var getFileRequest = new GetFileRequest(pipelineRepoUrl, stepData.getArgoApplicationPath());
+            var getFileRequest = new GetFileRequest(pipelineRepoUrl, stepData.getArgoApplicationPath(), gitCommitHash);
             var argoApplicationConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
             //TODO: The splitting of the config file should eventually be done on the client side
             for (var applicationConfig : argoApplicationConfig.split("---")) {

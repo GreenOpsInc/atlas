@@ -28,18 +28,18 @@ public class TestHandlerImpl implements TestHandler {
     }
 
     @Override
-    public void triggerTest(String pipelineRepoUrl, StepData stepData, boolean beforeTest, Event event) {
+    public void triggerTest(String pipelineRepoUrl, StepData stepData, boolean beforeTest, String gitCommitHash, Event event) {
         for (int i = 0; i < stepData.getTests().size(); i++) {
             if (beforeTest == stepData.getTests().get(i).shouldExecuteBefore()) {
-                createAndRunTest(stepData.getName(), pipelineRepoUrl, stepData.getTests().get(i), i, event);
+                createAndRunTest(stepData.getName(), pipelineRepoUrl, stepData.getTests().get(i), i, gitCommitHash, event);
                 return;
             }
         }
     }
 
     @Override
-    public void createAndRunTest(String stepName, String pipelineRepoUrl, Test test, int testNumber, Event event) {
-        var getFileRequest = new GetFileRequest(pipelineRepoUrl, test.getPath());
+    public void createAndRunTest(String stepName, String pipelineRepoUrl, Test test, int testNumber, String gitCommitHash, Event event) {
+        var getFileRequest = new GetFileRequest(pipelineRepoUrl, test.getPath(), gitCommitHash);
         var testConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
         log.info("Creating test Job...");
         var deployResponse = clientWrapperApi.deploy(

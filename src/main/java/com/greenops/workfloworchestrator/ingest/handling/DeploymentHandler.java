@@ -6,7 +6,8 @@ import com.greenops.workfloworchestrator.ingest.handling.util.deployment.ArgoDep
 
 public interface DeploymentHandler {
 
-    void deployApplicationInfrastructure(Event event, String pipelineRepoUrl, StepData stepData);
-    ArgoDeploymentInfo deployArgoApplication(Event event, String pipelineRepoUrl, StepData stepData);
+    void deleteApplicationInfrastructure(Event event, String pipelineRepoUrl, StepData stepData, String gitCommitHash);
+    void deployApplicationInfrastructure(Event event, String pipelineRepoUrl, StepData stepData, String gitCommitHash);
+    ArgoDeploymentInfo deployArgoApplication(Event event, String pipelineRepoUrl, StepData stepData, String gitCommitHash);
     void rollbackArgoApplication(Event event, String pipelineRepoUrl, StepData stepData, String argoApplicationName, int argoRevisionId);
 }

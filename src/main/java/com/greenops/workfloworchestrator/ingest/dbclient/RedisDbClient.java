@@ -117,9 +117,7 @@ public class RedisDbClient implements DbClient {
 
     @Override
     public DeploymentLog fetchLatestLog(String key) {
-        var deploymentLog = (DeploymentLog) fetch(key, ObjectType.SINGLE_LOG, -1);
-        if (deploymentLog == null) throw new AtlasNonRetryableError("No deployment log exists");
-        return deploymentLog;
+        return (DeploymentLog) fetch(key, ObjectType.SINGLE_LOG, -1);
     }
 
     private Object fetch(String key, ObjectType objectType, int increment) {

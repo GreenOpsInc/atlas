@@ -147,4 +147,54 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
         }
         return "";
     }
+
+    @Override
+    public String getCurrentGitCommitHash(Event event, String stepName) {
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
+        var currentDeploymentLog = dbClient.fetchLatestLog(logKey);
+        if (currentDeploymentLog == null) throw new AtlasNonRetryableError("No deployment log found for this key, no commit hash will be found.");
+        return currentDeploymentLog.getGitCommitVersion();
+    }
+
+    @Override
+    public String getLastSuccessfulStepGitCommitHash(Event event, String stepName) {
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
+        var logIncrement = 0;
+        var deploymentLogList = dbClient.fetchLogList(logKey, logIncrement);
+        if (deploymentLogList == null || deploymentLogList.size() == 0) return null;
+        int idx = 0;
+        while (idx < deploymentLogList.size()) {
+            if (deploymentLogList.get(idx).getStatus().equals(DeploymentLog.DeploymentStatus.SUCCESS.name())) {
+                return deploymentLogList.get(idx).getGitCommitVersion();
+            }
+            idx++;
+            if (idx == deploymentLogList.size()) {
+                logIncrement++;
+                deploymentLogList = dbClient.fetchLogList(logKey, logIncrement);
+                idx = 0;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public String getLastSuccessfulDeploymentGitCommitHash(Event event, String stepName) {
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
+        var logIncrement = 0;
+        var deploymentLogList = dbClient.fetchLogList(logKey, logIncrement);
+        if (deploymentLogList == null || deploymentLogList.size() == 0) return null;
+        int idx = 0;
+        while (idx < deploymentLogList.size()) {
+            if (deploymentLogList.get(idx).isDeploymentComplete()) {
+                return deploymentLogList.get(idx).getGitCommitVersion();
+            }
+            idx++;
+            if (idx == deploymentLogList.size()) {
+                logIncrement++;
+                deploymentLogList = dbClient.fetchLogList(logKey, logIncrement);
+                idx = 0;
+            }
+        }
+        return null;
+    }
 }
