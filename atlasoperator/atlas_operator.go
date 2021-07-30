@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
+	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/gorilla/mux"
 	"greenops.io/client/argodriver"
 	"greenops.io/client/atlasoperator/requestdatatypes"
@@ -194,7 +196,8 @@ func watch(w http.ResponseWriter, r *http.Request) {
 		},
 		Name:                     watchRequest.Name,
 		Namespace:                watchRequest.Namespace,
-		Status:                   datamodel.Missing,
+		HealthStatus:             string(health.HealthStatusMissing),
+		SyncStatus:               string(v1alpha1.SyncStatusCodeOutOfSync),
 		GeneratedCompletionEvent: false,
 	}
 	byteKey, _ := json.Marshal(key)

@@ -82,21 +82,42 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 				for _, appInfo := range argoAppInfo {
 					if watchKey.Name == appInfo.Name && watchKey.Namespace == appInfo.Namespace {
 						log.Printf("Matched Argo application %s", appInfo.Name)
-						if appInfo.HealthStatus == string(health.HealthStatusHealthy) && appInfo.SyncStatus == string(v1alpha1.SyncStatusCodeSynced) {
-							watchKey.Status = datamodel.Healthy
-							watchedApplications[mapKey] = watchKey
-							eventInfo := datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo)
-							for i := 0; i < HttpRequestRetryLimit; i++ {
-								if !watchedApplications[mapKey].GeneratedCompletionEvent && generateEvent(eventInfo, workflowTriggerAddress) {
-									log.Printf("Generated Client Completion event for %s", appInfo.Name)
-									watchKey.GeneratedCompletionEvent = true
-									watchedApplications[mapKey] = watchKey
-									break
-								}
+						var eventInfo datamodel.EventInfo
+						if appInfo.HealthStatus == health.HealthStatusProgressing {
+							break
+						} else if appInfo.SyncStatus == v1alpha1.SyncStatusCodeSynced {
+							watchKey.SyncStatus = string(v1alpha1.SyncStatusCodeSynced)
+							var healthStatus health.HealthStatusCode
+							healthStatus = appInfo.HealthStatus
+							if string(healthStatus) != watchKey.HealthStatus {
+								watchKey.GeneratedCompletionEvent = false
 							}
-						} else {
-							watchKey.Status = datamodel.NotHealthy
+							watchKey.HealthStatus = string(healthStatus)
 							watchedApplications[mapKey] = watchKey
+							eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.HealthStatus, datamodel.HealthStatus)
+						} else {
+							oldSyncStatus := watchKey.SyncStatus
+							oldHealthStatus := watchKey.HealthStatus
+							watchKey.SyncStatus = string(appInfo.SyncStatus)
+							watchKey.HealthStatus = string(appInfo.HealthStatus)
+							if oldSyncStatus == watchKey.SyncStatus && oldHealthStatus == watchKey.HealthStatus {
+								break
+							}
+							watchKey.GeneratedCompletionEvent = false
+							watchedApplications[mapKey] = watchKey
+							if watchKey.HealthStatus != oldHealthStatus {
+								eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.HealthStatus, datamodel.HealthStatus)
+							} else {
+								eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.SyncStatus, datamodel.SyncStatus)
+							}
+						}
+						for i := 0; i < HttpRequestRetryLimit; i++ {
+							if !watchedApplications[mapKey].GeneratedCompletionEvent && generateEvent(eventInfo, workflowTriggerAddress) {
+								log.Printf("Generated Client Completion event for %s", appInfo.Name)
+								watchKey.GeneratedCompletionEvent = true
+								watchedApplications[mapKey] = watchKey
+								break
+							}
 						}
 						break
 					}
@@ -157,13 +178,13 @@ func unmarshall(payload *string) []datamodel.ArgoAppMetricInfo {
 		appInfo := datamodel.ArgoAppMetricInfo{
 			DestNamespace: variableMap["dest_namespace"],
 			DestServer:    variableMap["dest_server"],
-			HealthStatus:  variableMap["health_status"],
+			HealthStatus:  health.HealthStatusCode(variableMap["health_status"]),
 			Name:          variableMap["name"],
 			Namespace:     variableMap["namespace"],
 			Operation:     variableMap["operation"],
 			Project:       variableMap["project"],
 			Repo:          variableMap["repo"],
-			SyncStatus:    variableMap["sync_status"],
+			SyncStatus:    v1alpha1.SyncStatusCode(variableMap["sync_status"]),
 		}
 		argoAppInfo = append(argoAppInfo, appInfo)
 	}

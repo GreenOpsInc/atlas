@@ -1,24 +1,29 @@
 package datamodel
 
-import "strings"
-
-const (
-	Missing    string = "Missing"
-	NotHealthy string = "NotHealthy"
-	Healthy    string = "Healthy"
+import (
+	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
+	"github.com/argoproj/gitops-engine/pkg/health"
+	"strings"
 )
 
 type ArgoAppMetricInfo struct {
-	DestNamespace string `tag:"dest_namespace"`
-	DestServer    string `tag:"dest_server"`
-	HealthStatus  string `tag:"health_status"`
-	Name          string `tag:"name"`
-	Namespace     string `tag:"namespace"`
-	Operation     string `tag:"operation"`
-	Project       string `tag:"project"`
-	Repo          string `tag:"repo"`
-	SyncStatus    string `tag:"sync_status"`
+	DestNamespace string                  `tag:"dest_namespace"`
+	DestServer    string                  `tag:"dest_server"`
+	HealthStatus  health.HealthStatusCode `tag:"health_status"`
+	Name          string                  `tag:"name"`
+	Namespace     string                  `tag:"namespace"`
+	Operation     string                  `tag:"operation"`
+	Project       string                  `tag:"project"`
+	Repo          string                  `tag:"repo"`
+	SyncStatus    v1alpha1.SyncStatusCode `tag:"sync_status"`
 }
+
+type StatusType string
+
+const (
+	HealthStatus StatusType = "HealthStatus"
+	SyncStatus   StatusType = "SyncStatus"
+)
 
 type WatchKeyType string
 
@@ -40,7 +45,8 @@ type WatchKey struct {
 	Name string
 	//You can't have two Argo apps with the same name in the same namespace, this makes sure there are no collisions
 	Namespace                string
-	Status                   string
+	HealthStatus             string
+	SyncStatus               string
 	GeneratedCompletionEvent bool
 }
 

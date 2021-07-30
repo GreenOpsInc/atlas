@@ -1,5 +1,7 @@
 package datamodel
 
+import "github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
+
 type EventInfoType string
 
 const (
@@ -43,7 +45,11 @@ func (eventInfo ApplicationEventInfo) GetEventType() EventInfoType {
 	return eventInfo.Type
 }
 
-func MakeApplicationEvent(key WatchKey, appInfo ArgoAppMetricInfo) EventInfo {
+func MakeApplicationEvent(key WatchKey, appInfo ArgoAppMetricInfo, healthStatus string, statusType StatusType) EventInfo {
+	status := healthStatus
+	if statusType == SyncStatus && healthStatus == string(v1alpha1.SyncStatusCodeUnknown) {
+		status = "SyncUnknown"
+	}
 	return ApplicationEventInfo{
 		EventInfoMetaData: EventInfoMetaData{
 			Type:         ClientCompletionEvent,
@@ -52,7 +58,7 @@ func MakeApplicationEvent(key WatchKey, appInfo ArgoAppMetricInfo) EventInfo {
 			PipelineName: key.PipelineName,
 			StepName:     key.StepName,
 		},
-		HealthStatus: Healthy,
+		HealthStatus: status,
 		ArgoName:     appInfo.Name,
 		Operation:    appInfo.Operation,
 		Project:      appInfo.Project,
