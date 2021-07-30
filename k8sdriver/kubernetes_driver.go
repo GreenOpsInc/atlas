@@ -272,18 +272,27 @@ func (k KubernetesClientDriver) Delete(resourceName string, resourceNamespace st
 	case JobType:
 		err := k.client.BatchV1().Jobs(resourceNamespace).Delete(context.TODO(), resourceName, metav1.DeleteOptions{PropagationPolicy: &deletionPropogationPolicy})
 		if err != nil {
+			if strings.Contains(err.Error(), "does not exist") || strings.Contains(err.Error(), "doesn't exist") || strings.Contains(err.Error(), "not found") {
+				return true
+			}
 			log.Printf("The delete step threw an error. Error was %s\n", err)
 			return false
 		}
 	case ServiceType:
 		err := k.client.CoreV1().Services(resourceNamespace).Delete(context.TODO(), resourceName, metav1.DeleteOptions{PropagationPolicy: &deletionPropogationPolicy})
 		if err != nil {
+			if strings.Contains(err.Error(), "does not exist") || strings.Contains(err.Error(), "doesn't exist") || strings.Contains(err.Error(), "not found") {
+				return true
+			}
 			log.Printf("The delete step threw an error. Error was %s\n", err)
 			return false
 		}
 	case ReplicaSetType:
 		err := k.client.AppsV1().ReplicaSets(resourceNamespace).Delete(context.TODO(), resourceName, metav1.DeleteOptions{PropagationPolicy: &deletionPropogationPolicy})
 		if err != nil {
+			if strings.Contains(err.Error(), "does not exist") || strings.Contains(err.Error(), "doesn't exist") || strings.Contains(err.Error(), "not found") {
+				return true
+			}
 			log.Printf("The delete step threw an error. Error was %s\n", err)
 			return false
 		}
@@ -297,6 +306,9 @@ func (k KubernetesClientDriver) Delete(resourceName string, resourceNamespace st
 			Resource: getPluralResourceNameFromKind(gvk.Kind),
 		}).Namespace(namespace).Delete(context.TODO(), resourceName, metav1.DeleteOptions{PropagationPolicy: &deletionPropogationPolicy})
 		if err != nil {
+			if strings.Contains(err.Error(), "does not exist") || strings.Contains(err.Error(), "doesn't exist") || strings.Contains(err.Error(), "not found") {
+				return true
+			}
 			log.Printf("The delete step threw an error. Error was %s\n", err)
 			return false
 		}
@@ -320,6 +332,9 @@ func (k KubernetesClientDriver) DeleteBasedOnConfig(configPayload *string) bool 
 		Resource: getPluralResourceNameFromKind(groupVersionKind.Kind),
 	}).Namespace(namespace).Delete(context.TODO(), strongTypeObject.GetName(), metav1.DeleteOptions{PropagationPolicy: &deletionPropogationPolicy})
 	if err != nil {
+		if strings.Contains(err.Error(), "does not exist") || strings.Contains(err.Error(), "doesn't exist") || strings.Contains(err.Error(), "not found") {
+			return true
+		}
 		log.Printf("The delete step threw an error. Error was %s\n", err)
 		return false
 	}
