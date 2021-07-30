@@ -34,7 +34,7 @@ func deploy(w http.ResponseWriter, r *http.Request) {
 	var resourceName string
 	var appNamespace string
 	if deployType == requestdatatypes.DeployArgoRequest {
-		success, resourceName, appNamespace = drivers.argoDriver.Deploy(stringReqBody)
+		success, resourceName, appNamespace = drivers.argoDriver.Deploy(&stringReqBody)
 	} else if deployType == requestdatatypes.DeployTestRequest {
 		var kubernetesCreationRequest requestdatatypes.KubernetesCreationRequest
 		err := json.NewDecoder(strings.NewReader(stringReqBody)).Decode(&kubernetesCreationRequest)

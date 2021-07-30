@@ -10,6 +10,7 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"greenops.io/client/k8sdriver"
 	"greenops.io/client/util"
+	utilpointer "k8s.io/utils/pointer"
 	"log"
 	"os"
 	"strconv"
@@ -31,8 +32,8 @@ type ArgoGetRestrictedClient interface {
 }
 
 type ArgoClient interface {
-	Deploy(configPayload string) (bool, string, string)
-	Sync(configPayload string) (bool, string, string)
+	Deploy(configPayload *string) (bool, string, string)
+	Sync(applicationName string) (bool, string, string)
 	GetLatestRevision(applicationName string) (int64, error)
 	Delete(applicationName string) bool
 	Rollback(appName string, appRevisionId string) (bool, string, string)
@@ -81,7 +82,7 @@ func New(kubernetesDriver *k8sdriver.KubernetesClient) ArgoClient {
 	return client
 }
 
-func (a ArgoClientDriver) Deploy(configPayload string) (bool, string, string) {
+func (a ArgoClientDriver) Deploy(configPayload *string) (bool, string, string) {
 	ioCloser, applicationClient, err := a.client.NewApplicationClient()
 	if err != nil {
 		log.Printf("The deploy application client could not be made. Error was %s\n", err)
@@ -95,6 +96,18 @@ func (a ArgoClientDriver) Deploy(configPayload string) (bool, string, string) {
 		return false, "", ""
 	}
 
+	existingApp, err := applicationClient.Get(context.TODO(), &application.ApplicationQuery{Name: utilpointer.StringPtr(applicationPayload.Name)})
+	if err == nil {
+		log.Printf("Argo application named %s already exists\n", existingApp.Name)
+		if a.SpecMatches(&applicationPayload, existingApp) {
+			log.Printf("Specs match, triggering sync...\n")
+			return a.Sync(existingApp.Name)
+		} else {
+			log.Printf("Specs differ, triggering update...\n")
+			return a.Update(configPayload)
+		}
+	}
+
 	argoApplication, err := applicationClient.Create(
 		context.TODO(),
 		&application.ApplicationCreateRequest{Application: applicationPayload},
@@ -105,6 +118,35 @@ func (a ArgoClientDriver) Deploy(configPayload string) (bool, string, string) {
 	}
 
 	log.Printf("Deploying Argo application named %s\n", argoApplication.Name)
+	return a.Sync(argoApplication.Name)
+}
+
+func (a ArgoClientDriver) Update(configPayload *string) (bool, string, string) {
+	ioCloser, applicationClient, err := a.client.NewApplicationClient()
+	if err != nil {
+		log.Printf("The deploy application client could not be made. Error was %s\n", err)
+		return false, "", ""
+	}
+	defer ioCloser.Close()
+
+	applicationPayload := makeApplication(configPayload)
+	_, err = a.kubernetesClient.CheckAndCreateNamespace(applicationPayload.Spec.Destination.Namespace)
+	if err != nil {
+		return false, "", ""
+	}
+
+	argoApplication, err := applicationClient.Update(
+		context.TODO(),
+		&application.ApplicationUpdateRequest{
+			Application: &applicationPayload,
+		},
+	) //CallOption is not necessary, for now...
+	if err != nil {
+		log.Printf("The deploy step threw an error. Error was %s\n", err)
+		return false, "", ""
+	}
+
+	log.Printf("Updated & now deploying Argo application named %s\n", argoApplication.Name)
 	return a.Sync(argoApplication.Name)
 }
 
@@ -123,6 +165,7 @@ func (a ArgoClientDriver) Sync(applicationName string) (bool, string, string) {
 		log.Printf("Syncing threw an error. Error was %s\n", err)
 		return false, "", ""
 	}
+	log.Printf("Triggered sync for Argo application named %s\n", argoApplication.Name)
 	return true, argoApplication.Name, argoApplication.Namespace
 }
 
@@ -205,9 +248,9 @@ func (a ArgoClientDriver) CheckHealthy(argoApplicationName string) bool {
 	return argoApplication.Status.Health.Status == health.HealthStatusHealthy && argoApplication.Status.Sync.Status == v1alpha1.SyncStatusCodeSynced
 }
 
-func makeApplication(configPayload string) v1alpha1.Application {
+func makeApplication(configPayload *string) v1alpha1.Application {
 	var argoApplication v1alpha1.Application
-	err := config.UnmarshalReader(strings.NewReader(configPayload), &argoApplication)
+	err := config.UnmarshalReader(strings.NewReader(*configPayload), &argoApplication)
 	if err != nil {
 		log.Printf("The unmarshalling step threw an error. Error was %s\n", err)
 		return v1alpha1.Application{}

@@ -89,7 +89,7 @@ func New() KubernetesClient {
 
 func (k KubernetesClientDriver) Deploy(configPayload *string) (bool, string, string) {
 	//TODO: This method currently expects only one object per file. Add in support for separate YAML files combined into one. This can be done by splitting on the "---" string.
-	obj, groupVersionKind, err := getResourceObjectFromYAML(*configPayload)
+	obj, groupVersionKind, err := getResourceObjectFromYAML(configPayload)
 	if err != nil {
 		return false, "", ""
 	}
@@ -193,7 +193,7 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 		envVars = append(envVars, corev1.EnvVar{Name: key, Value: value})
 	}
 	if existingConfig != "" {
-		obj, _, err := getResourceObjectFromYAML(existingConfig)
+		obj, _, err := getResourceObjectFromYAML(&existingConfig)
 		if err != nil {
 			return false, "", ""
 		}
@@ -231,7 +231,7 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 		}
 		if kind == JobType {
 			jobSpec := batchv1.Job{
-				TypeMeta:   metav1.TypeMeta{Kind: "Job", APIVersion: batchv1.SchemeGroupVersion.String()},
+				TypeMeta:   metav1.TypeMeta{Kind: JobType, APIVersion: batchv1.SchemeGroupVersion.String()},
 				ObjectMeta: metav1.ObjectMeta{Name: objName, Namespace: namespace},
 				Spec: batchv1.JobSpec{
 					BackoffLimit: utilpointer.Int32Ptr(1),
@@ -319,7 +319,7 @@ func (k KubernetesClientDriver) Delete(resourceName string, resourceNamespace st
 func (k KubernetesClientDriver) DeleteBasedOnConfig(configPayload *string) bool {
 	//TODO: This method currently expects only one object per file. Add in support for separate YAML files combined into one. This can be done by splitting on the "---" string.
 	deletionPropogationPolicy := metav1.DeletePropagationBackground
-	obj, groupVersionKind, err := getResourceObjectFromYAML(*configPayload)
+	obj, groupVersionKind, err := getResourceObjectFromYAML(configPayload)
 	if err != nil {
 		return false
 	}
@@ -430,14 +430,14 @@ func (k KubernetesClientDriver) ExecInPod() bool {
 	panic("implement me")
 }
 
-func getResourceObjectFromYAML(configPayload string) (runtime.Object, *schema.GroupVersionKind, error) {
+func getResourceObjectFromYAML(configPayload *string) (runtime.Object, *schema.GroupVersionKind, error) {
 	decode := scheme.Codecs.UniversalDeserializer().Decode
-	obj, groupVersionKind, err := decode([]byte(configPayload), nil, nil)
+	obj, groupVersionKind, err := decode([]byte(*configPayload), nil, nil)
 	if err != nil {
 		log.Printf("Error while decoding YAML object. Error was: %s. Now trying to decode as unstructured object...\n", err)
 		obj = &unstructured.Unstructured{}
 		unstructuredDecoder := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-		_, groupVersionKind, err = unstructuredDecoder.Decode([]byte(configPayload), nil, obj)
+		_, groupVersionKind, err = unstructuredDecoder.Decode([]byte(*configPayload), nil, obj)
 		if err != nil {
 			log.Printf("Error while decoding unstructured YAML object. Error was: %s\n", err)
 			return nil, nil, err
