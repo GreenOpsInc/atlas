@@ -5,13 +5,11 @@ public class DeployResponse {
     private final boolean success;
     private final String resourceName;
     private final String applicationNamespace;
-    private final int revisionId;
 
-    DeployResponse(boolean success, String resourceName, String applicationNamespace, int revisionId) {
+    DeployResponse(boolean success, String resourceName, String applicationNamespace) {
         this.success = success;
         this.resourceName = resourceName;
         this.applicationNamespace = applicationNamespace;
-        this.revisionId = revisionId;
     }
 
     public boolean getSuccess() {
@@ -24,9 +22,5 @@ public class DeployResponse {
 
     public String getApplicationNamespace() {
         return applicationNamespace;
-    }
-
-    public int getRevisionId() {
-        return revisionId;
     }
 }

@@ -2,14 +2,14 @@ package com.greenops.workfloworchestrator.ingest.handling.util.deployment;
 
 public class ArgoDeploymentInfo {
 
-    public static ArgoDeploymentInfo NO_OP_ARGO_DEPLOYMENT = new ArgoDeploymentInfo("", -1);
+    public static ArgoDeploymentInfo NO_OP_ARGO_DEPLOYMENT = new ArgoDeploymentInfo("");
 
     private String argoApplicationName;
     private int argoRevisionId;
 
-    public ArgoDeploymentInfo(String argoApplicationName, int argoRevisionId) {
+    public ArgoDeploymentInfo(String argoApplicationName) {
         this.argoApplicationName = argoApplicationName;
-        this.argoRevisionId = argoRevisionId;
+        this.argoRevisionId = -1;
     }
 
     public String getArgoApplicationName() {

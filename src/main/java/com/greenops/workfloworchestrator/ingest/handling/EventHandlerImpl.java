@@ -89,13 +89,13 @@ public class EventHandlerImpl implements EventHandler {
 
         var step = pipelineData.getStep(event.getStepName());
         if (event.getHealthStatus().equals(DEGRADED) || event.getHealthStatus().equals(UNKNOWN)) {
-            deploymentLogHandler.markStepFailedWithFailedDeployment(event, event.getStepName());
+            deploymentLogHandler.markStepFailedWithFailedDeployment(event, event.getStepName(), event.getRevisionId());
             if (step.getRollback()) rollback(pipelineData, pipelineRepoUrl, event);
             return;
         }
         //TODO: How do we handle the remaining sync/health statuses? We should be retriggering syncs, waiting for status updates (?), etc
 
-        deploymentLogHandler.markDeploymentSuccessful(event, event.getStepName());
+        deploymentLogHandler.markDeploymentSuccessful(event, event.getStepName(), event.getRevisionId());
 
         if (event.getStepName().equals(ROOT_STEP_NAME)) {
             triggerNextSteps(pipelineData, createRootStep(), pipelineRepoUrl, event);

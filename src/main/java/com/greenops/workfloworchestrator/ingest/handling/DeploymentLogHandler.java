@@ -10,11 +10,11 @@ public interface DeploymentLogHandler {
 
     void initializeNewStepLog(Event event, String stepName, String gitCommitVersion);
 
-    void markDeploymentSuccessful(Event event, String stepName);
+    void markDeploymentSuccessful(Event event, String stepName, int revisionId);
 
     void markStepSuccessful(Event event, String stepName);
 
-    void markStepFailedWithFailedDeployment(Event event, String stepName);
+    void markStepFailedWithFailedDeployment(Event event, String stepName, int revisionId);
 
     void markStepFailedWithBrokenTest(Event event, String stepName, String testName, String testLog);
 

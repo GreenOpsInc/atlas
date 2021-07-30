@@ -24,9 +24,10 @@ public class ClientCompletionEvent implements Event {
     private String operation;
     private String project;
     private String repo;
+    private int revisionId;
 
     public ClientCompletionEvent(String healthStatus, String orgName, String teamName, String pipelineName, String stepName,
-                                 String argoName, String operation, String project, String repo) {
+                                 String argoName, String operation, String project, String repo, int revisionId) {
         this.healthStatus = healthStatus;
         this.orgName = orgName;
         this.teamName = teamName;
@@ -36,6 +37,7 @@ public class ClientCompletionEvent implements Event {
         this.operation = operation;
         this.project = project;
         this.repo = repo;
+        this.revisionId = revisionId;
     }
 
     @Override
@@ -64,5 +66,9 @@ public class ClientCompletionEvent implements Event {
 
     public String getRepoUrl() {
         return repo;
+    }
+
+    public int getRevisionId() {
+        return revisionId;
     }
 }
