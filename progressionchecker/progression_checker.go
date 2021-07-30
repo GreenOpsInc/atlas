@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
+	"greenops.io/client/argodriver"
 	"greenops.io/client/k8sdriver"
 	"greenops.io/client/progressionchecker/datamodel"
 	"io"
@@ -45,7 +46,7 @@ func listenForApplicationsToWatch(inputChannel chan string, outputChannel chan s
 	}
 }
 
-func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGetRestricted, channel chan string, metricsServerAddress string, workflowTriggerAddress string) {
+func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGetRestricted, argoClient argodriver.ArgoGetRestrictedClient, channel chan string, metricsServerAddress string, workflowTriggerAddress string) {
 	watchedApplications := make(map[string]datamodel.WatchKey)
 	for {
 		//Update watched applications list with new entries
@@ -87,6 +88,11 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 							break
 						} else if appInfo.SyncStatus == v1alpha1.SyncStatusCodeSynced {
 							watchKey.SyncStatus = string(v1alpha1.SyncStatusCodeSynced)
+							//If revisionId = -1, it means the app can't be found
+							revisionId, err := argoClient.GetLatestRevision(watchKey.Name)
+							if err != nil {
+								break
+							}
 							var healthStatus health.HealthStatusCode
 							healthStatus = appInfo.HealthStatus
 							if string(healthStatus) != watchKey.HealthStatus {
@@ -94,7 +100,7 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 							}
 							watchKey.HealthStatus = string(healthStatus)
 							watchedApplications[mapKey] = watchKey
-							eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.HealthStatus, datamodel.HealthStatus)
+							eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.HealthStatus, datamodel.HealthStatus, revisionId)
 						} else {
 							oldSyncStatus := watchKey.SyncStatus
 							oldHealthStatus := watchKey.HealthStatus
@@ -105,10 +111,13 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 							}
 							watchKey.GeneratedCompletionEvent = false
 							watchedApplications[mapKey] = watchKey
+							//If the application is not in sync, it is difficult to know whether an operation is progressing or not. We don't want to prematurely send the wrong revisionId.
+							//They are temporarily set to -1 for now, given that the events generated below are remediation events.
+							//TODO: We will have to figure out what they should be and how we can accurately get the revisionId at all times.
 							if watchKey.HealthStatus != oldHealthStatus {
-								eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.HealthStatus, datamodel.HealthStatus)
+								eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.HealthStatus, datamodel.HealthStatus, -1)
 							} else {
-								eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.SyncStatus, datamodel.SyncStatus)
+								eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.SyncStatus, datamodel.SyncStatus, -1)
 							}
 						}
 						for i := 0; i < HttpRequestRetryLimit; i++ {
@@ -221,7 +230,7 @@ func generateEvent(eventInfo datamodel.EventInfo, workflowTriggerAddress string)
 	return resp.StatusCode/100 == 2
 }
 
-func Start(kubernetesClient k8sdriver.KubernetesClientGetRestricted, channel chan string) {
+func Start(kubernetesClient k8sdriver.KubernetesClientGetRestricted, argoClient argodriver.ArgoGetRestrictedClient, channel chan string) {
 	metricsServerAddress := os.Getenv(MetricsServerEnvVar)
 	if metricsServerAddress == "" {
 		metricsServerAddress = DefaultMetricsServerAddress
@@ -233,5 +242,5 @@ func Start(kubernetesClient k8sdriver.KubernetesClientGetRestricted, channel cha
 	progressionCheckerChannel := make(chan string, ProgressionChannelBufferSize)
 	//TODO: Add initial cache creation
 	go listenForApplicationsToWatch(channel, progressionCheckerChannel)
-	checkForCompletedApplications(kubernetesClient, progressionCheckerChannel, metricsServerAddress, workflowTriggerAddress)
+	checkForCompletedApplications(kubernetesClient, argoClient, progressionCheckerChannel, metricsServerAddress, workflowTriggerAddress)
 }

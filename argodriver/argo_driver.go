@@ -26,11 +26,16 @@ const (
 	DefaultUserAccount        string = "admin"
 )
 
+type ArgoGetRestrictedClient interface {
+	GetLatestRevision(applicationName string) (int64, error)
+}
+
 type ArgoClient interface {
-	Deploy(configPayload string) (bool, string, string, int64)
-	Sync(configPayload string) (bool, string, string, int64)
+	Deploy(configPayload string) (bool, string, string)
+	Sync(configPayload string) (bool, string, string)
+	GetLatestRevision(applicationName string) (int64, error)
 	Delete(applicationName string) bool
-	Rollback(appName string, appId string) (bool, string, string)
+	Rollback(appName string, appRevisionId string) (bool, string, string)
 	//TODO: Update parameters & return type for CheckStatus
 	CheckHealthy(argoApplicationName string) bool
 }
@@ -76,18 +81,18 @@ func New(kubernetesDriver *k8sdriver.KubernetesClient) ArgoClient {
 	return client
 }
 
-func (a ArgoClientDriver) Deploy(configPayload string) (bool, string, string, int64) {
+func (a ArgoClientDriver) Deploy(configPayload string) (bool, string, string) {
 	ioCloser, applicationClient, err := a.client.NewApplicationClient()
 	if err != nil {
 		log.Printf("The deploy application client could not be made. Error was %s\n", err)
-		return false, "", "", -1
+		return false, "", ""
 	}
 	defer ioCloser.Close()
 
 	applicationPayload := makeApplication(configPayload)
 	_, err = a.kubernetesClient.CheckAndCreateNamespace(applicationPayload.Spec.Destination.Namespace)
 	if err != nil {
-		return false, "", "", -1
+		return false, "", ""
 	}
 
 	argoApplication, err := applicationClient.Create(
@@ -96,18 +101,18 @@ func (a ArgoClientDriver) Deploy(configPayload string) (bool, string, string, in
 	) //CallOption is not necessary, for now...
 	if err != nil {
 		log.Printf("The deploy step threw an error. Error was %s\n", err)
-		return false, "", "", -1
+		return false, "", ""
 	}
 
 	log.Printf("Deploying Argo application named %s\n", argoApplication.Name)
 	return a.Sync(argoApplication.Name)
 }
 
-func (a ArgoClientDriver) Sync(applicationName string) (bool, string, string, int64) {
+func (a ArgoClientDriver) Sync(applicationName string) (bool, string, string) {
 	ioCloser, applicationClient, err := a.client.NewApplicationClient()
 	if err != nil {
 		log.Printf("The deploy application client could not be made. Error was %s\n", err)
-		return false, "", "", -1
+		return false, "", ""
 	}
 	defer ioCloser.Close()
 	//Sync() returns the current state of the application and triggers the synchronization of the application, so the return
@@ -116,9 +121,27 @@ func (a ArgoClientDriver) Sync(applicationName string) (bool, string, string, in
 	argoApplication, err = applicationClient.Sync(context.TODO(), &application.ApplicationSyncRequest{Name: &applicationName})
 	if err != nil {
 		log.Printf("Syncing threw an error. Error was %s\n", err)
-		return false, "", "", -1
+		return false, "", ""
 	}
-	return true, argoApplication.Name, argoApplication.Namespace, argoApplication.Status.History.LastRevisionHistory().ID
+	return true, argoApplication.Name, argoApplication.Namespace
+}
+
+func (a ArgoClientDriver) GetLatestRevision(applicationName string) (int64, error) {
+	ioCloser, applicationClient, err := a.client.NewApplicationClient()
+	if err != nil {
+		log.Printf("The deploy application client could not be made. Error was %s\n", err)
+		return -1, err
+	}
+	defer ioCloser.Close()
+	app, err := applicationClient.Get(context.TODO(), &application.ApplicationQuery{Name: &applicationName})
+	if err != nil {
+		if strings.Contains(err.Error(), "\""+applicationName+"\" not found") {
+			return -1, nil
+		}
+		log.Printf("Getting the application threw an error. Error was %s\n", err)
+		return -1, err
+	}
+	return app.Status.History.LastRevisionHistory().ID, nil
 }
 
 func (a ArgoClientDriver) Delete(applicationName string) bool {
@@ -137,7 +160,7 @@ func (a ArgoClientDriver) Delete(applicationName string) bool {
 	return true
 }
 
-func (a ArgoClientDriver) Rollback(appName string, appId string) (bool, string, string) {
+func (a ArgoClientDriver) Rollback(appName string, appRevisionId string) (bool, string, string) {
 	ioCloser, applicationClient, err := a.client.NewApplicationClient()
 	if err != nil {
 		log.Printf("The rollback application client could not be made. Error was %s\n", err)
@@ -145,7 +168,7 @@ func (a ArgoClientDriver) Rollback(appName string, appId string) (bool, string, 
 	}
 	defer ioCloser.Close()
 
-	intAppId, _ := strconv.Atoi(appId)
+	intAppId, _ := strconv.Atoi(appRevisionId)
 
 	argoApplication, err := applicationClient.Rollback(
 		context.TODO(),

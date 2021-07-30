@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"log"
 	"net/http"
-	"strconv"
 	"strings"
 )
 
@@ -34,14 +33,13 @@ func deploy(w http.ResponseWriter, r *http.Request) {
 	var success bool
 	var resourceName string
 	var appNamespace string
-	var revisionId int64
 	if deployType == requestdatatypes.DeployArgoRequest {
-		success, resourceName, appNamespace, revisionId = drivers.argoDriver.Deploy(stringReqBody)
+		success, resourceName, appNamespace = drivers.argoDriver.Deploy(stringReqBody)
 	} else if deployType == requestdatatypes.DeployTestRequest {
 		var kubernetesCreationRequest requestdatatypes.KubernetesCreationRequest
 		err := json.NewDecoder(strings.NewReader(stringReqBody)).Decode(&kubernetesCreationRequest)
 		if err != nil {
-			success, resourceName, appNamespace, revisionId = false, "", "", -1
+			success, resourceName, appNamespace = false, "", ""
 		} else {
 			success, resourceName, appNamespace = drivers.k8sDriver.CreateAndDeploy(
 				kubernetesCreationRequest.Kind,
@@ -53,11 +51,9 @@ func deploy(w http.ResponseWriter, r *http.Request) {
 				kubernetesCreationRequest.Config,
 				kubernetesCreationRequest.Variables,
 			)
-			revisionId = -1
 		}
 	} else {
 		success, resourceName, appNamespace = drivers.k8sDriver.Deploy(&stringReqBody)
-		revisionId = -1
 	}
 
 	json.NewEncoder(w).Encode(
@@ -65,7 +61,6 @@ func deploy(w http.ResponseWriter, r *http.Request) {
 			Success:      success,
 			ResourceName: resourceName,
 			AppNamespace: appNamespace,
-			RevisionId:   revisionId,
 		},
 	)
 }
@@ -77,15 +72,13 @@ func deployArgoAppByName(w http.ResponseWriter, r *http.Request) {
 	var success bool
 	var resourceName string
 	var appNamespace string
-	var revisionId int64
-	success, resourceName, appNamespace, revisionId = drivers.argoDriver.Sync(argoAppName)
+	success, resourceName, appNamespace = drivers.argoDriver.Sync(argoAppName)
 
 	json.NewEncoder(w).Encode(
 		requestdatatypes.DeployResponse{
 			Success:      success,
 			ResourceName: resourceName,
 			AppNamespace: appNamespace,
-			RevisionId:   revisionId,
 		},
 	)
 }
@@ -94,8 +87,6 @@ func rollbackArgoApp(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	appName := vars["appName"]
 	stringRevisionId := vars["revisionId"]
-	intRevisionId, _ := strconv.Atoi(stringRevisionId)
-	revisionId := int64(intRevisionId)
 	success, resourceName, appNamespace := drivers.argoDriver.Rollback(appName, stringRevisionId)
 
 	json.NewEncoder(w).Encode(
@@ -103,7 +94,6 @@ func rollbackArgoApp(w http.ResponseWriter, r *http.Request) {
 			Success:      success,
 			ResourceName: resourceName,
 			AppNamespace: appNamespace,
-			RevisionId:   revisionId,
 		})
 }
 
@@ -221,13 +211,16 @@ func handleRequests() {
 
 func main() {
 	kubernetesDriver := k8sdriver.New()
+	argoDriver := argodriver.New(&kubernetesDriver)
 	drivers = Drivers{
 		k8sDriver:  kubernetesDriver,
-		argoDriver: argodriver.New(&kubernetesDriver),
+		argoDriver: argoDriver,
 	}
 	channel = make(chan string)
 	var getRestrictedKubernetesClient k8sdriver.KubernetesClientGetRestricted
 	getRestrictedKubernetesClient = kubernetesDriver
-	go progressionchecker.Start(getRestrictedKubernetesClient, channel)
+	var getRestrictedArgoClient argodriver.ArgoGetRestrictedClient
+	getRestrictedArgoClient = argoDriver
+	go progressionchecker.Start(getRestrictedKubernetesClient, getRestrictedArgoClient, channel)
 	handleRequests()
 }

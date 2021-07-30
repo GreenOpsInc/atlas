@@ -4,5 +4,4 @@ type DeployResponse struct {
 	Success      bool
 	ResourceName string
 	AppNamespace string
-	RevisionId   int64
 }

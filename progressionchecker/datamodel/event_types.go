@@ -28,6 +28,7 @@ type ApplicationEventInfo struct {
 	Operation    string `json:"operation"`
 	Project      string `json:"project"`
 	Repo         string `json:"repo"`
+	RevisionId   int64  `json:"revisionId"`
 }
 
 type TestEventInfo struct {
@@ -45,7 +46,7 @@ func (eventInfo ApplicationEventInfo) GetEventType() EventInfoType {
 	return eventInfo.Type
 }
 
-func MakeApplicationEvent(key WatchKey, appInfo ArgoAppMetricInfo, healthStatus string, statusType StatusType) EventInfo {
+func MakeApplicationEvent(key WatchKey, appInfo ArgoAppMetricInfo, healthStatus string, statusType StatusType, revisionId int64) EventInfo {
 	status := healthStatus
 	if statusType == SyncStatus && healthStatus == string(v1alpha1.SyncStatusCodeUnknown) {
 		status = "SyncUnknown"
@@ -63,6 +64,7 @@ func MakeApplicationEvent(key WatchKey, appInfo ArgoAppMetricInfo, healthStatus 
 		Operation:    appInfo.Operation,
 		Project:      appInfo.Project,
 		Repo:         appInfo.Repo,
+		RevisionId:   revisionId,
 	}
 }
 
