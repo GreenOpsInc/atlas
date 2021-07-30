@@ -26,5 +26,7 @@ public interface RepoManager {
 
     boolean containsGitRepoSchema(GitRepoSchema gitRepoSchema);
 
-    String getCurrentCommit(GitRepoSchema schema);
+    public String getRootCommit(String gitRepoUrl);
+
+    String getCurrentCommit(String gitRepoURL);
 }

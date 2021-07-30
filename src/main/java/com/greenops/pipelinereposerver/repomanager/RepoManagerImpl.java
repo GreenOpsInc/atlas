@@ -94,7 +94,7 @@ public class RepoManagerImpl implements RepoManager {
         }
 
         gitRepos = gitRepos.stream().filter(gitRepoCache -> !gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toSet());
-        var newRepoCacheEntry = new GitRepoCache(oldGitRepoCache.getRootCommitHash(), getCurrentCommit(gitRepoSchema), gitRepoSchema);
+        var newRepoCacheEntry = new GitRepoCache(oldGitRepoCache.getRootCommitHash(), getCurrentCommit(gitRepoSchema.getGitRepo()), gitRepoSchema);
         gitRepos.add(newRepoCacheEntry);
         if (sync(gitRepoSchema)) {
             return true;
@@ -175,11 +175,11 @@ public class RepoManagerImpl implements RepoManager {
             int exitCode = process.waitFor();
             if (exitCode == 0) {
                 log.info("Pulling repo {} was successful.", cachedGitRepoSchema.getGitRepo());
-                var commitHash = getCurrentCommit(cachedGitRepoSchema);
+                var commitHash = getCurrentCommit(cachedGitRepoSchema.getGitRepo());
                 if (commitHash == null) return false;
                 gitRepos = gitRepos.stream().filter(gitRepoCache -> !gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toSet());
                 var updatedCacheSchema = listOfGitRepos.get(0);
-                updatedCacheSchema.addCommitHashToHistory(commitHash);
+                updatedCacheSchema.setCurrentCommitHash(commitHash);
                 updatedCacheSchema.setRootCommitHash(commitHash);
                 gitRepos.add(updatedCacheSchema);
                 return true;
@@ -215,7 +215,7 @@ public class RepoManagerImpl implements RepoManager {
             if (exitCode == 0) {
                 gitRepos = gitRepos.stream().filter(gitRepoCache -> !gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoUrl)).collect(Collectors.toSet());
                 var updatedCacheSchema = listOfGitRepos.get(0);
-                updatedCacheSchema.addCommitHashToHistory(gitCommit);
+                updatedCacheSchema.setCurrentCommitHash(gitCommit);
                 gitRepos.add(updatedCacheSchema);
                 log.info("Updating repo version {} was successful.", cachedGitRepoSchema.getGitRepo());
                 return true;
@@ -237,7 +237,7 @@ public class RepoManagerImpl implements RepoManager {
             //The size should never be greater than 1
             return null;
         }
-        return listOfGitRepos.get(0).getCommitHashHistory().get(0);
+        return listOfGitRepos.get(0).getCurrentCommitHash();
     }
 
     @Override
@@ -245,14 +245,26 @@ public class RepoManagerImpl implements RepoManager {
         return gitRepos.stream().anyMatch(gitRepoCache -> gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo()));
     }
 
-    public String getCurrentCommit(GitRepoSchema gitRepoSchema) {
+    @Override
+    public String getRootCommit(String gitRepoUrl) {
+        var listOfGitRepos = gitRepos.stream().filter(gitRepoCache ->
+                gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoUrl)).collect(Collectors.toList());
+        if (listOfGitRepos.size() != 1) {
+            //The size should never be greater than 1
+            return null;
+        }
+        return listOfGitRepos.get(0).getRootCommitHash();
+    }
+
+    @Override
+    public String getCurrentCommit(String gitRepoUrl) {
         try {
             var command = new CommandBuilder()
                     .gitLog(1, true)
                     .build();
             var process = new ProcessBuilder()
                     .command("/bin/bash", "-c", command)
-                    .directory(new File(orgName + "/" + directory + "/" + getFolderName(gitRepoSchema.getGitRepo())))
+                    .directory(new File(orgName + "/" + directory + "/" + getFolderName(gitRepoUrl)))
                     .start();
             int exitCode = process.waitFor();
             if (exitCode == 0) {

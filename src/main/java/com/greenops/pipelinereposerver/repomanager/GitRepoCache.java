@@ -2,19 +2,15 @@ package com.greenops.pipelinereposerver.repomanager;
 
 import com.greenops.pipelinereposerver.api.model.git.GitRepoSchema;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class GitRepoCache {
 
     private String rootCommitHash;
-    private List<String> commitHashHistory;
+    private String currentCommitHash;
     private GitRepoSchema gitRepoSchema;
 
     GitRepoCache(String rootCommitHash, String commitHash, GitRepoSchema gitRepoSchema) {
         this.rootCommitHash = rootCommitHash;
-        this.commitHashHistory = new ArrayList<>();
-        this.commitHashHistory.add(commitHash);
+        this.currentCommitHash = commitHash;
         this.gitRepoSchema = gitRepoSchema;
     }
 
@@ -26,19 +22,15 @@ public class GitRepoCache {
         this.rootCommitHash = rootCommitHash;
     }
 
-    List<String> getCommitHashHistory() {
-        return commitHashHistory;
+    String getCurrentCommitHash() {
+        return currentCommitHash;
     }
 
     GitRepoSchema getGitRepoSchema() {
         return gitRepoSchema;
     }
 
-    void addCommitHashToHistory(String commitHash) {
-        if (commitHashHistory.size() == 0) {
-            commitHashHistory.add(commitHash);
-        } else {
-            commitHashHistory.add(0, commitHash);
-        }
+    void setCurrentCommitHash(String commitHash) {
+        currentCommitHash = commitHash;
     }
 }

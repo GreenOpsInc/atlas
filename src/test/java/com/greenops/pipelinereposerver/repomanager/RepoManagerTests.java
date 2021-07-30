@@ -250,7 +250,7 @@ public class RepoManagerTests {
                 "/",
                 new GitCredMachineUser(username, pwd));
         assertTrue(repoManager.clone(schema));
-        assertEquals(latestCommitHashPrivate, repoManager.getCurrentCommit(schema));
+        assertEquals(latestCommitHashPrivate, repoManager.getCurrentCommit(schema.getGitRepo()));
     }
 
     @Test

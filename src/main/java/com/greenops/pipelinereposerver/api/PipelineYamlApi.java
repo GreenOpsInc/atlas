@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/data")
 public class PipelineYamlApi {
 
+    public static final String ROOT_COMMIT = "ROOT_COMMIT";
+
     private final RepoManager repoManager;
 
     @Autowired
@@ -28,6 +30,14 @@ public class PipelineYamlApi {
                                                     @RequestBody GetFileRequest fileRequest) {
         if (repoManager.getOrgName().equals(orgName) &&
                 repoManager.containsGitRepoSchema(new GitRepoSchema(fileRequest.getGitRepoUrl(), null, null))) {
+            var desiredGitCommit = fileRequest.getGitCommitHash();
+            if (desiredGitCommit.equals(ROOT_COMMIT)) {
+                desiredGitCommit = repoManager.getRootCommit(fileRequest.getGitRepoUrl());
+            }
+            if (!repoManager.getCurrentCommit(fileRequest.getGitRepoUrl()).equals(desiredGitCommit)) {
+                var success = repoManager.resetToVersion(desiredGitCommit, fileRequest.getGitRepoUrl());
+                if (!success) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            }
             String fileContents = repoManager.getYamlFileContents(fileRequest.getGitRepoUrl(), fileRequest.getFilename());
             if (fileContents == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();

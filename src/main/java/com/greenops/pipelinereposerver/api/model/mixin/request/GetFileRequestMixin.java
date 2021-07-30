@@ -9,9 +9,11 @@ public abstract class GetFileRequestMixin {
     String gitRepoUrl;
     @JsonProperty("filename")
     String filename;
+    @JsonProperty("gitCommitHash")
+    String gitCommitHash;
 
     @JsonCreator
-    public GetFileRequestMixin(@JsonProperty("gitRepoUrl") String gitRepoUrl, @JsonProperty("filename") String filename) {
+    public GetFileRequestMixin(@JsonProperty("gitRepoUrl") String gitRepoUrl, @JsonProperty("filename") String filename, @JsonProperty("gitCommitHash") String gitCommitHash) {
     }
 
 }
