@@ -33,6 +33,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
         if (stepData.getOtherDeploymentsPath() != null) {
             var getFileRequest = new GetFileRequest(pipelineRepoUrl, stepData.getOtherDeploymentsPath(), gitCommitHash);
             var otherDeploymentsConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
+            log.info("Deleting old application infrastructure...");
             for (var deploymentConfig : otherDeploymentsConfig.split("---")) {
                 if (!deploymentConfig.contains("Kind:")) continue;
                 clientWrapperApi.delete(event.getOrgName(), ClientWrapperApi.DELETE_KUBERNETES_REQUEST, deploymentConfig);
@@ -45,11 +46,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
         if (stepData.getOtherDeploymentsPath() != null) {
             var getFileRequest = new GetFileRequest(pipelineRepoUrl, stepData.getOtherDeploymentsPath(), gitCommitHash);
             var otherDeploymentsConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
-            for (var deploymentConfig : otherDeploymentsConfig.split("---")) {
-                if (!deploymentConfig.contains("Kind:")) continue;
-                clientWrapperApi.delete(event.getOrgName(), ClientWrapperApi.DELETE_KUBERNETES_REQUEST, deploymentConfig);
-            }
-            //TODO: The splitting of the config file should eventually be done on the client side
+            log.info("Deploying new application infrastructure...");
             for (var deploymentConfig : otherDeploymentsConfig.split("---")) {
                 if (!deploymentConfig.contains("Kind:")) continue;
                 var deployResponse = clientWrapperApi.deploy(event.getOrgName(), ClientWrapperApi.DEPLOY_KUBERNETES_REQUEST, deploymentConfig);
@@ -106,7 +103,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
             log.error(message);
             throw new AtlasRetryableError(message);
         }
-        var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepData.getName(), WATCH_ARGO_APPLICATION_KEY, stepData.getArgoApplication(), deployResponse.getApplicationNamespace());
+        var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepData.getName(), WATCH_ARGO_APPLICATION_KEY, deployResponse.getResourceName(), deployResponse.getApplicationNamespace());
         clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
         log.info("Watching rolled back Argo application {}", deployResponse.getResourceName());
     }

@@ -69,6 +69,15 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
     }
 
     @Override
+    public void markStepFailedWithFailedDeployment(Event event, String stepName) {
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
+        var deploymentLog = dbClient.fetchLatestLog(logKey);
+        deploymentLog.setDeploymentComplete(false);
+        deploymentLog.setStatus(DeploymentLog.DeploymentStatus.FAILURE.name());
+        dbClient.updateHeadInList(logKey, deploymentLog);
+    }
+
+    @Override
     public void markStepFailedWithBrokenTest(Event event, String stepName, String testName, String testLog) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
         var deploymentLog = dbClient.fetchLatestLog(logKey);

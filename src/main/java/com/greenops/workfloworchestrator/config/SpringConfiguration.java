@@ -13,6 +13,7 @@ import com.greenops.workfloworchestrator.datamodel.git.GitCredToken;
 import com.greenops.workfloworchestrator.datamodel.git.GitRepoSchema;
 import com.greenops.workfloworchestrator.datamodel.mixin.auditlog.DeploymentLogMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.event.ApplicationInfraCompletionEventMixin;
+import com.greenops.workfloworchestrator.datamodel.mixin.event.ApplicationInfraTriggerEventMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.event.ClientCompletionEventMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.event.TestCompletionEventMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.git.GitCredMachineUserMixin;
@@ -60,7 +61,7 @@ public class SpringConfiguration {
         return new ObjectMapper()
                 .addMixIn(ClientCompletionEvent.class, ClientCompletionEventMixin.class)
                 .addMixIn(TestCompletionEvent.class, TestCompletionEventMixin.class)
-                .addMixIn(ApplicationInfraTriggerEvent.class, ApplicationInfraTriggerEvent.class)
+                .addMixIn(ApplicationInfraTriggerEvent.class, ApplicationInfraTriggerEventMixin.class)
                 .addMixIn(ApplicationInfraCompletionEvent.class, ApplicationInfraCompletionEventMixin.class)
                 .addMixIn(GetFileRequest.class, GetFileRequestMixin.class)
                 .addMixIn(WatchRequest.class, WatchRequestMixin.class)

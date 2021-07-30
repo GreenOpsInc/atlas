@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.stream.Collectors;
 
+import static com.greenops.workfloworchestrator.datamodel.event.ClientCompletionEvent.*;
 import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.ROOT_STEP_NAME;
 import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.createRootStep;
 import static com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManagerApi.ROOT_COMMIT;
@@ -82,15 +83,25 @@ public class EventHandlerImpl implements EventHandler {
     }
 
     private void handleClientCompletionEvent(PipelineData pipelineData, String pipelineRepoUrl, ClientCompletionEvent event) {
-        deploymentLogHandler.markDeploymentSuccessful(event, event.getStepName());
+        if (event.getHealthStatus().equals(PROGRESSING)) {
+            return;
+        }
 
-        //TODO: How do we decide whether a deployment was unsucessful?
+        var step = pipelineData.getStep(event.getStepName());
+        if (event.getHealthStatus().equals(DEGRADED) || event.getHealthStatus().equals(UNKNOWN)) {
+            deploymentLogHandler.markStepFailedWithFailedDeployment(event, event.getStepName());
+            if (step.getRollback()) rollback(pipelineData, pipelineRepoUrl, event);
+            return;
+        }
+        //TODO: How do we handle the remaining sync/health statuses? We should be retriggering syncs, waiting for status updates (?), etc
+
+        deploymentLogHandler.markDeploymentSuccessful(event, event.getStepName());
 
         if (event.getStepName().equals(ROOT_STEP_NAME)) {
             triggerNextSteps(pipelineData, createRootStep(), pipelineRepoUrl, event);
             return;
         }
-        var step = pipelineData.getStep(event.getStepName());
+
         var afterTestsExist = step.getTests().stream().anyMatch(test -> !test.shouldExecuteBefore());
         if (afterTestsExist) {
             testHandler.triggerTest(pipelineRepoUrl, step, false, deploymentLogHandler.getCurrentGitCommitHash(event, step.getName()), event);
@@ -212,7 +223,7 @@ public class EventHandlerImpl implements EventHandler {
         kafkaClient.sendMessage(new ApplicationInfraCompletionEvent(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName));
     }
 
-    private void rollback(PipelineData pipelineData, String pipelineRepoUrl, TestCompletionEvent event) {
+    private void rollback(PipelineData pipelineData, String pipelineRepoUrl, Event event) {
         var gitCommitVersion = deploymentLogHandler.makeRollbackDeploymentLog(event, event.getStepName());
         if (gitCommitVersion.isEmpty()) {
             //Means there is no stable version that can be found.
