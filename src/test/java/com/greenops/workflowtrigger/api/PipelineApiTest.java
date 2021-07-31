@@ -110,7 +110,7 @@ public class PipelineApiTest {
     public void deletePipelineReturnsOk() {
         when(dbClient.fetchTeamSchema(DbKey.makeDbTeamKey("org name", "team2"))).thenReturn(teamSchemaOld);
         when(repoManagerApi.deleteRepo(any())).thenReturn(true);
-        assertEquals(pipelineApi.deletePipeline("org name", "team2", "pipeline1", gitRepoSchema), ResponseEntity.ok().build());
+        assertEquals(pipelineApi.deletePipeline("org name", "team2", "pipeline1"), ResponseEntity.ok().build());
     }
 
     @Test
@@ -155,26 +155,26 @@ public class PipelineApiTest {
     @Test
     public void deletePipelineFailsWhenTeamDoesNotExist() {
         when(dbClient.fetchTeamSchema(any())).thenReturn(null);
-        assertEquals(pipelineApi.deletePipeline("org name", "team3", "pipeline1", gitRepoSchema), ResponseEntity.badRequest().build());
+        assertEquals(pipelineApi.deletePipeline("org name", "team3", "pipeline1"), ResponseEntity.badRequest().build());
     }
 
     @Test
     public void deletePipelineFailsWhenPipelineDoesNotExist() {
         when(dbClient.fetchTeamSchema(DbKey.makeDbTeamKey("org name", "team2"))).thenReturn(teamSchemaOld);
-        assertEquals(pipelineApi.deletePipeline("org name", "team2", "pipeline2", gitRepoSchema), ResponseEntity.badRequest().build());
+        assertEquals(pipelineApi.deletePipeline("org name", "team2", "pipeline2"), ResponseEntity.badRequest().build());
     }
 
     @Test
     public void deletePipelineFailsWhenRepoManagerFails() {
         when(dbClient.fetchTeamSchema(DbKey.makeDbTeamKey("org name", "team2"))).thenReturn(teamSchemaOld);
         when(repoManagerApi.deleteRepo(gitRepoSchema)).thenReturn(false);
-        assertEquals(pipelineApi.deletePipeline("org name", "team2", "pipeline1", gitRepoSchema), ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build());
+        assertEquals(pipelineApi.deletePipeline("org name", "team2", "pipeline1"), ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build());
     }
 
     @Test
     public void deletePipelineFailsWhenDbClientFails() {
         when(dbClient.fetchTeamSchema(DbKey.makeDbTeamKey("org name", "team2"))).thenReturn(teamSchemaOld);
         doThrow(new RuntimeException("Failure")).when(dbClient).storeValue(any(), any());
-        assertThrows(RuntimeException.class, () -> pipelineApi.deletePipeline("org name", "team2", "pipeline1", gitRepoSchema));
+        assertThrows(RuntimeException.class, () -> pipelineApi.deletePipeline("org name", "team2", "pipeline1"));
     }
 }

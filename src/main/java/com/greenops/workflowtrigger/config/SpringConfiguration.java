@@ -24,7 +24,7 @@ import org.springframework.kafka.core.ProducerFactory;
 public class SpringConfiguration {
 
     @Bean
-    ObjectMapper objectMapper() {
+    public ObjectMapper objectMapper() {
         return new ObjectMapper()
                 .addMixIn(TeamSchemaImpl.class, TeamSchemaMixin.class)
                 .addMixIn(PipelineSchemaImpl.class, PipelineSchemaMixin.class)

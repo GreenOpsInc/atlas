@@ -1,5 +1,7 @@
 package com.greenops.workflowtrigger.api;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.workflowtrigger.api.model.event.ClientCompletionEvent;
@@ -183,7 +185,7 @@ public class PipelineApi {
                                                @PathVariable("teamName") String teamName,
                                                @PathVariable("pipelineName") String pipelineName,
                                                @RequestBody(required = false) GitRepoSchema gitRepo) {
-        var response = deletePipeline(orgName, teamName, pipelineName, gitRepo);
+        var response = deletePipeline(orgName, teamName, pipelineName);
         if (!response.getStatusCode().is2xxSuccessful()) {
             return response;
         }
@@ -198,8 +200,7 @@ public class PipelineApi {
     @DeleteMapping(value = "/pipeline/{orgName}/{teamName}/{pipelineName}")
     public ResponseEntity<Void> deletePipeline(@PathVariable("orgName") String orgName,
                                                @PathVariable("teamName") String teamName,
-                                               @PathVariable("pipelineName") String pipelineName,
-                                               @RequestBody GitRepoSchema gitRepo) {
+                                               @PathVariable("pipelineName") String pipelineName) {
         var key = DbKey.makeDbTeamKey(orgName, teamName);
         var teamSchema = dbClient.fetchTeamSchema(key);
         if (teamSchema == null) {
@@ -211,6 +212,8 @@ public class PipelineApi {
         }
 
         kubernetesClient.storeGitCred(null, DbKey.makeSecretName(orgName, teamName, pipelineName));
+
+        var gitRepo = teamSchema.getPipelineSchema(pipelineName).getGitRepoSchema();
 
         teamSchema.removePipeline(pipelineName);
 
@@ -275,10 +278,13 @@ public class PipelineApi {
     }
 
     private static class UpdateTeamRequest {
+        @JsonProperty("teamName")
         private final String teamName;
+        @JsonProperty("parentTeamName")
         private final String parentTeamName;
 
-        UpdateTeamRequest(String teamName, String parentTeamName) {
+        @JsonCreator
+        UpdateTeamRequest(@JsonProperty("teamName") String teamName, @JsonProperty("parentTeamName") String parentTeamName) {
             this.teamName = teamName;
             this.parentTeamName = parentTeamName;
         }
