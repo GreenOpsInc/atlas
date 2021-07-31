@@ -78,18 +78,16 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 
 		deleteKeys := make([]string, 0)
 		for mapKey, watchKey := range watchedApplications {
-			log.Printf("Checking for key %s", watchKey.Name)
 			if watchKey.Type == datamodel.WatchArgoApplicationKey {
 				for _, appInfo := range argoAppInfo {
 					if watchKey.Name == appInfo.Name && watchKey.Namespace == appInfo.Namespace {
-						log.Printf("Matched Argo application %s", appInfo.Name)
 						var eventInfo datamodel.EventInfo
 						if appInfo.HealthStatus == health.HealthStatusProgressing {
 							break
 						} else if appInfo.SyncStatus == v1alpha1.SyncStatusCodeSynced {
 							watchKey.SyncStatus = string(v1alpha1.SyncStatusCodeSynced)
-							//If revisionId = -1, it means the app can't be found
-							revisionId, err := argoClient.GetLatestRevision(watchKey.Name)
+							//If revisionHash = "", it means the app can't be found
+							revisionHash, err := argoClient.GetCurrentRevisionHash(watchKey.Name)
 							if err != nil {
 								break
 							}
@@ -100,13 +98,32 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 							}
 							watchKey.HealthStatus = string(healthStatus)
 							watchedApplications[mapKey] = watchKey
-							eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.HealthStatus, datamodel.HealthStatus, revisionId)
+							eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.HealthStatus, datamodel.HealthStatus, revisionHash)
 						} else {
 							oldSyncStatus := watchKey.SyncStatus
 							oldHealthStatus := watchKey.HealthStatus
 							watchKey.SyncStatus = string(appInfo.SyncStatus)
 							watchKey.HealthStatus = string(appInfo.HealthStatus)
-							if oldSyncStatus == watchKey.SyncStatus && oldHealthStatus == watchKey.HealthStatus {
+
+							createdEvent := false
+							if !watchKey.GeneratedCompletionEvent {
+								completed, success, revisionHash, err := argoClient.GetOperationSuccess(appInfo.Name)
+								if err != nil {
+									log.Printf("Getting operation success failed with error %s\n", err)
+									break
+								}
+								if completed {
+									healthStatus := string(health.HealthStatusMissing)
+									if success {
+										healthStatus = string(health.HealthStatusHealthy)
+									} else {
+										healthStatus = string(health.HealthStatusUnknown)
+									}
+									eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, healthStatus, datamodel.HealthStatus, revisionHash)
+									createdEvent = true
+								}
+							}
+							if oldSyncStatus == watchKey.SyncStatus && oldHealthStatus == watchKey.HealthStatus && !createdEvent {
 								break
 							}
 							watchKey.GeneratedCompletionEvent = false
@@ -114,10 +131,12 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 							//If the application is not in sync, it is difficult to know whether an operation is progressing or not. We don't want to prematurely send the wrong revisionId.
 							//They are temporarily set to -1 for now, given that the events generated below are remediation events.
 							//TODO: We will have to figure out what they should be and how we can accurately get the revisionId at all times.
-							if watchKey.HealthStatus != oldHealthStatus {
-								eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.HealthStatus, datamodel.HealthStatus, -1)
-							} else {
-								eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.SyncStatus, datamodel.SyncStatus, -1)
+							if !createdEvent {
+								if watchKey.HealthStatus != oldHealthStatus {
+									eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.HealthStatus, datamodel.HealthStatus, "")
+								} else {
+									eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.SyncStatus, datamodel.SyncStatus, "")
+								}
 							}
 						}
 						for i := 0; i < HttpRequestRetryLimit; i++ {

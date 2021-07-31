@@ -17,6 +17,10 @@ import (
 	"strings"
 )
 
+const (
+	NotApplicable string = "NotApplicable"
+)
+
 type Drivers struct {
 	k8sDriver  k8sdriver.KubernetesClient
 	argoDriver argodriver.ArgoClient
@@ -33,13 +37,14 @@ func deploy(w http.ResponseWriter, r *http.Request) {
 	var success bool
 	var resourceName string
 	var appNamespace string
+	var revisionHash string
 	if deployType == requestdatatypes.DeployArgoRequest {
-		success, resourceName, appNamespace = drivers.argoDriver.Deploy(&stringReqBody)
+		success, resourceName, appNamespace, revisionHash = drivers.argoDriver.Deploy(&stringReqBody)
 	} else if deployType == requestdatatypes.DeployTestRequest {
 		var kubernetesCreationRequest requestdatatypes.KubernetesCreationRequest
 		err := json.NewDecoder(strings.NewReader(stringReqBody)).Decode(&kubernetesCreationRequest)
 		if err != nil {
-			success, resourceName, appNamespace = false, "", ""
+			success, resourceName, appNamespace, revisionHash = false, "", "", NotApplicable
 		} else {
 			success, resourceName, appNamespace = drivers.k8sDriver.CreateAndDeploy(
 				kubernetesCreationRequest.Kind,
@@ -51,9 +56,11 @@ func deploy(w http.ResponseWriter, r *http.Request) {
 				kubernetesCreationRequest.Config,
 				kubernetesCreationRequest.Variables,
 			)
+			revisionHash = NotApplicable
 		}
 	} else {
 		success, resourceName, appNamespace = drivers.k8sDriver.Deploy(&stringReqBody)
+		revisionHash = NotApplicable
 	}
 
 	json.NewEncoder(w).Encode(
@@ -61,6 +68,7 @@ func deploy(w http.ResponseWriter, r *http.Request) {
 			Success:      success,
 			ResourceName: resourceName,
 			AppNamespace: appNamespace,
+			RevisionHash: revisionHash,
 		},
 	)
 }
@@ -72,13 +80,15 @@ func deployArgoAppByName(w http.ResponseWriter, r *http.Request) {
 	var success bool
 	var resourceName string
 	var appNamespace string
-	success, resourceName, appNamespace = drivers.argoDriver.Sync(argoAppName)
+	var revisionHash string
+	success, resourceName, appNamespace, revisionHash = drivers.argoDriver.Sync(argoAppName)
 
 	json.NewEncoder(w).Encode(
 		requestdatatypes.DeployResponse{
 			Success:      success,
 			ResourceName: resourceName,
 			AppNamespace: appNamespace,
+			RevisionHash: revisionHash,
 		},
 	)
 }
@@ -86,14 +96,16 @@ func deployArgoAppByName(w http.ResponseWriter, r *http.Request) {
 func rollbackArgoApp(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	appName := vars["appName"]
-	stringRevisionId := vars["revisionId"]
-	success, resourceName, appNamespace := drivers.argoDriver.Rollback(appName, stringRevisionId)
+	stringRevisionHash := vars["revisionId"]
+	var revisionHash string
+	success, resourceName, appNamespace, revisionHash := drivers.argoDriver.Rollback(appName, stringRevisionHash)
 
 	json.NewEncoder(w).Encode(
 		requestdatatypes.DeployResponse{
 			Success:      success,
 			ResourceName: resourceName,
 			AppNamespace: appNamespace,
+			RevisionHash: revisionHash,
 		})
 }
 
