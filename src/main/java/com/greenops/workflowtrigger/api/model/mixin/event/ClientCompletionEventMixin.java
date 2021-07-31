@@ -24,6 +24,8 @@ public abstract class ClientCompletionEventMixin {
     String project;
     @JsonProperty(value = "repo")
     String repo;
+    @JsonProperty(value = "revisionId")
+    String revisionHash;
 
     @JsonCreator
     public ClientCompletionEventMixin(@JsonProperty(value = "healthStatus") String healthStatus,
@@ -34,7 +36,8 @@ public abstract class ClientCompletionEventMixin {
                                       @JsonProperty(value = "argoName") String argoName,
                                       @JsonProperty(value = "operation") String operation,
                                       @JsonProperty(value = "project") String project,
-                                      @JsonProperty(value = "repo") String repo) {
+                                      @JsonProperty(value = "repo") String repo,
+                                      @JsonProperty(value = "revisionId") String revisionHash) {
     }
 
     @JsonIgnore

@@ -20,8 +20,8 @@ public class DeploymentLogMixin {
     @JsonProperty(value = "argoApplicationName")
     private String argoApplicationName;
 
-    @JsonProperty(value = "argoRevisionId")
-    private int argoRevisionId;
+    @JsonProperty(value = "argoRevisionHash")
+    private String argoRevisionHash;
 
     @JsonProperty(value = "gitCommitVersion")
     private String gitCommitVersion;
@@ -38,7 +38,7 @@ public class DeploymentLogMixin {
                        @JsonProperty(value = "status") String status,
                        @JsonProperty(value = "deploymentComplete") boolean deploymentComplete,
                        @JsonProperty(value = "argoApplicationName") String argoApplicationName,
-                       @JsonProperty(value = "argoRevisionId") int argoRevisionId,
+                       @JsonProperty(value = "argoRevisionHash") String argoRevisionHash,
                        @JsonProperty(value = "gitCommitVersion") String gitCommitVersion,
                        @JsonProperty(value = "brokenTest") String brokenTest,
                        @JsonProperty(value = "brokenTestLog") String brokenTestLog) {

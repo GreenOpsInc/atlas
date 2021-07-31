@@ -2,6 +2,19 @@ package com.greenops.workflowtrigger.api.model.event;
 
 public class ClientCompletionEvent implements Event {
 
+    //Argo health status codes
+    public static final String HEALTHY = "Healthy";
+    public static final String PROGRESSING = "Progressing";
+    public static final String UNKNOWN = "Unknown";
+    public static final String DEGRADED = "Degraded";
+    public static final String SUSPENDED = "Suspended";
+    public static final String MISSING = "Missing";
+
+    //Argo sync statuses
+    public static final String SYNCED = "Missing";
+    public static final String OUT_OF_SYNC = "Missing";
+    public static final String SYNC_UNKNOWN = "SyncUnknown";
+
     private String healthStatus;
     private String orgName;
     private String teamName;
@@ -11,9 +24,10 @@ public class ClientCompletionEvent implements Event {
     private String operation;
     private String project;
     private String repo;
+    private String revisionHash;
 
     public ClientCompletionEvent(String healthStatus, String orgName, String teamName, String pipelineName, String stepName,
-                                 String argoName, String operation, String project, String repo) {
+                                 String argoName, String operation, String project, String repo, String revisionHash) {
         this.healthStatus = healthStatus;
         this.orgName = orgName;
         this.teamName = teamName;
@@ -23,6 +37,7 @@ public class ClientCompletionEvent implements Event {
         this.operation = operation;
         this.project = project;
         this.repo = repo;
+        this.revisionHash = revisionHash;
     }
 
     @Override
@@ -45,8 +60,15 @@ public class ClientCompletionEvent implements Event {
         return stepName;
     }
 
-    @Override
+    public String getHealthStatus() {
+        return healthStatus;
+    }
+
     public String getRepoUrl() {
         return repo;
+    }
+
+    public String getRevisionHash() {
+        return revisionHash;
     }
 }
