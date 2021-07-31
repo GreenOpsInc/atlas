@@ -3,6 +3,7 @@ package com.greenops.workflowtrigger.dbclient.redis;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.workflowtrigger.api.model.auditlog.DeploymentLog;
+import com.greenops.workflowtrigger.api.model.cluster.ClusterSchema;
 import com.greenops.workflowtrigger.api.model.pipeline.TeamSchema;
 import com.greenops.workflowtrigger.dbclient.DbClient;
 import com.greenops.workflowtrigger.error.AtlasNonRetryableError;
@@ -111,6 +112,11 @@ public class RedisDbClient implements DbClient {
     }
 
     @Override
+    public ClusterSchema fetchClusterSchema(String key) {
+        return (ClusterSchema) fetch(key, ObjectType.CLUSTER_SCHEMA, -1);
+    }
+
+    @Override
     public List<DeploymentLog> fetchLogList(String key, int increment) {
         return (List<DeploymentLog>) fetch(key, ObjectType.LOG_LIST, increment);
     }
@@ -152,6 +158,9 @@ public class RedisDbClient implements DbClient {
             } else if (objectType == ObjectType.SINGLE_LOG) {
                 var result = redisCommands.lindex(key, 0);
                 return objectMapper.readValue(result, DeploymentLog.class);
+            } else if (objectType == ObjectType.CLUSTER_SCHEMA) {
+                var result = redisCommands.get(key);
+                return objectMapper.readValue(result, ClusterSchema.class);
             }
         } catch (JsonProcessingException e) {
             log.error("Jackson object mapping/serialization failed.", e);

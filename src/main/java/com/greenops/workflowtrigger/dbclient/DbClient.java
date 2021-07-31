@@ -1,6 +1,7 @@
 package com.greenops.workflowtrigger.dbclient;
 
 import com.greenops.workflowtrigger.api.model.auditlog.DeploymentLog;
+import com.greenops.workflowtrigger.api.model.cluster.ClusterSchema;
 import com.greenops.workflowtrigger.api.model.pipeline.TeamSchema;
 
 import java.util.List;
@@ -8,7 +9,7 @@ import java.util.List;
 public interface DbClient {
 
     enum ObjectType {
-        TEAM_SCHEMA, STRING_LIST, LOG_LIST, SINGLE_LOG;
+        TEAM_SCHEMA, STRING_LIST, LOG_LIST, SINGLE_LOG, CLUSTER_SCHEMA;
     }
 
     enum ListStoreOperation {
@@ -22,6 +23,8 @@ public interface DbClient {
     public void updateHeadInList(String key, Object schema);
     public TeamSchema fetchTeamSchema(String key);
     public List<String> fetchStringList(String key);
+    public ClusterSchema fetchClusterSchema(String key);
     public List<DeploymentLog> fetchLogList(String key, int increment);
     public DeploymentLog fetchLatestLog(String key);
 }
+

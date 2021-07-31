@@ -19,6 +19,10 @@ public class DbKey {
         return orgName + "-teams";
     }
 
+    public static String makeDbClusterKey(String orgName, String clusterName) {
+        return orgName + "-" + clusterName;
+    }
+
     public static String makeSecretName(String orgName, String teamName, String pipelineName) {
         var name = orgName + "-" + teamName + "-" + pipelineName + "-gitcred";
         var base16 = new Base16();
