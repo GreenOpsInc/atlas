@@ -1,6 +1,7 @@
 package com.greenops.workfloworchestrator.datamodel.mixin.event;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public abstract class ClientCompletionEventMixin {
@@ -24,7 +25,7 @@ public abstract class ClientCompletionEventMixin {
     @JsonProperty(value = "repo")
     String repo;
     @JsonProperty(value = "revisionId")
-    int revisionId;
+    String revisionHash;
 
     @JsonCreator
     public ClientCompletionEventMixin(@JsonProperty(value = "healthStatus") String healthStatus,
@@ -36,6 +37,9 @@ public abstract class ClientCompletionEventMixin {
                                       @JsonProperty(value = "operation") String operation,
                                       @JsonProperty(value = "project") String project,
                                       @JsonProperty(value = "repo") String repo,
-                                      @JsonProperty(value = "revisionId") int revisionId) {
+                                      @JsonProperty(value = "revisionId") String revisionHash) {
     }
+
+    @JsonIgnore
+    abstract String getRepoUrl();
 }

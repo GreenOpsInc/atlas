@@ -11,8 +11,13 @@ public abstract class DeployResponseMixin {
     String resourceName;
     @JsonProperty(value = "AppNamespace")
     String applicationNamespace;
+    @JsonProperty(value = "RevisionHash")
+    String revisionHash;
 
     @JsonCreator
-    public DeployResponseMixin(@JsonProperty(value = "Success") boolean success, @JsonProperty(value = "ResourceName") String resourceName, @JsonProperty(value = "AppNamespace") String applicationNamespace) {
+    public DeployResponseMixin(@JsonProperty(value = "Success") boolean success,
+                               @JsonProperty(value = "ResourceName") String resourceName,
+                               @JsonProperty(value = "AppNamespace") String applicationNamespace,
+                               @JsonProperty(value = "RevisionHash") String revisionHash) {
     }
 }

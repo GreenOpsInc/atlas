@@ -76,7 +76,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
                     var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepData.getName(), WATCH_ARGO_APPLICATION_KEY, deployResponse.getResourceName(), deployResponse.getApplicationNamespace());
                     clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
                     log.info("Watching Argo application {}", deployResponse.getResourceName());
-                    return new ArgoDeploymentInfo(deployResponse.getResourceName());
+                    return new ArgoDeploymentInfo(deployResponse.getResourceName(), deployResponse.getRevisionHash());
                 }
             }
         } else { //stepData.getArgoApplication() != null
@@ -90,15 +90,15 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
                 var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepData.getName(), WATCH_ARGO_APPLICATION_KEY, deployResponse.getResourceName(), deployResponse.getApplicationNamespace());
                 clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
                 log.info("Watching Argo application {}", deployResponse.getResourceName());
-                return new ArgoDeploymentInfo(deployResponse.getResourceName());
+                return new ArgoDeploymentInfo(deployResponse.getResourceName(), deployResponse.getRevisionHash());
             }
         }
         return NO_OP_ARGO_DEPLOYMENT;
     }
 
     @Override
-    public void rollbackArgoApplication(Event event, String pipelineRepoUrl, StepData stepData, String argoApplicationName, int argoRevisionId) {
-        var deployResponse = clientWrapperApi.rollback(event.getOrgName(), argoApplicationName, argoRevisionId);
+    public void rollbackArgoApplication(Event event, String pipelineRepoUrl, StepData stepData, String argoApplicationName, String argoRevisionHash) {
+        var deployResponse = clientWrapperApi.rollback(event.getOrgName(), argoApplicationName, argoRevisionHash);
         log.info("Rolling back Argo application {}...", deployResponse.getResourceName());
         if (!deployResponse.getSuccess()) {
             var message = "Rolling back the Argo application failed.";

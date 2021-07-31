@@ -16,7 +16,7 @@ public interface ClientWrapperApi {
 
     public DeployResponse deployArgoAppByName(String orgName, String appName);
 
-    public DeployResponse rollback(String orgName, String appName, int revisionId);
+    public DeployResponse rollback(String orgName, String appName, String revisionHash);
 
     public void delete(String orgName, String type, String resourceName, String resourceNamespace, String group, String version, String kind);
 

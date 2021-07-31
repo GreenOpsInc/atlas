@@ -89,13 +89,13 @@ public class EventHandlerImpl implements EventHandler {
 
         var step = pipelineData.getStep(event.getStepName());
         if (event.getHealthStatus().equals(DEGRADED) || event.getHealthStatus().equals(UNKNOWN)) {
-            deploymentLogHandler.markStepFailedWithFailedDeployment(event, event.getStepName(), event.getRevisionId());
+            deploymentLogHandler.markStepFailedWithFailedDeployment(event, event.getStepName());
             if (step.getRollback()) rollback(pipelineData, pipelineRepoUrl, event);
             return;
         }
         //TODO: How do we handle the remaining sync/health statuses? We should be retriggering syncs, waiting for status updates (?), etc
 
-        deploymentLogHandler.markDeploymentSuccessful(event, event.getStepName(), event.getRevisionId());
+        deploymentLogHandler.markDeploymentSuccessful(event, event.getStepName());
 
         if (event.getStepName().equals(ROOT_STEP_NAME)) {
             triggerNextSteps(pipelineData, createRootStep(), pipelineRepoUrl, event);
@@ -168,14 +168,14 @@ public class EventHandlerImpl implements EventHandler {
 
         var argoDeploymentInfo = NO_OP_ARGO_DEPLOYMENT;
         if ((stepData.getArgoApplicationPath() != null || stepData.getArgoApplication() != null) && deploymentLog.getUniqueVersionInstance() > 0) {
-            deploymentHandler.rollbackArgoApplication(event, pipelineRepoUrl, stepData, deploymentLog.getArgoApplicationName(), deploymentLog.getArgoRevisionId());
+            deploymentHandler.rollbackArgoApplication(event, pipelineRepoUrl, stepData, deploymentLog.getArgoApplicationName(), deploymentLog.getArgoRevisionHash());
             return;
         } else if (stepData.getArgoApplicationPath() != null || stepData.getArgoApplication() != null) {
             argoDeploymentInfo = deploymentHandler.deployArgoApplication(event, pipelineRepoUrl, stepData, deploymentLogHandler.getCurrentGitCommitHash(event, stepData.getName()));
         }
 
         //Audit log updates
-        deploymentLogHandler.updateStepDeploymentLog(event, stepData.getName(), argoDeploymentInfo.getArgoApplicationName(), argoDeploymentInfo.getArgoRevisionId());
+        deploymentLogHandler.updateStepDeploymentLog(event, stepData.getName(), argoDeploymentInfo.getArgoApplicationName(), argoDeploymentInfo.getArgoRevisionHash());
     }
 
     private void triggerNextSteps(PipelineData pipelineData, StepData step, String pipelineRepoUrl, Event event) {

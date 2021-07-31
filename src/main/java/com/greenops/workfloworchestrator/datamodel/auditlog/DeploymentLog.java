@@ -15,25 +15,25 @@ public class DeploymentLog {
     private String status;
     private boolean deploymentComplete;
     private String argoApplicationName;
-    private int argoRevisionId;
+    private String argoRevisionHash;
     private String gitCommitVersion;
     private String brokenTest;
     private String brokenTestLog;
 
-    public DeploymentLog(String uniqueVersionNumber, int uniqueVersionInstance, String status, boolean deploymentComplete, String argoApplicationName, int argoRevisionId, String gitCommitVersion, String brokenTest, String brokenTestLog) {
+    public DeploymentLog(String uniqueVersionNumber, int uniqueVersionInstance, String status, boolean deploymentComplete, String argoApplicationName, String argoRevisionHash, String gitCommitVersion, String brokenTest, String brokenTestLog) {
         this.uniqueVersionNumber = uniqueVersionNumber;
         this.uniqueVersionInstance = uniqueVersionInstance;
         this.status = status;
         this.argoApplicationName = argoApplicationName;
         this.deploymentComplete = deploymentComplete;
-        this.argoRevisionId = argoRevisionId;
+        this.argoRevisionHash = argoRevisionHash;
         this.gitCommitVersion = gitCommitVersion;
         this.brokenTest = brokenTest;
         this.brokenTestLog = brokenTestLog;
     }
 
-    public DeploymentLog(String status, boolean deploymentComplete, int argoRevisionId, String gitCommitVersion) {
-        this(UUID.randomUUID().toString(), 0, status, deploymentComplete, null, argoRevisionId, gitCommitVersion, null, null);
+    public DeploymentLog(String status, boolean deploymentComplete, String argoRevisionHash, String gitCommitVersion) {
+        this(UUID.randomUUID().toString(), 0, status, deploymentComplete, null, argoRevisionHash, gitCommitVersion, null, null);
     }
 
     public String getUniqueVersionNumber() {
@@ -68,12 +68,12 @@ public class DeploymentLog {
         this.argoApplicationName = argoApplicationName;
     }
 
-    public int getArgoRevisionId() {
-        return argoRevisionId;
+    public String getArgoRevisionHash() {
+        return argoRevisionHash;
     }
 
-    public void setArgoRevisionId(int argoRevisionId) {
-        this.argoRevisionId = argoRevisionId;
+    public void setArgoRevisionHash(String argoRevisionHash) {
+        this.argoRevisionHash = argoRevisionHash;
     }
 
     public String getGitCommitVersion() {

@@ -75,8 +75,8 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     }
 
     @Override
-    public DeployResponse rollback(String orgName, String appName, int revisionId) {
-        var request = new HttpPost(serverEndpoint + String.format("/rollback/%s/%s/%d", orgName, appName, revisionId));
+    public DeployResponse rollback(String orgName, String appName, String revisionHash) {
+        var request = new HttpPost(serverEndpoint + String.format("/rollback/%s/%s/%s", orgName, appName, revisionHash));
         try {
             var response = httpClient.execute(request);
             checkResponseStatus(response);

@@ -25,36 +25,29 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
     }
 
     @Override
-    public void updateStepDeploymentLog(Event event, String stepName, String argoApplicationName, int revisionId) {
+    public void updateStepDeploymentLog(Event event, String stepName, String argoApplicationName, String revisionHash) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
         var deploymentLog = dbClient.fetchLatestLog(logKey);
         deploymentLog.setArgoApplicationName(argoApplicationName);
-        //If it is a rollback, the deployment log's revisionId will already have been set
-        if (deploymentLog.getUniqueVersionInstance() == 0) {
-            deploymentLog.setArgoRevisionId(revisionId);
-        }
+        deploymentLog.setArgoRevisionHash(revisionHash);
         dbClient.updateHeadInList(logKey, deploymentLog);
     }
 
     @Override
     public void initializeNewStepLog(Event event, String stepName, String gitCommitVersion) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
-        var newLog = new DeploymentLog(DeploymentLog.DeploymentStatus.PROGRESSING.name(), false, -1, gitCommitVersion);
+        var newLog = new DeploymentLog(DeploymentLog.DeploymentStatus.PROGRESSING.name(), false, "", gitCommitVersion);
         dbClient.insertValueInList(logKey, newLog);
     }
 
     //Remember, this is the deployment, not the step
     @Override
-    public void markDeploymentSuccessful(Event event, String stepName, int revisionId) {
+    public void markDeploymentSuccessful(Event event, String stepName) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
         //TODO: Remove this line when the TriggerStep event is added
         if (stepName.equals(ROOT_STEP_NAME)) return;
         var deploymentLog = dbClient.fetchLatestLog(logKey);
         deploymentLog.setDeploymentComplete(true);
-        //If it is a rollback, the deployment log's revisionId will already have been set
-        if (deploymentLog.getUniqueVersionInstance() == 0) {
-            deploymentLog.setArgoRevisionId(revisionId);
-        }
         dbClient.updateHeadInList(logKey, deploymentLog);
     }
 
@@ -74,14 +67,10 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
     }
 
     @Override
-    public void markStepFailedWithFailedDeployment(Event event, String stepName, int revisionId) {
+    public void markStepFailedWithFailedDeployment(Event event, String stepName) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
         var deploymentLog = dbClient.fetchLatestLog(logKey);
         deploymentLog.setDeploymentComplete(false);
-        //If it is a rollback, the deployment log's revisionId will already have been set
-        if (deploymentLog.getUniqueVersionInstance() == 0) {
-            deploymentLog.setArgoRevisionId(revisionId);
-        }
         deploymentLog.setStatus(DeploymentLog.DeploymentStatus.FAILURE.name());
         dbClient.updateHeadInList(logKey, deploymentLog);
     }
@@ -148,7 +137,7 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
                         DeploymentLog.DeploymentStatus.PROGRESSING.name(),
                         false,
                         deploymentLogList.get(idx).getArgoApplicationName(),
-                        deploymentLogList.get(idx).getArgoRevisionId(),
+                        deploymentLogList.get(idx).getArgoRevisionHash(),
                         gitCommitVersion,
                         null,
                         null

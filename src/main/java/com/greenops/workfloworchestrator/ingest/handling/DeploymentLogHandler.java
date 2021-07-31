@@ -6,15 +6,15 @@ import java.util.List;
 
 public interface DeploymentLogHandler {
 
-    void updateStepDeploymentLog(Event event, String stepName, String argoApplicationName, int revisionId);
+    void updateStepDeploymentLog(Event event, String stepName, String argoApplicationName, String revisionHash);
 
     void initializeNewStepLog(Event event, String stepName, String gitCommitVersion);
 
-    void markDeploymentSuccessful(Event event, String stepName, int revisionId);
+    void markDeploymentSuccessful(Event event, String stepName);
 
     void markStepSuccessful(Event event, String stepName);
 
-    void markStepFailedWithFailedDeployment(Event event, String stepName, int revisionId);
+    void markStepFailedWithFailedDeployment(Event event, String stepName);
 
     void markStepFailedWithBrokenTest(Event event, String stepName, String testName, String testLog);
 
