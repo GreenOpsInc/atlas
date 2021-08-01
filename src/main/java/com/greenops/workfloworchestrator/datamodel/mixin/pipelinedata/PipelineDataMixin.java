@@ -12,6 +12,8 @@ public abstract class PipelineDataMixin {
 
     @JsonProperty(value = "name")
     String name;
+    @JsonProperty(value = "clusterName")
+    String clusterName;
     @JsonProperty(value = "steps")
     List<StepData> steps;
     @JsonIgnore
@@ -20,7 +22,8 @@ public abstract class PipelineDataMixin {
     Map<String, List<String>> stepChildren;
 
     @JsonCreator
-    public PipelineDataMixin(@JsonProperty(value = "name") String name, @JsonProperty(value = "steps") List<StepData> stepDataList) {}
+    public PipelineDataMixin(@JsonProperty(value = "name") String name, @JsonProperty(value = "clusterName") String clusterName, @JsonProperty(value = "steps") List<StepData> stepDataList) {
+    }
 
 
 }

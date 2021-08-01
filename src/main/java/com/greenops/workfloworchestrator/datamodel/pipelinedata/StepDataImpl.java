@@ -8,6 +8,7 @@ public class StepDataImpl implements StepData {
     private String argoApplication;
     private String argoApplicationPath;
     private String otherDeploymentsPath;
+    private String clusterName;
     private boolean rollback;
     private List<Test> tests;
     private List<String> dependencies;
@@ -16,6 +17,7 @@ public class StepDataImpl implements StepData {
                  String argoApplication,
                  String argoApplicationPath,
                  String otherDeploymentsPath,
+                 String clusterName,
                  boolean rollback,
                  List<Test> tests,
                  List<String> dependencies) {
@@ -23,6 +25,7 @@ public class StepDataImpl implements StepData {
         this.argoApplication = argoApplication;
         this.argoApplicationPath = argoApplicationPath;
         this.otherDeploymentsPath = otherDeploymentsPath;
+        this.clusterName = clusterName;
         this.rollback = rollback;
         this.tests = tests == null ? new ArrayList<>() : tests;
         this.dependencies = dependencies == null ? new ArrayList<>() : dependencies;
@@ -47,6 +50,9 @@ public class StepDataImpl implements StepData {
     public String getOtherDeploymentsPath() {
         return otherDeploymentsPath;
     }
+
+    @Override
+    public String getClusterName() {return clusterName;}
 
     @Override
     public boolean getRollback() {

@@ -12,12 +12,14 @@ public class PipelineDataImpl implements PipelineData {
 
     private String name;
     private List<StepData> steps;
+    private String clusterName;
     private Map<String, List<String>> stepParents;
     private Map<String, List<String>> stepChildren;
 
-    public PipelineDataImpl(String name, List<StepData> stepDataList) {
+    public PipelineDataImpl(String name, List<StepData> stepDataList, String clusterName) {
         this.name = name;
         this.steps = stepDataList;
+        this.clusterName = clusterName;
         this.stepParents = new HashMap<>();
         this.stepChildren = new HashMap<>();
         for (var step : stepDataList) {
@@ -47,6 +49,11 @@ public class PipelineDataImpl implements PipelineData {
     @Override
     public String getName() {
         return name;
+    }
+
+    @Override
+    public String getClusterName() {
+        return clusterName;
     }
 
     @Override
