@@ -16,7 +16,7 @@ public class PipelineDataImpl implements PipelineData {
     private Map<String, List<String>> stepParents;
     private Map<String, List<String>> stepChildren;
 
-    public PipelineDataImpl(String name, List<StepData> stepDataList, String clusterName) {
+    public PipelineDataImpl(String name, String clusterName, List<StepData> stepDataList) {
         this.name = name;
         this.steps = stepDataList;
         this.clusterName = clusterName;
