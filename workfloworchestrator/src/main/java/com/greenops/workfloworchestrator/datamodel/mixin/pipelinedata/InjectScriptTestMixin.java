@@ -20,8 +20,12 @@ public abstract class InjectScriptTestMixin {
     @JsonProperty(value = "variables")
     Map<String, String> variables;
 
+    @JsonProperty(value = "image")
+    String image;
+
     @JsonCreator
     public InjectScriptTestMixin(@JsonProperty(value = "path") String path,
+                                 @JsonProperty(value = "image") String image,
                                  @JsonProperty(value = "in_application_pod") boolean executeInApplicationPod,
                                  @JsonProperty(value = "before") boolean executeBeforeDeployment,
                                  @JsonProperty(value = "variables") Map<String, String> variables) {
@@ -38,5 +42,8 @@ public abstract class InjectScriptTestMixin {
 
     @JsonIgnore
     abstract Map<String, String> getVariables();
+
+    @JsonIgnore
+    abstract String getImage();
 
 }
