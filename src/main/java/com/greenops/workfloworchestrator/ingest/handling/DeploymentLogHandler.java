@@ -1,0 +1,30 @@
+package com.greenops.workfloworchestrator.ingest.handling;
+
+import com.greenops.workfloworchestrator.datamodel.event.Event;
+
+import java.util.List;
+
+public interface DeploymentLogHandler {
+
+    void updateStepDeploymentLog(Event event, String stepName, String argoApplicationName, String revisionHash);
+
+    void initializeNewStepLog(Event event, String stepName, String gitCommitVersion);
+
+    void markDeploymentSuccessful(Event event, String stepName);
+
+    void markStepSuccessful(Event event, String stepName);
+
+    void markStepFailedWithFailedDeployment(Event event, String stepName);
+
+    void markStepFailedWithBrokenTest(Event event, String stepName, String testName, String testLog);
+
+    boolean areParentStepsComplete(Event event, List<String> parentSteps);
+
+    String makeRollbackDeploymentLog(Event event, String stepName);
+
+    String getCurrentGitCommitHash(Event event, String stepName);
+
+    String getLastSuccessfulStepGitCommitHash(Event event, String stepName);
+
+    String getLastSuccessfulDeploymentGitCommitHash(Event event, String stepName);
+}
