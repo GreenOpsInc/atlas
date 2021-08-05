@@ -1,0 +1,370 @@
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: prom-admin
+rules:
+  # Small scope, feel free to change it
+  - apiGroups: ["networking.istio.io", "apps", "", "batch"]
+    resources: ["*"] #"pods", "nodes"
+    verbs: ["*"] #"get", "watch", "list"
+
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: prom-rbac
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: prom-admin
+  apiGroup: rbac.authorization.k8s.io
+##Kafka Service & Deployment
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  annotations:
+#    kompose.cmd: kompose convert
+#    kompose.version: 1.23.0 (HEAD)
+#  creationTimestamp: null
+#  labels:
+#    io.kompose.service: kafkabroker
+#  name: kafkabroker
+#spec:
+#  ports:
+#    - name: "29092"
+#      port: 29092
+#      targetPort: 29092
+#  selector:
+#    io.kompose.service: kafkabroker
+#status:
+#  loadBalancer: {}
+#---
+#apiVersion: apps/v1
+#kind: Deployment
+#metadata:
+#  annotations:
+#    kompose.cmd: kompose convert
+#    kompose.version: 1.23.0 (HEAD)
+#  creationTimestamp: null
+#  labels:
+#    io.kompose.service: kafkabroker
+#  name: kafkabroker
+#spec:
+#  replicas: 1
+#  selector:
+#    matchLabels:
+#      io.kompose.service: kafkabroker
+#  strategy: {}
+#  template:
+#    metadata:
+#      annotations:
+#        kompose.cmd: kompose convert
+#        kompose.version: 1.23.0 (HEAD)
+#      creationTimestamp: null
+#      labels:
+#        io.kompose.service: kafkabroker
+#    spec:
+#      containers:
+#        - env:
+#            - name: KAFKA_ADVERTISED_LISTENERS
+#              value: PLAINTEXT://kafkabroker:29092
+#            - name: KAFKA_BROKER_ID
+#              value: "1"
+#            - name: KAFKA_INTER_BROKER_LISTENER_NAME
+#              value: PLAINTEXT
+#            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+#              value: PLAINTEXT:PLAINTEXT
+#            - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+#              value: "1"
+#            - name: KAFKA_ZOOKEEPER_CONNECT
+#              value: zookeeper:2181
+#          image: confluentinc/cp-kafka:6.2.0
+#          name: kafka
+#          ports:
+#            - containerPort: 29092
+#          resources: {}
+#      restartPolicy: Always
+#status: {}
+#---
+##Zookeeper Service & Deployment
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  annotations:
+#    kompose.cmd: kompose convert
+#    kompose.version: 1.23.0 (HEAD)
+#  creationTimestamp: null
+#  labels:
+#    io.kompose.service: zookeeper
+#  name: zookeeper
+#spec:
+#  ports:
+#    - name: "22181"
+#      port: 22181
+#      targetPort: 2181
+#  selector:
+#    io.kompose.service: zookeeper
+#status:
+#  loadBalancer: {}
+#---
+#apiVersion: apps/v1
+#kind: Deployment
+#metadata:
+#  annotations:
+#    kompose.cmd: kompose convert
+#    kompose.version: 1.23.0 (HEAD)
+#  creationTimestamp: null
+#  labels:
+#    io.kompose.service: zookeeper
+#  name: zookeeper
+#spec:
+#  replicas: 1
+#  selector:
+#    matchLabels:
+#      io.kompose.service: zookeeper
+#  strategy: {}
+#  template:
+#    metadata:
+#      annotations:
+#        kompose.cmd: kompose convert
+#        kompose.version: 1.23.0 (HEAD)
+#      creationTimestamp: null
+#      labels:
+#        io.kompose.service: zookeeper
+#    spec:
+#      containers:
+#        - env:
+#            - name: ZOOKEEPER_CLIENT_PORT
+#              value: "2181"
+#            - name: ZOOKEEPER_TICK_TIME
+#              value: "2000"
+#          image: confluentinc/cp-zookeeper:6.2.0
+#          name: zookeeper
+#          ports:
+#            - containerPort: 2181
+#          resources: {}
+#      restartPolicy: Always
+#status: {}
+---
+#Redis Service & Deployment
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: redisserver
+  name: redisserver
+spec:
+  ports:
+    - name: "6379"
+      port: 6379
+      targetPort: 6379
+  selector:
+    io.kompose.service: redisserver
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: redisserver
+  name: redisserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: redisserver
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.23.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: redisserver
+    spec:
+      containers:
+        - image: redis
+          name: redisserver
+          ports:
+            - containerPort: 6379
+          resources: {}
+      restartPolicy: Always
+status: {}
+---
+#WorkflowTrigger Service & Deployment
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: workflowtrigger
+  name: workflowtrigger
+spec:
+  ports:
+    - name: "8080"
+      port: 8080
+      targetPort: 8080
+  selector:
+    io.kompose.service: workflowtrigger
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: workflowtrigger
+  name: workflowtrigger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: workflowtrigger
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.23.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: workflowtrigger
+    spec:
+      containers:
+        - env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: LOCALHOSTDYNAMICADDRESS:29092
+            - name: REDIS_ENDPOINT
+              value: redisserver.default.svc.cluster.local:6379
+            - name: REPO_SERVER_ENDPOINT
+              value: http://reposerver.default.svc.cluster.local:8081
+          image: atlasworkflowtrigger
+          imagePullPolicy: Never
+          name: workflowtrigger
+          ports:
+            - containerPort: 8080
+          resources: {}
+      restartPolicy: Always
+status: {}
+---
+#PipelineRepoServer Service & Deployment
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: reposerver
+  name: reposerver
+spec:
+  ports:
+    - name: "8081"
+      port: 8081
+      targetPort: 8081
+  selector:
+    io.kompose.service: reposerver
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: reposerver
+  name: reposerver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: reposerver
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.23.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: reposerver
+    spec:
+      containers:
+        - env:
+            - name: REDIS_ENDPOINT
+              value: redisserver.default.svc.cluster.local:6379
+          image: atlasreposerver
+          imagePullPolicy: Never
+          name: reposerver
+          ports:
+            - containerPort: 8081
+          resources: {}
+      restartPolicy: Always
+status: {}
+---
+#WorkflowOrchestrator Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: workfloworchestrator
+  name: workfloworchestrator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: workfloworchestrator
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.23.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: workfloworchestrator
+    spec:
+      containers:
+        - env:
+            - name: CLIENT_WRAPPER_ENDPOINT
+              value: http://atlasclientwrapper.default.svc.cluster.local:9091
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: LOCALHOSTDYNAMICADDRESS:29092
+            - name: REDIS_ENDPOINT
+              value: redisserver.default.svc.cluster.local:6379
+            - name: REPO_SERVER_ENDPOINT
+              value: http://reposerver.default.svc.cluster.local:8081
+          image: atlasworkfloworchestrator
+          imagePullPolicy: Never
+          name: workfloworchestrator
+          resources: {}
+      restartPolicy: Always
+status: {}

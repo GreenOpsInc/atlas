@@ -1,0 +1,10 @@
+spring:
+  kafka:
+    producer:
+      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    topic: greenops.eventing
+application:
+  repo-server-url: ${REPO_SERVER_ENDPOINT:http://localhost:8081}
+  redis-url: ${REDIS_ENDPOINT:localhost:6379}

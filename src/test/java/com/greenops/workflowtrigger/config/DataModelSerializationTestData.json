@@ -1,0 +1,7 @@
+{
+  "gitRepoSchema" : "{\"gitRepo\":\"test-team\",\"pathToRoot\":\"/\",\"gitCred\":{\"type\":\"open\"}}",
+  "machineUser" : "{\"type\":\"machineuser\",\"username\":\"root\",\"password\":\"admin\"}",
+  "token" : "{\"type\":\"oauth\",\"token\":\"token\"}",
+  "open" : "{\"type\":\"open\"}",
+  "pipelineSchema" : "{\"pipelineName\":\"test_pipeline\",\"gitRepoSchema\":{\"gitRepo\":\"test\",\"pathToRoot\":\"/\",\"gitCred\":{\"type\":\"open\"}}}",
+}
