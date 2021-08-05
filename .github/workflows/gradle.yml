@@ -15,5 +15,7 @@ jobs:
         with:
           java-version: '11'
           distribution: 'adopt'
+      - name: Build docker image
+        run: ./gradlew jibDockerBuild --image=atlasreposerver
       - name: Build with Gradle
         run: ./gradlew build

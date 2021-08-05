@@ -1,0 +1,3 @@
+server.port: 8081
+application:
+  redis-url: ${REDIS_ENDPOINT:localhost:6379}
