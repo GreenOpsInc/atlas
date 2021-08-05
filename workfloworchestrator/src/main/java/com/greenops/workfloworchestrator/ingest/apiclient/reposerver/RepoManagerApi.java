@@ -1,6 +1,6 @@
 package com.greenops.workfloworchestrator.ingest.apiclient.reposerver;
 
-import com.greenops.workfloworchestrator.datamodel.requests.GetFileRequest;
+import com.greenops.util.datamodel.request.GetFileRequest;
 
 public interface RepoManagerApi {
     public static final String ROOT_COMMIT = "ROOT_COMMIT";

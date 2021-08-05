@@ -1,6 +1,6 @@
 package com.greenops.pipelinereposerver.kubernetesclient;
 
-import com.greenops.pipelinereposerver.api.model.git.GitCred;
+import com.greenops.util.datamodel.git.GitCred;
 
 public interface KubernetesClient {
 

@@ -1,12 +1,13 @@
 package com.greenops.workflowtrigger.dbclient.redis;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.greenops.workflowtrigger.api.model.git.GitCredOpen;
-import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
-import com.greenops.workflowtrigger.api.model.pipeline.PipelineSchema;
-import com.greenops.workflowtrigger.api.model.pipeline.TeamSchema;
-import com.greenops.workflowtrigger.api.model.pipeline.TeamSchemaImpl;
-import com.greenops.workflowtrigger.dbclient.DbClient;
+import com.greenops.util.datamodel.git.GitCredOpen;
+import com.greenops.util.datamodel.git.GitRepoSchema;
+import com.greenops.util.datamodel.pipeline.PipelineSchema;
+import com.greenops.util.datamodel.pipeline.TeamSchema;
+import com.greenops.util.datamodel.pipeline.TeamSchemaImpl;
+import com.greenops.util.dbclient.DbClient;
+import com.greenops.util.dbclient.redis.RedisDbClient;
 import com.greenops.workflowtrigger.kubernetesclient.KubernetesClient;
 import org.junit.ClassRule;
 import org.junit.jupiter.api.*;

@@ -1,6 +1,6 @@
 package com.greenops.pipelinereposerver.repomanager;
 
-import com.greenops.pipelinereposerver.api.model.git.GitRepoSchema;
+import com.greenops.util.datamodel.git.GitRepoSchema;
 
 import java.util.Set;
 

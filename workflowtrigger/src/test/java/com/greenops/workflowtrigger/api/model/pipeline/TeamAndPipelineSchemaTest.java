@@ -1,9 +1,14 @@
 package com.greenops.workflowtrigger.api.model.pipeline;
 
-import com.greenops.workflowtrigger.api.model.git.*;
+import com.greenops.util.datamodel.git.GitCredMachineUser;
+import com.greenops.util.datamodel.git.GitCredOpen;
+import com.greenops.util.datamodel.git.GitCredToken;
+import com.greenops.util.datamodel.git.GitRepoSchema;
+import com.greenops.util.datamodel.pipeline.PipelineSchemaImpl;
+import com.greenops.util.datamodel.pipeline.TeamSchema;
+import com.greenops.util.datamodel.pipeline.TeamSchemaImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.autoconfigure.info.ProjectInfoProperties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;

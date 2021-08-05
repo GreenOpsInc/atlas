@@ -1,1 +1,2 @@
 rootProject.name = 'workfloworchestrator'
+includeBuild '../util'

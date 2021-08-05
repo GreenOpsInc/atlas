@@ -3,6 +3,7 @@ plugins {
 	id 'io.spring.dependency-management' version '1.0.11.RELEASE'
 	id 'java'
 	id 'com.google.cloud.tools.jib' version '3.0.0'
+	id 'application'
 }
 
 group = 'com.greenops'
@@ -14,6 +15,8 @@ repositories {
 }
 
 dependencies {
+	//This util line is added in via Gradle composition
+	implementation 'com.greenops:util'
 	implementation 'org.springframework.boot:spring-boot-starter'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.projectlombok:lombok:1.18.20'

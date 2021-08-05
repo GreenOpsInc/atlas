@@ -1,8 +1,8 @@
 package com.greenops.pipelinereposerver.api;
 
-import com.greenops.pipelinereposerver.api.model.git.GitCredOpen;
-import com.greenops.pipelinereposerver.api.model.git.GitRepoSchema;
 import com.greenops.pipelinereposerver.repomanager.RepoManager;
+import com.greenops.util.datamodel.git.GitCredOpen;
+import com.greenops.util.datamodel.git.GitRepoSchema;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;

@@ -1,9 +1,11 @@
 package com.greenops.pipelinereposerver.repomanager;
 
-import com.greenops.pipelinereposerver.api.model.git.GitRepoSchema;
+import com.greenops.util.datamodel.git.GitRepoSchema;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.greenops.pipelinereposerver.api.util.Util.getGitCredAccessibleFromGitCred;
 
 public class CommandBuilder {
     private static final String GIT_SUFFIX = ".git";
@@ -26,7 +28,7 @@ public class CommandBuilder {
     CommandBuilder gitClone(GitRepoSchema gitRepoSchema) {
         var newCommand = new ArrayList<String>();
         newCommand.add("git clone");
-        newCommand.add(gitRepoSchema.getGitCred().convertGitCredToString(gitRepoSchema.getGitRepo()));
+        newCommand.add(getGitCredAccessibleFromGitCred(gitRepoSchema.getGitCred()).convertGitCredToString(gitRepoSchema.getGitRepo()));
         commands.add(String.join(" ", newCommand));
         return this;
     }
@@ -34,7 +36,7 @@ public class CommandBuilder {
     CommandBuilder gitPull(GitRepoSchema gitRepoSchema) {
         var newCommand = new ArrayList<String>();
         newCommand.add("git pull");
-        newCommand.add(gitRepoSchema.getGitCred().convertGitCredToString(gitRepoSchema.getGitRepo()));
+        newCommand.add(getGitCredAccessibleFromGitCred(gitRepoSchema.getGitCred()).convertGitCredToString(gitRepoSchema.getGitRepo()));
         commands.add(String.join(" ", newCommand));
         return this;
     }

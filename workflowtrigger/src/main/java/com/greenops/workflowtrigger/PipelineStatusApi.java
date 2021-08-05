@@ -1,7 +1,7 @@
 package com.greenops.workflowtrigger;
 
-import com.greenops.workflowtrigger.api.model.auditlog.DeploymentLog;
-import com.greenops.workflowtrigger.dbclient.DbClient;
+import com.greenops.util.datamodel.auditlog.DeploymentLog;
+import com.greenops.util.dbclient.DbClient;
 import com.greenops.workflowtrigger.dbclient.DbKey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.greenops.workflowtrigger.dbclient.DbClient.LOG_INCREMENT;
+import static com.greenops.util.dbclient.DbClient.LOG_INCREMENT;
 
 @Slf4j
 @RestController

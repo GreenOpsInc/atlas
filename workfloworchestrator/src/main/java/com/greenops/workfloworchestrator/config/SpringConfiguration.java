@@ -2,44 +2,48 @@ package com.greenops.workfloworchestrator.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.greenops.workfloworchestrator.datamodel.auditlog.DeploymentLog;
-import com.greenops.workfloworchestrator.datamodel.event.ApplicationInfraCompletionEvent;
-import com.greenops.workfloworchestrator.datamodel.event.ApplicationInfraTriggerEvent;
-import com.greenops.workfloworchestrator.datamodel.event.ClientCompletionEvent;
-import com.greenops.workfloworchestrator.datamodel.event.TestCompletionEvent;
-import com.greenops.workfloworchestrator.datamodel.git.GitCredMachineUser;
-import com.greenops.workfloworchestrator.datamodel.git.GitCredOpen;
-import com.greenops.workfloworchestrator.datamodel.git.GitCredToken;
-import com.greenops.workfloworchestrator.datamodel.git.GitRepoSchema;
-import com.greenops.workfloworchestrator.datamodel.mixin.auditlog.DeploymentLogMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.event.ApplicationInfraCompletionEventMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.event.ApplicationInfraTriggerEventMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.event.ClientCompletionEventMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.event.TestCompletionEventMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.git.GitCredMachineUserMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.git.GitCredTokenMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.git.GitRepoSchemaMixin;
+import com.greenops.util.datamodel.auditlog.DeploymentLog;
+import com.greenops.util.datamodel.event.ApplicationInfraCompletionEvent;
+import com.greenops.util.datamodel.event.ApplicationInfraTriggerEvent;
+import com.greenops.util.datamodel.event.ClientCompletionEvent;
+import com.greenops.util.datamodel.event.TestCompletionEvent;
+import com.greenops.util.datamodel.git.GitCredMachineUser;
+import com.greenops.util.datamodel.git.GitCredOpen;
+import com.greenops.util.datamodel.git.GitCredToken;
+import com.greenops.util.datamodel.git.GitRepoSchema;
+import com.greenops.util.datamodel.mixin.auditlog.DeploymentLogMixin;
+import com.greenops.util.datamodel.mixin.event.ApplicationInfraCompletionEventMixin;
+import com.greenops.util.datamodel.mixin.event.ApplicationInfraTriggerEventMixin;
+import com.greenops.util.datamodel.mixin.event.ClientCompletionEventMixin;
+import com.greenops.util.datamodel.mixin.event.TestCompletionEventMixin;
+import com.greenops.util.datamodel.mixin.git.GitCredMachineUserMixin;
+import com.greenops.util.datamodel.mixin.git.GitCredOpenMixin;
+import com.greenops.util.datamodel.mixin.git.GitCredTokenMixin;
+import com.greenops.util.datamodel.mixin.git.GitRepoSchemaMixin;
+import com.greenops.util.datamodel.mixin.pipeline.PipelineSchemaMixin;
+import com.greenops.util.datamodel.mixin.pipeline.TeamSchemaMixin;
+import com.greenops.util.datamodel.mixin.request.GetFileRequestMixin;
+import com.greenops.util.datamodel.pipeline.PipelineSchemaImpl;
+import com.greenops.util.datamodel.pipeline.TeamSchemaImpl;
+import com.greenops.util.datamodel.request.GetFileRequest;
+import com.greenops.util.dbclient.DbClient;
+import com.greenops.util.dbclient.redis.RedisDbClient;
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.CustomJobTestMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.PipelineDataMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.StepDataMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.InjectScriptTestMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.pipelineschema.PipelineSchemaMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.pipelineschema.TeamSchemaMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.requests.DeployResponseMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.requests.GetFileRequestMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.requests.KubernetesCreationRequestMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.requests.WatchRequestMixin;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.*;
-import com.greenops.workfloworchestrator.datamodel.pipelineschema.PipelineSchemaImpl;
-import com.greenops.workfloworchestrator.datamodel.pipelineschema.TeamSchemaImpl;
 import com.greenops.workfloworchestrator.datamodel.requests.DeployResponse;
-import com.greenops.workfloworchestrator.datamodel.requests.GetFileRequest;
 import com.greenops.workfloworchestrator.datamodel.requests.KubernetesCreationRequest;
 import com.greenops.workfloworchestrator.datamodel.requests.WatchRequest;
 import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.error.AtlasRetryableError;
 import com.greenops.workfloworchestrator.ingest.kafka.KafkaClient;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.listener.ContainerAwareErrorHandler;
@@ -82,8 +86,13 @@ public class SpringConfiguration {
                 .addMixIn(GitRepoSchema.class, GitRepoSchemaMixin.class)
                 .addMixIn(GitCredMachineUser.class, GitCredMachineUserMixin.class)
                 .addMixIn(GitCredToken.class, GitCredTokenMixin.class)
-                .addMixIn(GitCredOpen.class, GitCredOpen.class)
+                .addMixIn(GitCredOpen.class, GitCredOpenMixin.class)
                 .addMixIn(DeploymentLog.class, DeploymentLogMixin.class);
+    }
+
+    @Bean
+    DbClient dbClient(@Value("${application.redis-url}") String redisUrl, ObjectMapper objectMapper) {
+        return new RedisDbClient(redisUrl, objectMapper);
     }
 
     @Bean

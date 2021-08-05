@@ -2,7 +2,7 @@ package com.greenops.workfloworchestrator.ingest.apiclient.reposerver;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.greenops.workfloworchestrator.datamodel.requests.GetFileRequest;
+import com.greenops.util.datamodel.request.GetFileRequest;
 import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.error.AtlasRetryableError;
 import lombok.extern.slf4j.Slf4j;

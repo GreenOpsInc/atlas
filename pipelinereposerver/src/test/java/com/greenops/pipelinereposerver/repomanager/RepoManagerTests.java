@@ -1,12 +1,11 @@
 package com.greenops.pipelinereposerver.repomanager;
 
-
-import com.greenops.pipelinereposerver.api.model.git.GitCredMachineUser;
-import com.greenops.pipelinereposerver.api.model.git.GitCredOpen;
-import com.greenops.pipelinereposerver.api.model.git.GitCredToken;
-import com.greenops.pipelinereposerver.api.model.git.GitRepoSchema;
-import com.greenops.pipelinereposerver.dbclient.DbClient;
 import com.greenops.pipelinereposerver.kubernetesclient.KubernetesClient;
+import com.greenops.util.datamodel.git.GitCredMachineUser;
+import com.greenops.util.datamodel.git.GitCredOpen;
+import com.greenops.util.datamodel.git.GitCredToken;
+import com.greenops.util.datamodel.git.GitRepoSchema;
+import com.greenops.util.dbclient.DbClient;
 import org.apache.tomcat.util.http.fileupload.FileUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
