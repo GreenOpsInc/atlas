@@ -31,25 +31,26 @@ public class TestHandlerImpl implements TestHandler {
     public void triggerTest(String pipelineRepoUrl, StepData stepData, boolean beforeTest, String gitCommitHash, Event event) {
         for (int i = 0; i < stepData.getTests().size(); i++) {
             if (beforeTest == stepData.getTests().get(i).shouldExecuteBefore()) {
-                createAndRunTest(stepData.getName(), pipelineRepoUrl, stepData.getTests().get(i), i, gitCommitHash, event);
+                createAndRunTest(stepData.getClusterName(), stepData.getName(), pipelineRepoUrl, stepData.getTests().get(i), i, gitCommitHash, event);
                 return;
             }
         }
     }
 
     @Override
-    public void createAndRunTest(String stepName, String pipelineRepoUrl, Test test, int testNumber, String gitCommitHash, Event event) {
+    public void createAndRunTest(String clusterName, String stepName, String pipelineRepoUrl, Test test, int testNumber, String gitCommitHash, Event event) {
         var getFileRequest = new GetFileRequest(pipelineRepoUrl, test.getPath(), gitCommitHash);
         var testConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
         log.info("Creating test Job...");
         var deployResponse = clientWrapperApi.deploy(
+                clusterName,
                 event.getOrgName(),
                 ClientWrapperApi.DEPLOY_TEST_REQUEST,
                 test.getPayload(testNumber, testConfig)
         );
         if (deployResponse.getSuccess()) {
             var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepName, WATCH_TEST_KEY, deployResponse.getResourceName(), deployResponse.getApplicationNamespace(), testNumber);
-            clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
+            clientWrapperApi.watchApplication(clusterName, event.getOrgName(), watchRequest);
             log.info("Watching Job");
         } else {
             throw new AtlasRetryableError("Test deployment was unsuccessful");

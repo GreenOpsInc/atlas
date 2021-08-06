@@ -18,6 +18,8 @@ public interface StepData {
 
     String getClusterName();
 
+    void setClusterName(String clusterName);
+
     boolean getRollback();
 
     List<Test> getTests();

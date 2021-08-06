@@ -36,7 +36,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
             log.info("Deleting old application infrastructure...");
             for (var deploymentConfig : otherDeploymentsConfig.split("---")) {
                 if (deploymentConfig.isBlank()) continue;
-                clientWrapperApi.delete(event.getOrgName(), ClientWrapperApi.DELETE_KUBERNETES_REQUEST, deploymentConfig);
+                clientWrapperApi.delete(stepData.getClusterName(), event.getOrgName(), ClientWrapperApi.DELETE_KUBERNETES_REQUEST, deploymentConfig);
             }
         }
     }
@@ -49,7 +49,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
             log.info("Deploying new application infrastructure...");
             for (var deploymentConfig : otherDeploymentsConfig.split("---")) {
                 if (deploymentConfig.isBlank()) continue;
-                var deployResponse = clientWrapperApi.deploy(event.getOrgName(), ClientWrapperApi.DEPLOY_KUBERNETES_REQUEST, deploymentConfig);
+                var deployResponse = clientWrapperApi.deploy(stepData.getClusterName(), event.getOrgName(), ClientWrapperApi.DEPLOY_KUBERNETES_REQUEST, deploymentConfig);
                 if (!deployResponse.getSuccess()) {
                     var message = "Deploying other resources failed.";
                     log.error(message);
@@ -66,7 +66,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
             var argoApplicationConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
             //TODO: The splitting of the config file should eventually be done on the client side
             for (var applicationConfig : argoApplicationConfig.split("---")) {
-                var deployResponse = clientWrapperApi.deploy(event.getOrgName(), ClientWrapperApi.DEPLOY_ARGO_REQUEST, applicationConfig);
+                var deployResponse = clientWrapperApi.deploy(stepData.getClusterName(), event.getOrgName(), ClientWrapperApi.DEPLOY_ARGO_REQUEST, applicationConfig);
                 log.info("Deploying Argo application {}...", deployResponse.getResourceName());
                 if (!deployResponse.getSuccess()) {
                     var message = "Deploying the Argo application failed.";
@@ -74,13 +74,13 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
                     throw new AtlasRetryableError(message);
                 } else {
                     var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepData.getName(), WATCH_ARGO_APPLICATION_KEY, deployResponse.getResourceName(), deployResponse.getApplicationNamespace());
-                    clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
+                    clientWrapperApi.watchApplication(stepData.getClusterName(), event.getOrgName(), watchRequest);
                     log.info("Watching Argo application {}", deployResponse.getResourceName());
                     return new ArgoDeploymentInfo(deployResponse.getResourceName(), deployResponse.getRevisionHash());
                 }
             }
         } else { //stepData.getArgoApplication() != null
-            var deployResponse = clientWrapperApi.deployArgoAppByName(event.getOrgName(), stepData.getArgoApplication());
+            var deployResponse = clientWrapperApi.deployArgoAppByName(stepData.getClusterName(), event.getOrgName(), stepData.getArgoApplication());
             log.info("Syncing the Argo application {}...", deployResponse.getResourceName());
             if (!deployResponse.getSuccess()) {
                 var message = "Syncing the Argo application failed.";
@@ -88,7 +88,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
                 throw new AtlasRetryableError(message);
             } else {
                 var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepData.getName(), WATCH_ARGO_APPLICATION_KEY, deployResponse.getResourceName(), deployResponse.getApplicationNamespace());
-                clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
+                clientWrapperApi.watchApplication(stepData.getClusterName(), event.getOrgName(), watchRequest);
                 log.info("Watching Argo application {}", deployResponse.getResourceName());
                 return new ArgoDeploymentInfo(deployResponse.getResourceName(), deployResponse.getRevisionHash());
             }
@@ -98,7 +98,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
 
     @Override
     public void rollbackArgoApplication(Event event, String pipelineRepoUrl, StepData stepData, String argoApplicationName, String argoRevisionHash) {
-        var deployResponse = clientWrapperApi.rollback(event.getOrgName(), argoApplicationName, argoRevisionHash);
+        var deployResponse = clientWrapperApi.rollback(stepData.getClusterName(), event.getOrgName(), argoApplicationName, argoRevisionHash);
         log.info("Rolling back Argo application {}...", deployResponse.getResourceName());
         if (!deployResponse.getSuccess()) {
             var message = "Rolling back the Argo application failed.";
@@ -106,7 +106,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
             throw new AtlasRetryableError(message);
         }
         var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepData.getName(), WATCH_ARGO_APPLICATION_KEY, deployResponse.getResourceName(), deployResponse.getApplicationNamespace());
-        clientWrapperApi.watchApplication(event.getOrgName(), watchRequest);
+        clientWrapperApi.watchApplication(stepData.getClusterName(), event.getOrgName(), watchRequest);
         log.info("Watching rolled back Argo application {}", deployResponse.getResourceName());
     }
 }

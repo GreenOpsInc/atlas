@@ -23,6 +23,9 @@ public class PipelineDataImpl implements PipelineData {
         this.stepParents = new HashMap<>();
         this.stepChildren = new HashMap<>();
         for (var step : stepDataList) {
+            if (step.getClusterName() == null) {
+                step.setClusterName(clusterName);
+            }
             var stepDependencies = step.getDependencies();
             if (stepDependencies.isEmpty()) {
                 var parents = new ArrayList<String>();

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.auditlog.DeploymentLog;
 import com.greenops.util.datamodel.cluster.ClusterSchema;
 import com.greenops.util.datamodel.pipeline.TeamSchema;
+import com.greenops.util.datamodel.clientmessages.ClientRequest;
 import com.greenops.util.dbclient.DbClient;
 import com.greenops.util.error.AtlasNonRetryableError;
 import com.greenops.util.error.AtlasRetryableError;
@@ -53,9 +54,41 @@ public class RedisDbClient implements DbClient {
         store(key, schema, ListStoreOperation.INSERT);
     }
 
+    //This is done explicitly due to how rare the use case is. Should generally never be done.
+    @Override
+    public void insertValueInTransactionlessList(String key, Object schema) {
+        log.info("Storing schema for key without a transaction {}", key);
+        try {
+            if (schema == null) {
+                redisCommands.rpop(key);
+            } else {
+                redisCommands.rpush(key, objectMapper.writeValueAsString(schema));
+            }
+        } catch (JsonProcessingException e) {
+            log.error("Jackson object mapping/serialization failed.", e);
+            throw new AtlasNonRetryableError(e);
+        }
+    }
+
     @Override
     public void updateHeadInList(String key, Object schema) {
         store(key, schema, ListStoreOperation.UPDATE);
+    }
+
+    //This is done explicitly due to how rare the use case is. Should generally never be done.
+    @Override
+    public void updateHeadInTransactionlessList(String key, Object schema) {
+        log.info("Storing schema for key without a transaction {}", key);
+        try {
+            if (schema == null) {
+                redisCommands.lpop(key);
+            } else {
+                redisCommands.lpush(key, objectMapper.writeValueAsString(schema));
+            }
+        } catch (JsonProcessingException e) {
+            log.error("Jackson object mapping/serialization failed.", e);
+            throw new AtlasNonRetryableError(e);
+        }
     }
 
     private void store(String key, Object schema, ListStoreOperation listStoreOperation) {
@@ -113,6 +146,11 @@ public class RedisDbClient implements DbClient {
     }
 
     @Override
+    public ClusterSchema fetchClusterSchemaTransactionless(String key) {
+        return (ClusterSchema) fetchTransactionless(key, ObjectType.CLUSTER_SCHEMA);
+    }
+
+    @Override
     public List<DeploymentLog> fetchLogList(String key, int increment) {
         return (List<DeploymentLog>) fetch(key, ObjectType.LOG_LIST, increment);
     }
@@ -122,6 +160,35 @@ public class RedisDbClient implements DbClient {
         var deploymentLog = (DeploymentLog) fetch(key, ObjectType.SINGLE_LOG, -1);
         if (deploymentLog == null) throw new AtlasNonRetryableError("No deployment log exists");
         return deploymentLog;
+    }
+
+    @Override
+    public ClientRequest fetchHeadInClientRequestList(String key) {
+        return (ClientRequest) fetchTransactionless(key, ObjectType.CLIENT_REQUEST);
+    }
+
+    private Object fetchTransactionless(String key, ObjectType objectType) {
+        try {
+            log.info("Fetching schema for key without transaction {}", key);
+            var exists = redisCommands.exists(key);
+            //If the key doesn't exist, return null (1 is exists, 0 is does not exist)
+            if (exists == 0) {
+                return null;
+            }
+            if (objectType == ObjectType.CLUSTER_SCHEMA) {
+                var result = redisCommands.get(key);
+                return objectMapper.readValue(result, ClusterSchema.class);
+            }
+            else if (objectType == ObjectType.CLIENT_REQUEST) {
+                var result = redisCommands.lindex(key, 0);
+                if (result == null) return null;
+                return objectMapper.readValue(result, ClientRequest.class);
+            }
+        } catch (JsonProcessingException e) {
+            log.error("Jackson object mapping/serialization failed.", e);
+            throw new AtlasNonRetryableError(e);
+        }
+        throw new AtlasNonRetryableError("None of the ObjectTypes were matched");
     }
 
     private Object fetch(String key, ObjectType objectType, int increment) {
