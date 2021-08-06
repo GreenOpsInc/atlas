@@ -12,19 +12,23 @@ import static com.greenops.workfloworchestrator.ingest.handling.util.deployment.
 
 public class InjectScriptTest implements Test {
 
+    private static String DEFAULT_NAMESPACE = "default";
+
     private String path;
+    private String image;
+    private String namespace;
     private boolean executeInApplicationPod;
     private boolean executeBeforeDeployment;
     private Map<String, String> variables;
-    private String image;
 
-    InjectScriptTest(String path, String image, boolean executeInApplicationPod, boolean executeBeforeDeployment, Map<String, String> variables) {
+
+    InjectScriptTest(String path, String image, String namespace, boolean executeInApplicationPod, boolean executeBeforeDeployment, Map<String, String> variables) {
         this.path = path;
         this.image = image;
+        this.namespace = namespace;
         this.executeInApplicationPod = executeInApplicationPod;
         this.executeBeforeDeployment = executeBeforeDeployment;
         this.variables = variables;
-
     }
 
     @Override
@@ -34,6 +38,10 @@ public class InjectScriptTest implements Test {
 
     public String getImage() {
         return image;
+    }
+
+    public String getNamespace() {
+        return namespace;
     }
 
     @Override
@@ -57,10 +65,15 @@ public class InjectScriptTest implements Test {
             // TODO Add logic for image auto detection based on shebang here
             imageName = "";
         }
+        var specifiedNamespace = getNamespace();
+        var jobNamespace = DEFAULT_NAMESPACE;
+        if (specifiedNamespace != null && !specifiedNamespace.isBlank()) {
+            jobNamespace = specifiedNamespace;
+        }
         return new KubernetesCreationRequest(
                 "Job",
                 makeTestKey(testNumber),
-                "",
+                jobNamespace,
                 imageName,
                 List.of("/bin/sh", "-c"),
                 new CommandBuilder().createFile(filename, escapeFile(testConfig)).compile(filename).executeExistingFile(filename).build(),
