@@ -37,7 +37,7 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     }
 
     @Override
-    public DeployResponse deploy(String orgName, String type, Object payload) {
+    public DeployResponse deploy(String clusterName, String orgName, String type, Object payload) {
         var request = new HttpPost(serverEndpoint + String.format("/deploy/%s/%s", orgName, type));
         try {
             var body = type.equals(DEPLOY_TEST_REQUEST) ? objectMapper.writeValueAsString(payload) : (String)payload;
@@ -57,7 +57,7 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     }
 
     @Override
-    public DeployResponse deployArgoAppByName(String orgName, String appName) {
+    public DeployResponse deployArgoAppByName(String clusterName, String orgName, String appName) {
         var request = new HttpPost(serverEndpoint + String.format("/deploy/%s/%s/%s", orgName, DEPLOY_ARGO_REQUEST, appName));
         try {
             var response = httpClient.execute(request);
@@ -75,7 +75,7 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     }
 
     @Override
-    public DeployResponse rollback(String orgName, String appName, String revisionHash) {
+    public DeployResponse rollback(String clusterName, String orgName, String appName, String revisionHash) {
         var request = new HttpPost(serverEndpoint + String.format("/rollback/%s/%s/%s", orgName, appName, revisionHash));
         try {
             var response = httpClient.execute(request);
@@ -93,7 +93,7 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     }
 
     @Override
-    public void delete(String orgName, String type, String resourceName, String resourceNamespace, String group, String version, String kind) {
+    public void delete(String clusterName, String orgName, String type, String resourceName, String resourceNamespace, String group, String version, String kind) {
         var request = new HttpPost(serverEndpoint + String.format("/delete/%s/%s/%s/%s/%s/%s/%s", orgName, type, resourceName, resourceNamespace, group, version, kind));
         try {
             var response = httpClient.execute(request);
@@ -113,7 +113,7 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     }
 
     @Override
-    public void delete(String orgName, String type, String configPayload) {
+    public void delete(String clusterName, String orgName, String type, String configPayload) {
         var request = new HttpPost(serverEndpoint + String.format("/delete/%s/%s", orgName, type));
         try {
             request.setEntity(new StringEntity(configPayload, ContentType.DEFAULT_TEXT));
@@ -134,7 +134,7 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     }
 
     @Override
-    public void deleteApplication(String group, String version, String kind, String applicationName) {
+    public void deleteApplication(String clusterName, String group, String version, String kind, String applicationName) {
         var request = new HttpPost(serverEndpoint + String.format("/delete/%s/%s/%s/%s", group, version, kind, applicationName));
         try {
             var response = httpClient.execute(request);
@@ -151,7 +151,7 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     }
 
     @Override
-    public void watchApplication(String orgName, WatchRequest watchRequest) {
+    public void watchApplication(String clusterName, String orgName, WatchRequest watchRequest) {
         var request = new HttpPost(serverEndpoint + String.format("/watch/%s", orgName));
         try {
             var body = objectMapper.writeValueAsString(watchRequest);

@@ -14,6 +14,10 @@ public class DbKey {
         return Strings.join(List.of(orgName, teamName, pipelineName, stepName), '-');
     }
 
+    public static String makeClientRequestQueueKey(String orgName, String teamName, String clusterName) {
+        return Strings.join(List.of(orgName, teamName, clusterName, "events"), '-');
+    }
+
     public static String makeDbListOfTeamsKey(String orgName) {
         return orgName + "-teams";
     }

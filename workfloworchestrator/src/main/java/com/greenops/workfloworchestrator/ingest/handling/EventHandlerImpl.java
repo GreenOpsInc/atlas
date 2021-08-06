@@ -132,6 +132,7 @@ public class EventHandlerImpl implements EventHandler {
             triggerNextSteps(pipelineData, step, pipelineRepoUrl, event);
         } else if (completedTestNumber < tests.size()) {
             testHandler.createAndRunTest(
+                    step.getClusterName(),
                     step.getName(),
                     pipelineRepoUrl,
                     step.getTests().get(completedTestNumber + 1),

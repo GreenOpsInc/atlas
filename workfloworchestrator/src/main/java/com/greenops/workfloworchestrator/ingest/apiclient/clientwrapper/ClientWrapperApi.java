@@ -12,17 +12,17 @@ public interface ClientWrapperApi {
     static final String DELETE_KUBERNETES_REQUEST = "DeleteKubernetesRequest";
     static final String DELETE_TEST_REQUEST = "DeleteTestRequest";
 
-    public DeployResponse deploy(String orgName, String type, Object payload);
+    public DeployResponse deploy(String clusterName, String orgName, String type, Object payload);
 
-    public DeployResponse deployArgoAppByName(String orgName, String appName);
+    public DeployResponse deployArgoAppByName(String clusterName, String orgName, String appName);
 
-    public DeployResponse rollback(String orgName, String appName, String revisionHash);
+    public DeployResponse rollback(String clusterName, String orgName, String appName, String revisionHash);
 
-    public void delete(String orgName, String type, String resourceName, String resourceNamespace, String group, String version, String kind);
+    public void delete(String clusterName, String orgName, String type, String resourceName, String resourceNamespace, String group, String version, String kind);
 
-    public void delete(String orgName, String type, String configPayload);
+    public void delete(String clusterName, String orgName, String type, String configPayload);
 
-    public void deleteApplication(String group, String version, String kind, String applicationName);
+    public void deleteApplication(String clusterName, String group, String version, String kind, String applicationName);
 
-    public void watchApplication(String orgName, WatchRequest watchRequest);
+    public void watchApplication(String clusterName, String orgName, WatchRequest watchRequest);
 }

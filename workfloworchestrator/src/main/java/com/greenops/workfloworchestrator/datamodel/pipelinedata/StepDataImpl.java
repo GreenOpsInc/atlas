@@ -52,7 +52,14 @@ public class StepDataImpl implements StepData {
     }
 
     @Override
-    public String getClusterName() {return clusterName;}
+    public String getClusterName() {
+        return clusterName;
+    }
+
+    @Override
+    public void setClusterName(String clusterName) {
+        this.clusterName = clusterName;
+    }
 
     @Override
     public boolean getRollback() {

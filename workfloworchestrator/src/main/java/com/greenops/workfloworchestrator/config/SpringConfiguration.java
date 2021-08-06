@@ -3,6 +3,7 @@ package com.greenops.workfloworchestrator.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.greenops.util.datamodel.auditlog.DeploymentLog;
+import com.greenops.util.datamodel.clientmessages.*;
 import com.greenops.util.datamodel.event.ApplicationInfraCompletionEvent;
 import com.greenops.util.datamodel.event.ApplicationInfraTriggerEvent;
 import com.greenops.util.datamodel.event.ClientCompletionEvent;
@@ -12,6 +13,7 @@ import com.greenops.util.datamodel.git.GitCredOpen;
 import com.greenops.util.datamodel.git.GitCredToken;
 import com.greenops.util.datamodel.git.GitRepoSchema;
 import com.greenops.util.datamodel.mixin.auditlog.DeploymentLogMixin;
+import com.greenops.util.datamodel.mixin.clientmessages.*;
 import com.greenops.util.datamodel.mixin.event.ApplicationInfraCompletionEventMixin;
 import com.greenops.util.datamodel.mixin.event.ApplicationInfraTriggerEventMixin;
 import com.greenops.util.datamodel.mixin.event.ClientCompletionEventMixin;
@@ -22,10 +24,10 @@ import com.greenops.util.datamodel.mixin.git.GitCredTokenMixin;
 import com.greenops.util.datamodel.mixin.git.GitRepoSchemaMixin;
 import com.greenops.util.datamodel.mixin.pipeline.PipelineSchemaMixin;
 import com.greenops.util.datamodel.mixin.pipeline.TeamSchemaMixin;
-import com.greenops.util.datamodel.mixin.request.GetFileRequestMixin;
+import com.greenops.util.datamodel.mixin.request.*;
 import com.greenops.util.datamodel.pipeline.PipelineSchemaImpl;
 import com.greenops.util.datamodel.pipeline.TeamSchemaImpl;
-import com.greenops.util.datamodel.request.GetFileRequest;
+import com.greenops.util.datamodel.request.*;
 import com.greenops.util.dbclient.DbClient;
 import com.greenops.util.dbclient.redis.RedisDbClient;
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.CustomJobTestMixin;
@@ -67,6 +69,13 @@ public class SpringConfiguration {
                 .addMixIn(TestCompletionEvent.class, TestCompletionEventMixin.class)
                 .addMixIn(ApplicationInfraTriggerEvent.class, ApplicationInfraTriggerEventMixin.class)
                 .addMixIn(ApplicationInfraCompletionEvent.class, ApplicationInfraCompletionEventMixin.class)
+                .addMixIn(ClientDeleteByConfigRequest.class, ClientDeleteByConfigRequestMixin.class)
+                .addMixIn(ClientDeleteByGvkRequest.class, ClientDeleteByGvkRequestMixin.class)
+                .addMixIn(ClientDeployAndWatchRequest.class, ClientDeployAndWatchRequestMixin.class)
+                .addMixIn(ClientDeployNamedArgoAppAndWatchRequest.class, ClientDeployNamedArgoAppAndWatchRequestMixin.class)
+                .addMixIn(ClientDeployNamedArgoApplicationRequest.class, ClientDeployNamedArgoApplicationRequestMixin.class)
+                .addMixIn(ClientDeployRequest.class, ClientDeployRequestMixin.class)
+                .addMixIn(ClientRollbackAndWatchRequest.class, ClientRollbackAndWatchRequestMixin.class)
                 .addMixIn(GetFileRequest.class, GetFileRequestMixin.class)
                 .addMixIn(WatchRequest.class, WatchRequestMixin.class)
                 .addMixIn(KubernetesCreationRequest.class, KubernetesCreationRequestMixin.class)
