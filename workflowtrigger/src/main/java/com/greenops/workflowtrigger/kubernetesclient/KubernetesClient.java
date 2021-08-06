@@ -1,6 +1,6 @@
 package com.greenops.workflowtrigger.kubernetesclient;
 
-import com.greenops.workflowtrigger.api.model.git.GitCred;
+import com.greenops.util.datamodel.git.GitCred;
 
 public interface KubernetesClient {
 

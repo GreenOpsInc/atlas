@@ -1,10 +1,9 @@
 package com.greenops.pipelinereposerver.repomanager;
 
-import com.greenops.pipelinereposerver.api.model.git.GitCred;
-import com.greenops.pipelinereposerver.api.model.git.GitRepoSchema;
-import com.greenops.pipelinereposerver.dbclient.DbClient;
 import com.greenops.pipelinereposerver.dbclient.DbKey;
 import com.greenops.pipelinereposerver.kubernetesclient.KubernetesClient;
+import com.greenops.util.datamodel.git.GitRepoSchema;
+import com.greenops.util.dbclient.DbClient;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -320,7 +319,7 @@ public class RepoManagerImpl implements RepoManager {
     }
 
     private boolean setupRepoCache(DbClient dbClient, KubernetesClient kubernetesClient) {
-        var listOfTeams = dbClient.fetchList(DbKey.makeDbListOfTeamsKey(orgName));
+        var listOfTeams = dbClient.fetchStringList(DbKey.makeDbListOfTeamsKey(orgName));
         if (listOfTeams == null) {
             log.info("No teams in org {}", orgName);
             return true;

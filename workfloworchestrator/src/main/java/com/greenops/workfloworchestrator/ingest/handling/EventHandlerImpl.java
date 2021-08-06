@@ -2,15 +2,15 @@ package com.greenops.workfloworchestrator.ingest.handling;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.greenops.workfloworchestrator.datamodel.event.*;
+import com.greenops.util.datamodel.event.*;
+import com.greenops.util.datamodel.pipeline.TeamSchema;
+import com.greenops.util.datamodel.request.GetFileRequest;
+import com.greenops.util.dbclient.DbClient;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.PipelineData;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.Test;
-import com.greenops.workfloworchestrator.datamodel.pipelineschema.TeamSchema;
-import com.greenops.workfloworchestrator.datamodel.requests.GetFileRequest;
 import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManagerApi;
-import com.greenops.workfloworchestrator.ingest.dbclient.DbClient;
 import com.greenops.workfloworchestrator.ingest.dbclient.DbKey;
 import com.greenops.workfloworchestrator.ingest.kafka.KafkaClient;
 import lombok.extern.slf4j.Slf4j;
@@ -20,7 +20,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.stream.Collectors;
 
-import static com.greenops.workfloworchestrator.datamodel.event.ClientCompletionEvent.*;
+import static com.greenops.util.datamodel.event.ClientCompletionEvent.*;
 import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.ROOT_STEP_NAME;
 import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.createRootStep;
 import static com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManagerApi.ROOT_COMMIT;

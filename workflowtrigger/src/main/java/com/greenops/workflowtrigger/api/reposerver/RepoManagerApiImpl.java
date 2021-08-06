@@ -2,12 +2,12 @@ package com.greenops.workflowtrigger.api.reposerver;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.greenops.workflowtrigger.api.model.git.GitCredMachineUser;
-import com.greenops.workflowtrigger.api.model.git.GitCredToken;
-import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
-import com.greenops.workflowtrigger.api.model.mixin.git.GitCredMachineUserMixin;
-import com.greenops.workflowtrigger.api.model.mixin.git.GitCredTokenMixin;
-import com.greenops.workflowtrigger.api.model.mixin.git.GitRepoSchemaMixin;
+import com.greenops.util.datamodel.git.GitCredMachineUser;
+import com.greenops.util.datamodel.git.GitCredToken;
+import com.greenops.util.datamodel.git.GitRepoSchema;
+import com.greenops.util.datamodel.mixin.git.GitCredMachineUserMixin;
+import com.greenops.util.datamodel.mixin.git.GitCredTokenMixin;
+import com.greenops.util.datamodel.mixin.git.GitRepoSchemaMixin;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;

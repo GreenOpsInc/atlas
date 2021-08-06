@@ -1,9 +1,9 @@
 package com.greenops.workfloworchestrator.ingest.handling;
 
-import com.greenops.workfloworchestrator.datamodel.event.Event;
+import com.greenops.util.datamodel.event.Event;
+import com.greenops.util.datamodel.request.GetFileRequest;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.Test;
-import com.greenops.workfloworchestrator.datamodel.requests.GetFileRequest;
 import com.greenops.workfloworchestrator.datamodel.requests.WatchRequest;
 import com.greenops.workfloworchestrator.error.AtlasRetryableError;
 import com.greenops.workfloworchestrator.ingest.apiclient.clientwrapper.ClientWrapperApi;

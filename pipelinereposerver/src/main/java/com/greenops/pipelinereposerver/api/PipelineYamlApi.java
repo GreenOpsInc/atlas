@@ -1,8 +1,8 @@
 package com.greenops.pipelinereposerver.api;
 
-import com.greenops.pipelinereposerver.api.model.git.GitRepoSchema;
-import com.greenops.pipelinereposerver.api.model.request.GetFileRequest;
 import com.greenops.pipelinereposerver.repomanager.RepoManager;
+import com.greenops.util.datamodel.git.GitRepoSchema;
+import com.greenops.util.datamodel.request.GetFileRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;

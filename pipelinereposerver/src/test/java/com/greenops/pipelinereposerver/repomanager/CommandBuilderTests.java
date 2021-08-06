@@ -1,7 +1,7 @@
 package com.greenops.pipelinereposerver.repomanager;
 
-import com.greenops.pipelinereposerver.api.model.git.GitCredMachineUser;
-import com.greenops.pipelinereposerver.api.model.git.GitRepoSchema;
+import com.greenops.util.datamodel.git.GitCredMachineUser;
+import com.greenops.util.datamodel.git.GitRepoSchema;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

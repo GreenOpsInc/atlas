@@ -2,11 +2,11 @@ package com.greenops.workflowtrigger.config;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.greenops.workflowtrigger.api.model.git.*;
-import com.greenops.workflowtrigger.api.model.pipeline.PipelineSchema;
-import com.greenops.workflowtrigger.api.model.pipeline.PipelineSchemaImpl;
-import com.greenops.workflowtrigger.api.model.pipeline.TeamSchema;
-import com.greenops.workflowtrigger.api.model.pipeline.TeamSchemaImpl;
+import com.greenops.util.datamodel.git.*;
+import com.greenops.util.datamodel.pipeline.PipelineSchema;
+import com.greenops.util.datamodel.pipeline.PipelineSchemaImpl;
+import com.greenops.util.datamodel.pipeline.TeamSchema;
+import com.greenops.util.datamodel.pipeline.TeamSchemaImpl;
 import net.minidev.json.JSONObject;
 import net.minidev.json.parser.JSONParser;
 import net.minidev.json.parser.ParseException;

@@ -1,6 +1,6 @@
 package com.greenops.workfloworchestrator.ingest.handling;
 
-import com.greenops.workfloworchestrator.datamodel.event.Event;
+import com.greenops.util.datamodel.event.Event;
 
 import java.util.List;
 

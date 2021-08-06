@@ -1,6 +1,6 @@
 package com.greenops.workflowtrigger.api.reposerver;
 
-import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
+import com.greenops.util.datamodel.git.GitRepoSchema;
 
 public interface RepoManagerApi {
 

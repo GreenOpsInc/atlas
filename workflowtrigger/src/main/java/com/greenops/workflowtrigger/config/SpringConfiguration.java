@@ -1,22 +1,25 @@
 package com.greenops.workflowtrigger.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.greenops.workflowtrigger.api.model.auditlog.DeploymentLog;
-import com.greenops.workflowtrigger.api.model.cluster.ClusterSchema;
-import com.greenops.workflowtrigger.api.model.event.ClientCompletionEvent;
-import com.greenops.workflowtrigger.api.model.git.GitCredMachineUser;
-import com.greenops.workflowtrigger.api.model.git.GitCredToken;
-import com.greenops.workflowtrigger.api.model.git.GitRepoSchema;
-import com.greenops.workflowtrigger.api.model.mixin.auditlog.DeploymentLogMixin;
-import com.greenops.workflowtrigger.api.model.mixin.cluster.ClusterSchemaMixin;
-import com.greenops.workflowtrigger.api.model.mixin.event.ClientCompletionEventMixin;
-import com.greenops.workflowtrigger.api.model.mixin.git.GitCredMachineUserMixin;
-import com.greenops.workflowtrigger.api.model.mixin.git.GitCredTokenMixin;
-import com.greenops.workflowtrigger.api.model.mixin.git.GitRepoSchemaMixin;
-import com.greenops.workflowtrigger.api.model.mixin.pipeline.PipelineSchemaMixin;
-import com.greenops.workflowtrigger.api.model.mixin.pipeline.TeamSchemaMixin;
-import com.greenops.workflowtrigger.api.model.pipeline.PipelineSchemaImpl;
-import com.greenops.workflowtrigger.api.model.pipeline.TeamSchemaImpl;
+import com.greenops.util.datamodel.auditlog.DeploymentLog;
+import com.greenops.util.datamodel.cluster.ClusterSchema;
+import com.greenops.util.datamodel.event.ClientCompletionEvent;
+import com.greenops.util.datamodel.git.GitCredMachineUser;
+import com.greenops.util.datamodel.git.GitCredToken;
+import com.greenops.util.datamodel.git.GitRepoSchema;
+import com.greenops.util.datamodel.mixin.auditlog.DeploymentLogMixin;
+import com.greenops.util.datamodel.mixin.cluster.ClusterSchemaMixin;
+import com.greenops.util.datamodel.mixin.event.ClientCompletionEventMixin;
+import com.greenops.util.datamodel.mixin.git.GitCredMachineUserMixin;
+import com.greenops.util.datamodel.mixin.git.GitCredTokenMixin;
+import com.greenops.util.datamodel.mixin.git.GitRepoSchemaMixin;
+import com.greenops.util.datamodel.mixin.pipeline.PipelineSchemaMixin;
+import com.greenops.util.datamodel.mixin.pipeline.TeamSchemaMixin;
+import com.greenops.util.datamodel.pipeline.PipelineSchemaImpl;
+import com.greenops.util.datamodel.pipeline.TeamSchemaImpl;
+import com.greenops.util.dbclient.DbClient;
+import com.greenops.util.dbclient.redis.RedisDbClient;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -42,6 +45,11 @@ public class SpringConfiguration {
     @Bean
     public KafkaTemplate<String, String> kafkaTemplate(ProducerFactory<String, String> producerFactory) {
         return new KafkaTemplate<>(producerFactory);
+    }
+
+    @Bean
+    public DbClient dbClient(@Value("${application.redis-url}") String redisUrl, ObjectMapper objectMapper) {
+        return new RedisDbClient(redisUrl, objectMapper);
     }
 }
 

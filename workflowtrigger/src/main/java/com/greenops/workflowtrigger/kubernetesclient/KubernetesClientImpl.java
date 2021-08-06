@@ -3,7 +3,7 @@ package com.greenops.workflowtrigger.kubernetesclient;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import com.greenops.workflowtrigger.api.model.git.GitCred;
+import com.greenops.util.datamodel.git.GitCred;
 import io.kubernetes.client.ApiException;
 import io.kubernetes.client.Configuration;
 import io.kubernetes.client.apis.CoreV1Api;

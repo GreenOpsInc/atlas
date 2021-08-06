@@ -2,8 +2,8 @@ package com.greenops.workflowtrigger.api;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.greenops.workflowtrigger.api.model.cluster.ClusterSchema;
-import com.greenops.workflowtrigger.dbclient.DbClient;
+import com.greenops.util.datamodel.cluster.ClusterSchema;
+import com.greenops.util.dbclient.DbClient;
 import com.greenops.workflowtrigger.dbclient.DbKey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -2,7 +2,7 @@ package com.greenops.workfloworchestrator.ingest.kafka;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.greenops.workfloworchestrator.datamodel.event.Event;
+import com.greenops.util.datamodel.event.Event;
 import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
