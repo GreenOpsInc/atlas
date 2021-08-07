@@ -98,6 +98,7 @@ public class EventHandlerImpl implements EventHandler {
         deploymentLogHandler.markDeploymentSuccessful(event, event.getStepName());
 
         if (event.getStepName().equals(ROOT_STEP_NAME)) {
+            dbClient.storeValue(DbKey.makeDbListOfStepsKey(event.getOrgName(), event.getTeamName(), event.getPipelineName()), pipelineData.getAllSteps());
             triggerNextSteps(pipelineData, createRootStep(), pipelineRepoUrl, event);
             return;
         }

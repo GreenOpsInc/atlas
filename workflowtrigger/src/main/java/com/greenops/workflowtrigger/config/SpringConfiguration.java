@@ -15,7 +15,12 @@ import com.greenops.util.datamodel.mixin.git.GitCredTokenMixin;
 import com.greenops.util.datamodel.mixin.git.GitRepoSchemaMixin;
 import com.greenops.util.datamodel.mixin.pipeline.PipelineSchemaMixin;
 import com.greenops.util.datamodel.mixin.pipeline.TeamSchemaMixin;
+import com.greenops.util.datamodel.mixin.pipelinestatus.PipelineStatusMixin;
+import com.greenops.util.datamodel.mixin.pipelinestatus.FailedStepMixin;
 import com.greenops.util.datamodel.pipeline.PipelineSchemaImpl;
+import com.greenops.util.datamodel.pipeline.TeamSchemaImpl;
+import com.greenops.util.datamodel.pipelinestatus.PipelineStatus;
+import com.greenops.util.datamodel.pipelinestatus.FailedStep;
 import com.greenops.util.datamodel.pipeline.TeamSchemaImpl;
 import com.greenops.util.dbclient.DbClient;
 import com.greenops.util.dbclient.redis.RedisDbClient;
@@ -38,7 +43,9 @@ public class SpringConfiguration {
                 .addMixIn(GitCredToken.class, GitCredTokenMixin.class)
                 .addMixIn(ClientCompletionEvent.class, ClientCompletionEventMixin.class)
                 .addMixIn(DeploymentLog.class, DeploymentLogMixin.class)
-                .addMixIn(ClusterSchema.class, ClusterSchemaMixin.class);
+                .addMixIn(ClusterSchema.class, ClusterSchemaMixin.class)
+                .addMixIn(FailedStep.class, FailedStepMixin.class)
+                .addMixIn(PipelineStatus.class, PipelineStatusMixin.class);
 
     }
 

@@ -21,4 +21,8 @@ public class DbKey {
     public static String makeDbListOfTeamsKey(String orgName) {
         return orgName + "-teams";
     }
+
+    public static String makeDbListOfStepsKey(String orgName, String teamName, String pipelineName) {
+        return orgName + "-" + teamName + "-" + pipelineName + "-step";
+    }
 }

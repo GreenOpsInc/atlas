@@ -25,5 +25,7 @@ public abstract class PipelineDataMixin {
     public PipelineDataMixin(@JsonProperty(value = "name") String name, @JsonProperty(value = "cluster_name") String clusterName, @JsonProperty(value = "steps") List<StepData> stepDataList) {
     }
 
+    @JsonIgnore
+    abstract List<String> getAllSteps();
 
 }
