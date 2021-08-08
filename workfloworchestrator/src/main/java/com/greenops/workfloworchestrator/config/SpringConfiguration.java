@@ -4,20 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.greenops.util.datamodel.auditlog.DeploymentLog;
 import com.greenops.util.datamodel.clientmessages.*;
-import com.greenops.util.datamodel.event.ApplicationInfraCompletionEvent;
-import com.greenops.util.datamodel.event.ApplicationInfraTriggerEvent;
-import com.greenops.util.datamodel.event.ClientCompletionEvent;
-import com.greenops.util.datamodel.event.TestCompletionEvent;
+import com.greenops.util.datamodel.event.*;
 import com.greenops.util.datamodel.git.GitCredMachineUser;
 import com.greenops.util.datamodel.git.GitCredOpen;
 import com.greenops.util.datamodel.git.GitCredToken;
 import com.greenops.util.datamodel.git.GitRepoSchema;
 import com.greenops.util.datamodel.mixin.auditlog.DeploymentLogMixin;
 import com.greenops.util.datamodel.mixin.clientmessages.*;
-import com.greenops.util.datamodel.mixin.event.ApplicationInfraCompletionEventMixin;
-import com.greenops.util.datamodel.mixin.event.ApplicationInfraTriggerEventMixin;
-import com.greenops.util.datamodel.mixin.event.ClientCompletionEventMixin;
-import com.greenops.util.datamodel.mixin.event.TestCompletionEventMixin;
+import com.greenops.util.datamodel.mixin.event.*;
 import com.greenops.util.datamodel.mixin.git.GitCredMachineUserMixin;
 import com.greenops.util.datamodel.mixin.git.GitCredOpenMixin;
 import com.greenops.util.datamodel.mixin.git.GitCredTokenMixin;
@@ -79,7 +73,8 @@ public class SpringConfiguration {
                 .addMixIn(GetFileRequest.class, GetFileRequestMixin.class)
                 .addMixIn(WatchRequest.class, WatchRequestMixin.class)
                 .addMixIn(KubernetesCreationRequest.class, KubernetesCreationRequestMixin.class)
-                .addMixIn(DeployResponse.class, DeployResponseMixin.class);
+                .addMixIn(DeployResponse.class, DeployResponseMixin.class)
+                .addMixIn(TriggerStepEvent.class, TriggerStepEventMixin.class);
     }
 
     @Bean

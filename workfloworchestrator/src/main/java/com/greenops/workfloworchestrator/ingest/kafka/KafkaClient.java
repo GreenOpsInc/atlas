@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Component
 public class KafkaClient {
 
@@ -32,6 +34,20 @@ public class KafkaClient {
         } catch (JsonProcessingException e) {
             throw new AtlasNonRetryableError(e);
         }
+        kafkaTemplate.flush();
+    }
+
+    public void sendMessage(List<Event> events) {
+        kafkaTemplate.executeInTransaction(t -> {
+            for (var event : events) {
+                try {
+                    t.send(normalTopic, objectMapper.writeValueAsString(event));
+                } catch (JsonProcessingException e) {
+                    throw new AtlasNonRetryableError(e);
+                }
+            }
+            return true;
+        });
         kafkaTemplate.flush();
     }
 
