@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 import static com.greenops.util.datamodel.event.ClientCompletionEvent.*;
@@ -66,11 +67,12 @@ public class EventHandlerImpl implements EventHandler {
     public void handleEvent(Event event) {
         var teamSchema = fetchTeamSchema(event);
         if (teamSchema == null) throw new AtlasNonRetryableError("The team doesn't exist");
-        //TODO: When the trigger step event is added, gitCommit should be ROOT_COMMIT when the event is a triggerstepevent
-        var gitCommit = event.getStepName().equals(ROOT_STEP_NAME) ? ROOT_COMMIT : deploymentLogHandler.getCurrentGitCommitHash(event, event.getStepName());
-        var pipelineData = fetchPipelineData(event, teamSchema, gitCommit);
-        if (pipelineData == null) throw new AtlasNonRetryableError("The pipeline doesn't exist");
+        var gitCommit = event.getStepName().equals(ROOT_STEP_NAME) || event instanceof TriggerStepEvent
+                ? ROOT_COMMIT
+                : deploymentLogHandler.getCurrentGitCommitHash(event, event.getStepName());
         var gitRepoUrl = teamSchema.getPipelineSchema(event.getPipelineName()).getGitRepoSchema().getGitRepo();
+        var pipelineData = fetchPipelineData(event, gitRepoUrl, gitCommit);
+        if (pipelineData == null) throw new AtlasNonRetryableError("The pipeline doesn't exist");
         if (event instanceof ClientCompletionEvent) {
             handleClientCompletionEvent(pipelineData, gitRepoUrl, (ClientCompletionEvent) event);
         } else if (event instanceof TestCompletionEvent) {
@@ -79,6 +81,8 @@ public class EventHandlerImpl implements EventHandler {
             handleApplicationInfraTrigger(teamSchema, pipelineData, gitRepoUrl, (ApplicationInfraTriggerEvent) event);
         } else if (event instanceof ApplicationInfraCompletionEvent) {
             handleApplicationInfraCompletion(gitRepoUrl, pipelineData, (ApplicationInfraCompletionEvent) event);
+        } else if (event instanceof TriggerStepEvent) {
+            handleTriggerStep(pipelineData, gitRepoUrl, (TriggerStepEvent) event);
         }
     }
 
@@ -90,7 +94,7 @@ public class EventHandlerImpl implements EventHandler {
         var step = pipelineData.getStep(event.getStepName());
         if (event.getHealthStatus().equals(DEGRADED) || event.getHealthStatus().equals(UNKNOWN)) {
             deploymentLogHandler.markStepFailedWithFailedDeployment(event, event.getStepName());
-            if (step.getRollback()) rollback(pipelineData, pipelineRepoUrl, event);
+            if (step.getRollback()) rollback(event);
             return;
         }
         //TODO: How do we handle the remaining sync/health statuses? We should be retriggering syncs, waiting for status updates (?), etc
@@ -115,7 +119,7 @@ public class EventHandlerImpl implements EventHandler {
         var step = pipelineData.getStep(event.getStepName());
         if (!event.getSuccessful()) {
             deploymentLogHandler.markStepFailedWithBrokenTest(event, event.getStepName(), event.getTestName(), event.getLog());
-            if (step.getRollback()) rollback(pipelineData, pipelineRepoUrl, event);
+            if (step.getRollback()) rollback(event);
             return;
         }
 
@@ -155,7 +159,7 @@ public class EventHandlerImpl implements EventHandler {
                 //TODO: Add deploymentInfraSuccessful variable in deployment log, and replace method below with one that checks for the deployment infra deploying successfully
                 : deploymentLogHandler.getLastSuccessfulDeploymentGitCommitHash(event, event.getStepName());
         if (oldGitCommitHash != null) {
-            var oldPipelineData = fetchPipelineData(event, teamSchema, oldGitCommitHash);
+            var oldPipelineData = fetchPipelineData(event, pipelineRepoUrl, oldGitCommitHash);
             var oldStepData = oldPipelineData.getStep(event.getStepName());
             deploymentHandler.deleteApplicationInfrastructure(event, pipelineRepoUrl, oldStepData, oldGitCommitHash);
         }
@@ -180,28 +184,29 @@ public class EventHandlerImpl implements EventHandler {
         deploymentLogHandler.updateStepDeploymentLog(event, stepData.getName(), argoDeploymentInfo.getArgoApplicationName(), argoDeploymentInfo.getArgoRevisionHash());
     }
 
-    private void triggerNextSteps(PipelineData pipelineData, StepData step, String pipelineRepoUrl, Event event) {
-        deploymentLogHandler.markStepSuccessful(event, event.getStepName());
+    private void handleTriggerStep(PipelineData pipelineData, String pipelineRepoUrl, TriggerStepEvent event) {
+        var gitCommit = ROOT_COMMIT;
 
-        var childrenSteps = pipelineData.getChildrenSteps(step.getName());
-        for (var stepName : childrenSteps) {
-            var nextStep = pipelineData.getStep(stepName);
-            var parentSteps = pipelineData.getParentSteps(stepName);
-            if (deploymentLogHandler.areParentStepsComplete(event, parentSteps)) {
-                deploymentLogHandler.initializeNewStepLog(
-                        event,
-                        nextStep.getName(),
-                        repoManagerApi.getCurrentPipelineCommitHash(pipelineRepoUrl, event.getOrgName(), event.getTeamName())
-                );
-                triggerStep(event.getPipelineName(), pipelineRepoUrl, nextStep, event);
+        if (event.isRollback()) {
+            gitCommit = deploymentLogHandler.makeRollbackDeploymentLog(event, event.getStepName());
+            if (gitCommit.isEmpty()) {
+                //Means there is no stable version that can be found.
+                return;
             }
+            pipelineData = fetchPipelineData(event, pipelineRepoUrl, gitCommit);
+        } else {
+            deploymentLogHandler.initializeNewStepLog(
+                    event,
+                    event.getStepName(),
+                    repoManagerApi.getCurrentPipelineCommitHash(pipelineRepoUrl, event.getOrgName(), event.getTeamName())
+            );
         }
-    }
 
-    private void triggerStep(String pipelineName, String pipelineRepoUrl, StepData stepData, Event event) {
+        var stepData = pipelineData.getStep(event.getStepName());
+
         var beforeTestsExist = stepData.getTests().stream().anyMatch(Test::shouldExecuteBefore);
         if (beforeTestsExist) {
-            testHandler.triggerTest(pipelineRepoUrl, stepData, true, ROOT_COMMIT, event);
+            testHandler.triggerTest(pipelineRepoUrl, stepData, true, gitCommit, event);
             return;
         }
 
@@ -212,9 +217,24 @@ public class EventHandlerImpl implements EventHandler {
 
         var afterTestsExist = stepData.getTests().stream().anyMatch(test -> !test.shouldExecuteBefore());
         if (afterTestsExist) {
-            testHandler.triggerTest(pipelineRepoUrl, stepData, false, ROOT_COMMIT, event);
+            testHandler.triggerTest(pipelineRepoUrl, stepData, false, gitCommit, event);
             return;
         }
+    }
+
+    private void triggerNextSteps(PipelineData pipelineData, StepData step, String pipelineRepoUrl, Event event) {
+        deploymentLogHandler.markStepSuccessful(event, event.getStepName());
+
+        var childrenSteps = pipelineData.getChildrenSteps(step.getName());
+        var triggerStepEvents = new ArrayList<Event>();
+        for (var stepName : childrenSteps) {
+            var nextStep = pipelineData.getStep(stepName);
+            var parentSteps = pipelineData.getParentSteps(stepName);
+            if (deploymentLogHandler.areParentStepsComplete(event, parentSteps)) {
+                triggerStepEvents.add(new TriggerStepEvent(event.getOrgName(), event.getTeamName(), event.getPipelineName(), nextStep.getName(), false));
+            }
+        }
+        kafkaClient.sendMessage(triggerStepEvents);
     }
 
     private void triggerAppInfraDeploy(String stepName, Event event) {
@@ -225,22 +245,15 @@ public class EventHandlerImpl implements EventHandler {
         kafkaClient.sendMessage(new ApplicationInfraCompletionEvent(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName));
     }
 
-    private void rollback(PipelineData pipelineData, String pipelineRepoUrl, Event event) {
-        var gitCommitVersion = deploymentLogHandler.makeRollbackDeploymentLog(event, event.getStepName());
-        if (gitCommitVersion.isEmpty()) {
-            //Means there is no stable version that can be found.
-            return;
-        }
-        repoManagerApi.resetRepoVersion(gitCommitVersion, pipelineRepoUrl, event.getOrgName(), event.getTeamName());
-        triggerStep(event.getPipelineName(), pipelineRepoUrl, pipelineData.getStep(event.getStepName()), event);
+    private void rollback(Event event) {
+        kafkaClient.sendMessage(new TriggerStepEvent(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName(), true));
     }
 
     private TeamSchema fetchTeamSchema(Event event) {
         return dbClient.fetchTeamSchema(DbKey.makeDbTeamKey(event.getOrgName(), event.getTeamName()));
     }
 
-    private PipelineData fetchPipelineData(Event event, TeamSchema teamSchema, String gitCommitHash) {
-        var gitRepoUrl = teamSchema.getPipelineSchema(event.getPipelineName()).getGitRepoSchema().getGitRepo();
+    private PipelineData fetchPipelineData(Event event, String gitRepoUrl, String gitCommitHash) {
         var getFileRequest = new GetFileRequest(gitRepoUrl, PIPELINE_FILE_NAME, gitCommitHash);
         try {
             return objectMapper.readValue(

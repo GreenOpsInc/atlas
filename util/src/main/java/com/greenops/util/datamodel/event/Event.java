@@ -9,7 +9,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
                 @JsonSubTypes.Type(value = ClientCompletionEvent.class, name = "clientcompletion"),
                 @JsonSubTypes.Type(value = TestCompletionEvent.class, name = "testcompletion"),
                 @JsonSubTypes.Type(value = ApplicationInfraTriggerEvent.class, name = "appinfratrigger"),
-                @JsonSubTypes.Type(value = ApplicationInfraCompletionEvent.class, name = "appinfracompletion")
+                @JsonSubTypes.Type(value = ApplicationInfraCompletionEvent.class, name = "appinfracompletion"),
+                @JsonSubTypes.Type(value = TriggerStepEvent.class, name = "triggerstep")
         }
 )
 public interface Event {
