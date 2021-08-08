@@ -12,5 +12,6 @@ public interface PipelineData {
     public StepData getStep(String stepName);
     public List<String> getChildrenSteps(String stepName);
     public List<String> getParentSteps(String stepName);
+    public List<String> getAllSteps();
     public String getClusterName();
 }

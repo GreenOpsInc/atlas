@@ -74,4 +74,7 @@ public class PipelineDataImpl implements PipelineData {
     public List<String> getParentSteps(String stepName) {
         return stepParents.getOrDefault(stepName, List.of());
     }
+
+    @Override
+    public List<String> getAllSteps() { return steps.stream().map(s -> s.getName()).collect(Collectors.toList()); }
 }
