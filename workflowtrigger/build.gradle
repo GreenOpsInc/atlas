@@ -4,6 +4,7 @@ plugins {
 	id 'java'
 	id 'com.google.cloud.tools.jib' version '3.0.0'
 	id 'application'
+	id "com.google.protobuf" version "0.8.8"
 }
 
 group = 'com.greenops'
@@ -14,9 +15,38 @@ repositories {
 	mavenCentral()
 }
 
+sourceSets {
+	main {
+		java {
+			srcDirs 'build/generated/source/proto/main/grpc'
+			srcDirs 'build/generated/source/proto/main/java'
+		}
+	}
+}
+
+
+protobuf {
+	protoc {
+		artifact = "com.google.protobuf:protoc:3.7.0"
+	}
+	plugins {
+		grpc {
+			artifact = "io.grpc:protoc-gen-grpc-java:1.19.0"
+		}
+	}
+	generateProtoTasks {
+		all()*.plugins {
+			grpc {}
+		}
+	}
+}
+
 dependencies {
 	//This util line is added in via Gradle composition
 	implementation 'com.greenops:util'
+	implementation 'com.google.protobuf:protobuf-java:3.15.3'
+//	implementation 'io.grpc:grpc-all:1.19.0'
+	compile group: 'io.grpc', name: 'grpc-all', version: '1.19.0'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter'
 	implementation 'org.springframework.boot:spring-boot-starter-web'

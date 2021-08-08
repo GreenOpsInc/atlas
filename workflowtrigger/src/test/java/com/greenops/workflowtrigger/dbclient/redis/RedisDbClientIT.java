@@ -60,7 +60,7 @@ public class RedisDbClientIT {
     @AfterEach
     void afterEach() {
         System.err.println("AFTER REACH RUNNING");
-        ((RedisDbClient) redisDbClient).destroy();
+        ((RedisDbClient) redisDbClient).shutdown();
     }
 
     @Test
