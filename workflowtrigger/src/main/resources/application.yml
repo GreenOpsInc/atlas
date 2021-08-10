@@ -5,6 +5,30 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
     topic: greenops.eventing
+#  security:
+#    oauth2:
+#      client:
+#        registration:
+#          dex-client:
+#            client-id: example-app
+#            client-secret: ZXhhbXBsZS1hcHAtc2VjcmV0
+#            client-name: 'Example App'
+#            scope: read
+#            provider: dex-provider
+#            redirect-uri: http://localhost:8080/callback
+#            client-authentication-method: basic
+#            authorization-grant-type: authorization_code
+#        provider:
+#          dex-provider:
+#            token-uri: https://dex.default.svc.cluster.local:32000/token
+#            authorization-uri: https://dex.default.svc.cluster.local:32000/auth
+#      resourceserver:
+#        jwt:
+#          issuer-uri: https://dex.default.svc.cluster.local:5556
+
+# TODO: Need to add in the correct secret to the cacert: keytool -import -keystore /Library/Java/JavaVirtualMachines/jdk1.8.0_144.jdk/Contents/Home/jre/lib/security/cacerts/ -trustcacerts -file ../../../dex/ssl/ca.pem -storepass changeit
+# The ca.pem is generated from the gencert.sh script provided by Dex starter
+# See Argo CD deployment file for info on how to correctly share these secrets
 application:
   repo-server-url: ${REPO_SERVER_ENDPOINT:http://localhost:8081}
   redis-url: ${REDIS_ENDPOINT:localhost:6379}
