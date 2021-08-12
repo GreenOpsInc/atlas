@@ -26,6 +26,10 @@ const (
 	DefaultUserAccount        string = "admin"
 )
 
+const (
+	ArgoRevisionHashLatest string = "LATEST_REVISION"
+)
+
 type ArgoGetRestrictedClient interface {
 	GetOperationSuccess(applicationName string) (bool, bool, string, error)
 	GetCurrentRevisionHash(applicationName string) (string, error)
@@ -33,7 +37,7 @@ type ArgoGetRestrictedClient interface {
 }
 
 type ArgoClient interface {
-	Deploy(configPayload *string) (bool, string, string, string)
+	Deploy(configPayload *string, revisionHash string) (bool, string, string, string)
 	Sync(applicationName string) (bool, string, string, string)
 	GetOperationSuccess(applicationName string) (bool, bool, string, error)
 	GetCurrentRevisionHash(applicationName string) (string, error)
@@ -85,7 +89,7 @@ func New(kubernetesDriver *k8sdriver.KubernetesClient) ArgoClient {
 	return client
 }
 
-func (a ArgoClientDriver) Deploy(configPayload *string) (bool, string, string, string) {
+func (a ArgoClientDriver) Deploy(configPayload *string, revisionHash string) (bool, string, string, string) {
 	ioCloser, applicationClient, err := a.client.NewApplicationClient()
 	if err != nil {
 		log.Printf("The deploy application client could not be made. Error was %s\n", err)
@@ -94,6 +98,11 @@ func (a ArgoClientDriver) Deploy(configPayload *string) (bool, string, string, s
 	defer ioCloser.Close()
 
 	applicationPayload := makeApplication(configPayload)
+	//This "locks" the Argo applications under a specific pipeline run. Updates to the Argo app
+	//in the middle of a run would be quite messy.
+	if revisionHash != ArgoRevisionHashLatest {
+		applicationPayload.Spec.Source.TargetRevision = revisionHash
+	}
 	_, err = a.kubernetesClient.CheckAndCreateNamespace(applicationPayload.Spec.Destination.Namespace)
 	if err != nil {
 		return false, "", "", ""

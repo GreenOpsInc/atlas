@@ -32,6 +32,7 @@ var channel chan string
 func deploy(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	deployType := vars["type"]
+	revision := vars["revision"]
 	byteReqBody, _ := ioutil.ReadAll(r.Body)
 	stringReqBody := string(byteReqBody)
 	var success bool
@@ -39,7 +40,7 @@ func deploy(w http.ResponseWriter, r *http.Request) {
 	var appNamespace string
 	var revisionHash string
 	if deployType == requestdatatypes.DeployArgoRequest {
-		success, resourceName, appNamespace, revisionHash = drivers.argoDriver.Deploy(&stringReqBody)
+		success, resourceName, appNamespace, revisionHash = drivers.argoDriver.Deploy(&stringReqBody, revision)
 	} else if deployType == requestdatatypes.DeployTestRequest {
 		var kubernetesCreationRequest requestdatatypes.KubernetesCreationRequest
 		err := json.NewDecoder(strings.NewReader(stringReqBody)).Decode(&kubernetesCreationRequest)
@@ -210,7 +211,7 @@ func watch(w http.ResponseWriter, r *http.Request) {
 
 func handleRequests() {
 	myRouter := mux.NewRouter().StrictSlash(true)
-	myRouter.HandleFunc("/deploy/{orgName}/{type}", deploy).Methods("POST")
+	myRouter.HandleFunc("/deploy/{orgName}/{type}/{revision}", deploy).Methods("POST")
 	myRouter.HandleFunc("/deploy/{orgName}/{type}/{argoAppName}", deployArgoAppByName).Methods("POST")
 	myRouter.HandleFunc("/delete/{orgName}/{type}/{resourceName}/{resourceNamespace}/{group}/{version}{kind}", deleteResource).Methods("POST")
 	myRouter.HandleFunc("/delete/{orgName}/{type}", deleteResourceFromConfig).Methods("POST")

@@ -177,7 +177,8 @@ public class EventHandlerImpl implements EventHandler {
             deploymentHandler.rollbackArgoApplication(event, pipelineRepoUrl, stepData, deploymentLog.getArgoApplicationName(), deploymentLog.getArgoRevisionHash());
             return;
         } else if (stepData.getArgoApplicationPath() != null || stepData.getArgoApplication() != null) {
-            argoDeploymentInfo = deploymentHandler.deployArgoApplication(event, pipelineRepoUrl, stepData, deploymentLogHandler.getCurrentGitCommitHash(event, stepData.getName()));
+            var argoRevisionHash = deploymentLogHandler.getCurrentArgoRevisionHash(event, stepData.getName());
+            argoDeploymentInfo = deploymentHandler.deployArgoApplication(event, pipelineRepoUrl, stepData, argoRevisionHash, deploymentLogHandler.getCurrentGitCommitHash(event, stepData.getName()));
         }
 
         //Audit log updates
@@ -198,6 +199,8 @@ public class EventHandlerImpl implements EventHandler {
             deploymentLogHandler.initializeNewStepLog(
                     event,
                     event.getStepName(),
+                    event.getPipelineUvn(),
+                    event.getArgoRevisionHash(),
                     repoManagerApi.getCurrentPipelineCommitHash(pipelineRepoUrl, event.getOrgName(), event.getTeamName())
             );
         }
@@ -224,6 +227,8 @@ public class EventHandlerImpl implements EventHandler {
 
     private void triggerNextSteps(PipelineData pipelineData, StepData step, String pipelineRepoUrl, Event event) {
         deploymentLogHandler.markStepSuccessful(event, event.getStepName());
+        var currentArgoRevisionHash = deploymentLogHandler.getCurrentArgoRevisionHash(event, step.getName());
+        var currentPipelineUvn = deploymentLogHandler.getCurrentPipelineUvn(event, step.getName());
 
         var childrenSteps = pipelineData.getChildrenSteps(step.getName());
         var triggerStepEvents = new ArrayList<Event>();
@@ -231,7 +236,9 @@ public class EventHandlerImpl implements EventHandler {
             var nextStep = pipelineData.getStep(stepName);
             var parentSteps = pipelineData.getParentSteps(stepName);
             if (deploymentLogHandler.areParentStepsComplete(event, parentSteps)) {
-                triggerStepEvents.add(new TriggerStepEvent(event.getOrgName(), event.getTeamName(), event.getPipelineName(), nextStep.getName(), false));
+                triggerStepEvents.add(
+                        new TriggerStepEvent(event.getOrgName(), event.getTeamName(), event.getPipelineName(), nextStep.getName(), currentArgoRevisionHash, currentPipelineUvn, false)
+                );
             }
         }
         kafkaClient.sendMessage(triggerStepEvents);
@@ -246,7 +253,17 @@ public class EventHandlerImpl implements EventHandler {
     }
 
     private void rollback(Event event) {
-        kafkaClient.sendMessage(new TriggerStepEvent(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName(), true));
+        kafkaClient.sendMessage(
+                new TriggerStepEvent(
+                        event.getOrgName(),
+                        event.getTeamName(),
+                        event.getPipelineName(),
+                        event.getStepName(),
+                        null,
+                        deploymentLogHandler.getCurrentPipelineUvn(event, event.getStepName()),
+                        true
+                )
+        );
     }
 
     private TeamSchema fetchTeamSchema(Event event) {

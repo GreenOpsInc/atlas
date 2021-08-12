@@ -5,6 +5,8 @@ import com.greenops.workfloworchestrator.datamodel.requests.WatchRequest;
 
 public interface ClientWrapperApi {
 
+    static final String LATEST_REVISION = "LATEST_REVISION";
+
     static final String DEPLOY_ARGO_REQUEST = "DeployArgoRequest";
     static final String DEPLOY_KUBERNETES_REQUEST = "DeployKubernetesRequest";
     static final String DEPLOY_TEST_REQUEST = "DeployTestRequest";
@@ -12,7 +14,7 @@ public interface ClientWrapperApi {
     static final String DELETE_KUBERNETES_REQUEST = "DeleteKubernetesRequest";
     static final String DELETE_TEST_REQUEST = "DeleteTestRequest";
 
-    public DeployResponse deploy(String clusterName, String orgName, String type, Object payload);
+    public DeployResponse deploy(String clusterName, String orgName, String type, String revisionHash, Object payload);
 
     public DeployResponse deployArgoAppByName(String clusterName, String orgName, String appName);
 

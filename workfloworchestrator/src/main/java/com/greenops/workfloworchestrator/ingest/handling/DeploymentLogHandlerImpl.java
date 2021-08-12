@@ -34,9 +34,9 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
     }
 
     @Override
-    public void initializeNewStepLog(Event event, String stepName, String gitCommitVersion) {
+    public void initializeNewStepLog(Event event, String stepName, String pipelineUvn, String argoRevisionHash, String gitCommitVersion) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
-        var newLog = new DeploymentLog(DeploymentLog.DeploymentStatus.PROGRESSING.name(), false, "", gitCommitVersion);
+        var newLog = new DeploymentLog(pipelineUvn, DeploymentLog.DeploymentStatus.PROGRESSING.name(), false, argoRevisionHash, gitCommitVersion);
         dbClient.insertValueInList(logKey, newLog);
     }
 
@@ -113,7 +113,7 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
         int idx = 0;
         if (currentLog.getUniqueVersionInstance() > 0) {
             while (idx < deploymentLogList.size()) {
-                if (currentLog.getUniqueVersionNumber().equals(deploymentLogList.get(idx).getUniqueVersionNumber())
+                if (currentLog.getRollbackUniqueVersionNumber().equals(deploymentLogList.get(idx).getPipelineUniqueVersionNumber())
                         && deploymentLogList.get(idx).getUniqueVersionInstance() == 0) {
                     idx++;
                     break;
@@ -132,7 +132,8 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
 
                 logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName());
                 var newLog = new DeploymentLog(
-                        deploymentLogList.get(idx).getUniqueVersionNumber(),
+                        currentLog.getPipelineUniqueVersionNumber(),
+                        deploymentLogList.get(idx).getPipelineUniqueVersionNumber(),
                         deploymentLogList.get(idx).getUniqueVersionInstance() + 1,
                         DeploymentLog.DeploymentStatus.PROGRESSING.name(),
                         false,
@@ -162,6 +163,24 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
         if (currentDeploymentLog == null)
             throw new AtlasNonRetryableError("No deployment log found for this key, no commit hash will be found.");
         return currentDeploymentLog.getGitCommitVersion();
+    }
+
+    @Override
+    public String getCurrentArgoRevisionHash(Event event, String stepName) {
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
+        var currentDeploymentLog = dbClient.fetchLatestLog(logKey);
+        if (currentDeploymentLog == null)
+            throw new AtlasNonRetryableError("No deployment log found for this key, no commit hash will be found.");
+        return currentDeploymentLog.getArgoRevisionHash();
+    }
+
+    @Override
+    public String getCurrentPipelineUvn(Event event, String stepName) {
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
+        var currentDeploymentLog = dbClient.fetchLatestLog(logKey);
+        if (currentDeploymentLog == null)
+            throw new AtlasNonRetryableError("No deployment log found for this key, no commit hash will be found.");
+        return currentDeploymentLog.getPipelineUniqueVersionNumber();
     }
 
     @Override

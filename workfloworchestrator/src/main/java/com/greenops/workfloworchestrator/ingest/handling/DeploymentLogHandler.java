@@ -8,7 +8,7 @@ public interface DeploymentLogHandler {
 
     void updateStepDeploymentLog(Event event, String stepName, String argoApplicationName, String revisionHash);
 
-    void initializeNewStepLog(Event event, String stepName, String gitCommitVersion);
+    void initializeNewStepLog(Event event, String stepName, String pipelineUvn, String argoRevisionHash, String gitCommitVersion);
 
     void markDeploymentSuccessful(Event event, String stepName);
 
@@ -23,6 +23,10 @@ public interface DeploymentLogHandler {
     String makeRollbackDeploymentLog(Event event, String stepName);
 
     String getCurrentGitCommitHash(Event event, String stepName);
+
+    String getCurrentArgoRevisionHash(Event event, String stepName);
+
+    String getCurrentPipelineUvn(Event event, String stepName);
 
     String getLastSuccessfulStepGitCommitHash(Event event, String stepName);
 

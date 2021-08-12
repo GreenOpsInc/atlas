@@ -57,23 +57,52 @@ public class PipelineStatusApi {
         return ResponseEntity.ok(deploymentLogList);
     }
 
-    @GetMapping(value = "{orgName}/{teamName}/pipeline/{pipelineName}")
+    @GetMapping(value = "{orgName}/{teamName}/pipeline/{pipelineName}/{pipelineName}")
     public ResponseEntity<String> getPipelineStatus(@PathVariable("orgName") String orgName,
                                                     @PathVariable("teamName") String teamName,
-                                                    @PathVariable("pipelineName") String pipelineName) {
+                                                    @PathVariable("pipelineName") String pipelineName,
+                                                    @PathVariable(value = "pipelineUvn") String pipelineUvn) {
         var status = new PipelineStatus();
         var steps = dbClient.fetchStringList(DbKey.makeDbListOfStepsKey(orgName, teamName, pipelineName));
         for (var step : steps) {
             try {
                 var logKey = DbKey.makeDbStepKey(orgName, teamName, pipelineName, step);
-                var deploymentLog = dbClient.fetchLatestLog(logKey);
+                DeploymentLog deploymentLog = null;
+                if (pipelineUvn.equals("LATEST")) {
+                    deploymentLog = dbClient.fetchLatestLog(logKey);
+                    if (deploymentLog == null) {
+                        return ResponseEntity.badRequest().body("No deployment log exists.");
+                    }
+                    pipelineUvn = deploymentLog.getPipelineUniqueVersionNumber();
+                }
+
+                //TODO: This iteration is in enough places where it should be extracted as a dbClient method
+                var logIncrement = 0;
+                var deploymentLogList = dbClient.fetchLogList(logKey, logIncrement);
+                int idx = 0;
+                while (idx < deploymentLogList.size()) {
+                    if (deploymentLogList.get(idx).getPipelineUniqueVersionNumber().equals(pipelineUvn)) {
+                        deploymentLog = deploymentLogList.get(idx);
+                        break;
+                    }
+                    idx++;
+                    if (idx == deploymentLogList.size()) {
+                        logIncrement++;
+                        deploymentLogList = dbClient.fetchLogList(logKey, logIncrement);
+                        idx = 0;
+                    }
+                }
+
+                if (deploymentLog == null) {
+                    return ResponseEntity.badRequest().body("Couldn't find a log with the requested pipeline UVN.");
+                }
                 status.addDeploymentLog(deploymentLog, step);
 
                 // was rollback deployment, need to get failure logs of initial deployment
                 if (deploymentLog.getUniqueVersionInstance() != 0) {
-                    var logIncrement = 0;
-                    var deploymentLogList = dbClient.fetchLogList(logKey, logIncrement);
-                    int idx = 0;
+                    logIncrement = 0;
+                    deploymentLogList = dbClient.fetchLogList(logKey, logIncrement);
+                    idx = 0;
                     while (idx < deploymentLogList.size()) {
                         if (deploymentLogList.get(idx).getUniqueVersionInstance() == 0) {
                             status.addFailedDeploymentLog(deploymentLogList.get(idx), step);
