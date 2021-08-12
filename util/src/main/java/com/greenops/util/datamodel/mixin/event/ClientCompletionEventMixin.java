@@ -3,11 +3,18 @@ package com.greenops.util.datamodel.mixin.event;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.greenops.util.datamodel.event.ResourceStatus;
+
+import java.util.List;
 
 public abstract class ClientCompletionEventMixin {
 
     @JsonProperty(value = "healthStatus")
     String healthStatus;
+    @JsonProperty(value = "syncStatus")
+    String syncStatus;
+    @JsonProperty(value = "resourceStatuses")
+    List<ResourceStatus> resourceStatuses;
     @JsonProperty(value = "orgName")
     String orgName;
     @JsonProperty(value = "teamName")
@@ -29,6 +36,7 @@ public abstract class ClientCompletionEventMixin {
 
     @JsonCreator
     public ClientCompletionEventMixin(@JsonProperty(value = "healthStatus") String healthStatus,
+                                      @JsonProperty(value = "syncStatus") String syncStatus,
                                       @JsonProperty(value = "orgName") String orgName,
                                       @JsonProperty(value = "teamName") String teamName,
                                       @JsonProperty(value = "pipelineName") String pipelineName,
@@ -37,7 +45,8 @@ public abstract class ClientCompletionEventMixin {
                                       @JsonProperty(value = "operation") String operation,
                                       @JsonProperty(value = "project") String project,
                                       @JsonProperty(value = "repo") String repo,
-                                      @JsonProperty(value = "revisionId") String revisionHash) {
+                                      @JsonProperty(value = "revisionId") String revisionHash,
+                                      @JsonProperty(value = "resourceStatuses") List<ResourceStatus> resourceStatuses) {
     }
 
     @JsonIgnore

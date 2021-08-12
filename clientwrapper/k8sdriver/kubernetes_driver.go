@@ -319,11 +319,11 @@ func (k KubernetesClientDriver) Delete(resourceName string, resourceNamespace st
 func (k KubernetesClientDriver) DeleteBasedOnConfig(configPayload *string) bool {
 	//TODO: This method currently expects only one object per file. Add in support for separate YAML files combined into one. This can be done by splitting on the "---" string.
 	deletionPropogationPolicy := metav1.DeletePropagationBackground
-	obj, groupVersionKind, err := getResourceObjectFromYAML(configPayload)
+	obj, groupVersionKind, err := getUnstructuredResourceObjectFromYAML(configPayload)
 	if err != nil {
 		return false
 	}
-	strongTypeObject := obj.(*unstructured.Unstructured)
+	strongTypeObject := obj
 	log.Printf("YAML file matched Unstructured of kind %s. Deleting...\n", groupVersionKind.Kind)
 	namespace, _ := k.CheckAndCreateNamespace(strongTypeObject.GetNamespace())
 	err = k.dynamicClient.Resource(schema.GroupVersionResource{
@@ -446,16 +446,17 @@ func getResourceObjectFromYAML(configPayload *string) (runtime.Object, *schema.G
 	return obj, groupVersionKind, err
 }
 
+func getUnstructuredResourceObjectFromYAML(configPayload *string) (*unstructured.Unstructured, *schema.GroupVersionKind, error) {
+	obj := &unstructured.Unstructured{}
+	unstructuredDecoder := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+	_, groupVersionKind, err := unstructuredDecoder.Decode([]byte(*configPayload), nil, obj)
+	if err != nil {
+		log.Printf("Error while decoding unstructured YAML object. Error was: %s\n", err)
+		return nil, nil, err
+	}
+	return obj, groupVersionKind, err
+}
+
 func getPluralResourceNameFromKind(kind string) string {
 	return strings.ToLower(kind) + "s"
 }
-
-//This is just for testing
-//func main() {
-//	kubernetesClient := New()
-//	//s2 := "apiVersion: apps/v1\nkind: ReplicaSet\nmetadata:\n  name: frontend\n  labels:\n    app: guestbook\n    tier: frontend\nspec:\n  # modify replicas according to your case\n  replicas: 3\n  selector:\n    matchLabels:\n      tier: frontend\n  template:\n    metadata:\n      labels:\n        tier: frontend\n    spec:\n      containers:\n      - name: php-redis\n        image: gcr.io/google_samples/gb-frontend:v3"
-//	//s2 := "apiVersion: v1\nkind: Service\nmetadata:\n  name: my-service\nspec:\n  selector:\n    app: MyApp\n  ports:\n    - protocol: TCP\n      port: 80\n      targetPort: 9376"
-//	//kubernetesClient.Deploy(s2)
-//	s1 := "apiVersion: networking.istio.io/v1alpha3\nkind: VirtualService\nmetadata:\n  name: reviews\n  namespace: guestbook\nspec:\n  hosts:\n    - my-service\n  http:\n    -\n      match:\n        -\n          headers:\n            end-user:\n              exact: jason\n      route:\n        -\n          destination:\n            host: my-service\n            subset: all"
-//	kubernetesClient.Deploy(s1)
-//}

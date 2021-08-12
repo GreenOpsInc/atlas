@@ -2,13 +2,16 @@ package argodriver
 
 import (
 	"context"
+	"fmt"
 	"github.com/argoproj/argo-cd/pkg/apiclient"
 	"github.com/argoproj/argo-cd/pkg/apiclient/application"
 	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/argo-cd/util/config"
 	"github.com/argoproj/argo-cd/util/io"
 	"github.com/argoproj/gitops-engine/pkg/health"
+	"greenops.io/client/atlasoperator/requestdatatypes"
 	"greenops.io/client/k8sdriver"
+	"greenops.io/client/progressionchecker/datamodel"
 	"greenops.io/client/util"
 	utilpointer "k8s.io/utils/pointer"
 	"log"
@@ -26,15 +29,22 @@ const (
 	DefaultUserAccount        string = "admin"
 )
 
+const (
+	ArgoRevisionHashLatest string = "LATEST_REVISION"
+)
+
 type ArgoGetRestrictedClient interface {
+	GetAppResourcesStatus(applicationName string) ([]datamodel.ResourceStatus, error)
 	GetOperationSuccess(applicationName string) (bool, bool, string, error)
 	GetCurrentRevisionHash(applicationName string) (string, error)
 	GetLatestRevision(applicationName string) (int64, error)
 }
 
 type ArgoClient interface {
-	Deploy(configPayload *string) (bool, string, string, string)
+	Deploy(configPayload *string, revisionHash string) (bool, string, string, string)
 	Sync(applicationName string) (bool, string, string, string)
+	SelectiveSync(applicationName string, revisionHash string, gvkGroup requestdatatypes.GvkGroupRequest) (bool, string, string, string)
+	GetAppResourcesStatus(applicationName string) ([]datamodel.ResourceStatus, error)
 	GetOperationSuccess(applicationName string) (bool, bool, string, error)
 	GetCurrentRevisionHash(applicationName string) (string, error)
 	GetLatestRevision(applicationName string) (int64, error)
@@ -85,7 +95,7 @@ func New(kubernetesDriver *k8sdriver.KubernetesClient) ArgoClient {
 	return client
 }
 
-func (a ArgoClientDriver) Deploy(configPayload *string) (bool, string, string, string) {
+func (a ArgoClientDriver) Deploy(configPayload *string, revisionHash string) (bool, string, string, string) {
 	ioCloser, applicationClient, err := a.client.NewApplicationClient()
 	if err != nil {
 		log.Printf("The deploy application client could not be made. Error was %s\n", err)
@@ -94,6 +104,11 @@ func (a ArgoClientDriver) Deploy(configPayload *string) (bool, string, string, s
 	defer ioCloser.Close()
 
 	applicationPayload := makeApplication(configPayload)
+	//This "locks" the Argo applications under a specific pipeline run. Updates to the Argo app
+	//in the middle of a run would be quite messy.
+	if revisionHash != ArgoRevisionHashLatest {
+		applicationPayload.Spec.Source.TargetRevision = revisionHash
+	}
 	_, err = a.kubernetesClient.CheckAndCreateNamespace(applicationPayload.Spec.Destination.Namespace)
 	if err != nil {
 		return false, "", "", ""
@@ -203,6 +218,73 @@ func (a ArgoClientDriver) Sync(applicationName string) (bool, string, string, st
 	}
 	log.Printf("Triggered sync for Argo application named %s\n", argoApplication.Name)
 	return true, argoApplication.Name, argoApplication.Namespace, argoApplication.Operation.Sync.Revision
+}
+
+func (a ArgoClientDriver) SelectiveSync(applicationName string, revisionHash string, gvkGroup requestdatatypes.GvkGroupRequest) (bool, string, string, string) {
+	ioCloser, applicationClient, err := a.client.NewApplicationClient()
+	if err != nil {
+		log.Printf("The deploy application client could not be made. Error was %s\n", err)
+		return false, "", "", ""
+	}
+	defer ioCloser.Close()
+
+	resources := make([]string, 0)
+	for _, value := range gvkGroup.ResourceList {
+		resources = append(resources, fmt.Sprintf("%s:%s:%s:%s", value.Group, value.Kind, value.ResourceName, value.ResourceNamespace))
+	}
+	selectedResources, err := a.ParseSelectedResources(resources)
+	if err != nil {
+		log.Printf("Resources could not be parsed. Error was %s\n", err)
+		return false, "", "", ""
+	}
+	syncReq := application.ApplicationSyncRequest{
+		Name:      &applicationName,
+		Revision:  revisionHash,
+		Prune:     true,
+	}
+	if len(selectedResources) > 0 {
+		syncReq.Resources = selectedResources
+	}
+	argoApplication, err := applicationClient.Sync(context.TODO(), &syncReq)
+	if err != nil {
+		log.Printf("Syncing threw an error. Error was %s\n", err)
+		return false, "", "", ""
+	}
+	log.Printf("Triggered selective sync for Argo application named %s\n", argoApplication.Name)
+	return true, argoApplication.Name, argoApplication.Namespace, revisionHash
+}
+
+func (a ArgoClientDriver) GetAppResourcesStatus(applicationName string) ([]datamodel.ResourceStatus, error) {
+	ioCloser, applicationClient, err := a.client.NewApplicationClient()
+	resourceStatuses := make([]datamodel.ResourceStatus, 0)
+	if err != nil {
+		log.Printf("The deploy application client could not be made. Error was %s\n", err)
+		return resourceStatuses, err
+	}
+	defer ioCloser.Close()
+	app, err := applicationClient.Get(context.TODO(), &application.ApplicationQuery{Name: &applicationName})
+	if err != nil {
+		if strings.Contains(err.Error(), "\""+applicationName+"\" not found") {
+			//TODO: Probably need better handling for this
+			return resourceStatuses, err
+		}
+		log.Printf("Getting the application threw an error. Error was %s\n", err)
+		return resourceStatuses, err
+	}
+
+	for _, resource := range app.Status.Resources {
+		if resource.Health.Status != health.HealthStatusHealthy || resource.Status != v1alpha1.SyncStatusCodeSynced {
+			resourceStatuses = append(resourceStatuses, datamodel.ResourceStatus{
+				GroupVersionKind:  resource.GroupVersionKind(),
+				ResourceName:      resource.Name,
+				ResourceNamespace: resource.Namespace,
+				HealthStatus:      string(resource.Health.Status),
+				SyncStatus:        string(resource.Status),
+			})
+		}
+	}
+
+	return resourceStatuses, nil
 }
 
 func (a ArgoClientDriver) GetOperationSuccess(applicationName string) (bool, bool, string, error) {

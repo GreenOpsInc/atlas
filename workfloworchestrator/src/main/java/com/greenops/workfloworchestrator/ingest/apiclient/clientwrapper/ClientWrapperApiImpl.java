@@ -2,6 +2,7 @@ package com.greenops.workfloworchestrator.ingest.apiclient.clientwrapper;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.greenops.util.datamodel.event.ResourceStatus;
 import com.greenops.workfloworchestrator.datamodel.requests.DeployResponse;
 import com.greenops.workfloworchestrator.datamodel.requests.WatchRequest;
 import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
@@ -18,6 +19,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.List;
 
 import static com.greenops.workfloworchestrator.ingest.apiclient.util.ApiClientUtil.checkResponseStatus;
 
@@ -37,8 +39,9 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     }
 
     @Override
-    public DeployResponse deploy(String clusterName, String orgName, String type, Object payload) {
-        var request = new HttpPost(serverEndpoint + String.format("/deploy/%s/%s", orgName, type));
+    public DeployResponse deploy(String clusterName, String orgName, String type, String revisionHash, Object payload) {
+        revisionHash = revisionHash == null ? LATEST_REVISION : revisionHash;
+        var request = new HttpPost(serverEndpoint + String.format("/deploy/%s/%s/%s", orgName, type, revisionHash));
         try {
             var body = type.equals(DEPLOY_TEST_REQUEST) ? objectMapper.writeValueAsString(payload) : (String)payload;
             request.setEntity(new StringEntity(body, ContentType.DEFAULT_TEXT));
@@ -60,6 +63,26 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     public DeployResponse deployArgoAppByName(String clusterName, String orgName, String appName) {
         var request = new HttpPost(serverEndpoint + String.format("/deploy/%s/%s/%s", orgName, DEPLOY_ARGO_REQUEST, appName));
         try {
+            var response = httpClient.execute(request);
+            checkResponseStatus(response);
+            return objectMapper.readValue(response.getEntity().getContent().readAllBytes(), DeployResponse.class);
+        } catch (JsonProcessingException e) {
+            log.error("Object mapper could not convert payload to DeployResponse", e);
+            throw new AtlasNonRetryableError(e);
+        } catch (IOException e) {
+            log.error("HTTP deploy request failed", e);
+            throw new AtlasRetryableError(e);
+        } finally {
+            request.releaseConnection();
+        }
+    }
+
+    @Override
+    public DeployResponse selectiveSyncForArgoApp(String clusterName, String orgName, String appName, String revisionId, Object payload) {
+        var request = new HttpPost(serverEndpoint + String.format("/sync/%s/%s/%s", orgName, appName, revisionId));
+        try {
+            var body = objectMapper.writeValueAsString(payload);
+            request.setEntity(new StringEntity(body, ContentType.DEFAULT_TEXT));
             var response = httpClient.execute(request);
             checkResponseStatus(response);
             return objectMapper.readValue(response.getEntity().getContent().readAllBytes(), DeployResponse.class);

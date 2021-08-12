@@ -1,8 +1,10 @@
 package com.greenops.workfloworchestrator.ingest.handling;
 
 import com.greenops.util.datamodel.auditlog.DeploymentLog;
+import com.greenops.util.datamodel.auditlog.RemediationLog;
 import com.greenops.util.datamodel.event.Event;
 import com.greenops.util.dbclient.DbClient;
+import com.greenops.workfloworchestrator.datamodel.requests.ResourceGvk;
 import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.ingest.dbclient.DbKey;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.ROOT_STEP_NAME;
 
@@ -27,16 +30,31 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
     @Override
     public void updateStepDeploymentLog(Event event, String stepName, String argoApplicationName, String revisionHash) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
-        var deploymentLog = dbClient.fetchLatestLog(logKey);
+        var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
         deploymentLog.setArgoApplicationName(argoApplicationName);
         deploymentLog.setArgoRevisionHash(revisionHash);
         dbClient.updateHeadInList(logKey, deploymentLog);
     }
 
     @Override
-    public void initializeNewStepLog(Event event, String stepName, String gitCommitVersion) {
+    public void initializeNewStepLog(Event event, String stepName, String pipelineUvn, String gitCommitVersion) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
-        var newLog = new DeploymentLog(DeploymentLog.DeploymentStatus.PROGRESSING.name(), false, "", gitCommitVersion);
+        var newLog = new DeploymentLog(pipelineUvn, DeploymentLog.DeploymentStatus.PROGRESSING.name(), false, null, gitCommitVersion);
+        dbClient.insertValueInList(logKey, newLog);
+    }
+
+    @Override
+    public void initializeNewRemediationLog(Event event, String stepName, String pipelineUvn, List<ResourceGvk> resourceGvkList) {
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
+        var latestRemediationLog = dbClient.fetchLatestRemediationLog(logKey);
+        if (latestRemediationLog == null || !latestRemediationLog.getPipelineUniqueVersionNumber().equals(pipelineUvn)) {
+            latestRemediationLog = new RemediationLog(pipelineUvn, 0, List.of());
+        }
+        var newLog = new RemediationLog(
+                pipelineUvn,
+                latestRemediationLog.getUniqueVersionInstance() + 1,
+                resourceGvkList.stream().map(ResourceGvk::getResourceName).collect(Collectors.toList())
+        );
         dbClient.insertValueInList(logKey, newLog);
     }
 
@@ -46,7 +64,7 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
         //TODO: Remove this line when the TriggerStep event is added
         if (stepName.equals(ROOT_STEP_NAME)) return;
-        var deploymentLog = dbClient.fetchLatestLog(logKey);
+        var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
         deploymentLog.setDeploymentComplete(true);
         dbClient.updateHeadInList(logKey, deploymentLog);
     }
@@ -56,20 +74,33 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
         //TODO: Remove this line when the TriggerStep event is added
         if (stepName.equals(ROOT_STEP_NAME)) return;
-        var deploymentLog = dbClient.fetchLatestLog(logKey);
+        var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
         //This check is largely redundant. Should never be the case
         if (deploymentLog.getBrokenTest() != null) {
             throw new AtlasNonRetryableError("This step has test failures. Should not be marked successful");
         }
         deploymentLog.setStatus(DeploymentLog.DeploymentStatus.SUCCESS.name());
         dbClient.updateHeadInList(logKey, deploymentLog);
+    }
 
+    @Override
+    public void markStateRemediated(Event event, String stepName) {
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
+        //TODO: Remove this line when the TriggerStep event is added
+        if (stepName.equals(ROOT_STEP_NAME)) return;
+        var remediationLog = dbClient.fetchLatestRemediationLog(logKey);
+        if (remediationLog == null) {
+            log.info("No remediation log present");
+            return;
+        }
+        remediationLog.setStateRemediated(true);
+        dbClient.updateHeadInList(logKey, remediationLog);
     }
 
     @Override
     public void markStepFailedWithFailedDeployment(Event event, String stepName) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
-        var deploymentLog = dbClient.fetchLatestLog(logKey);
+        var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
         deploymentLog.setDeploymentComplete(false);
         deploymentLog.setStatus(DeploymentLog.DeploymentStatus.FAILURE.name());
         dbClient.updateHeadInList(logKey, deploymentLog);
@@ -78,7 +109,7 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
     @Override
     public void markStepFailedWithBrokenTest(Event event, String stepName, String testName, String testLog) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
-        var deploymentLog = dbClient.fetchLatestLog(logKey);
+        var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
         deploymentLog.setBrokenTest(testName);
         deploymentLog.setBrokenTestLog(testLog);
         deploymentLog.setStatus(DeploymentLog.DeploymentStatus.FAILURE.name());
@@ -90,7 +121,7 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
         for (var parentStepName : parentSteps) {
             if (parentStepName.equals(ROOT_STEP_NAME)) continue;
             var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), parentStepName);
-            var deploymentLog = dbClient.fetchLatestLog(logKey);
+            var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
             if (deploymentLog.getUniqueVersionInstance() != 0 || !deploymentLog.getStatus().equals(DeploymentLog.DeploymentStatus.SUCCESS.name())) {
                 return false;
             }
@@ -98,46 +129,59 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
         return true;
     }
 
+    @Override
+    public String getStepStatus(Event event) {
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName());
+        var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
+        return deploymentLog.getStatus();
+    }
+
     //Returning null means a failure occurred, empty string means no match exists.
     @Override
     public String makeRollbackDeploymentLog(Event event, String stepName) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
         var logIncrement = 0;
-        var deploymentLogList = dbClient.fetchLogList(logKey, logIncrement);
-        if (deploymentLogList == null || deploymentLogList.size() == 0) return "";
-        var currentLog = deploymentLogList.get(0);
+        var logList = dbClient.fetchLogList(logKey, logIncrement);
+        if (logList == null || logList.size() == 0) return "";
+        var currentLog = dbClient.fetchLatestDeploymentLog(logKey);
         //This means that there was probably an error during the execution of the step, and that the log was added but the re-triggering process was not completed
         if (currentLog.getStatus().equals(DeploymentLog.DeploymentStatus.PROGRESSING.name()) && currentLog.getUniqueVersionInstance() > 0) {
             return currentLog.getGitCommitVersion();
         }
         int idx = 0;
         if (currentLog.getUniqueVersionInstance() > 0) {
-            while (idx < deploymentLogList.size()) {
-                if (currentLog.getUniqueVersionNumber().equals(deploymentLogList.get(idx).getUniqueVersionNumber())
-                        && deploymentLogList.get(idx).getUniqueVersionInstance() == 0) {
+            while (idx < logList.size()) {
+                if (currentLog.getRollbackUniqueVersionNumber().equals(logList.get(idx).getPipelineUniqueVersionNumber())
+                        && logList.get(idx).getUniqueVersionInstance() == 0) {
                     idx++;
                     break;
                 }
                 idx++;
-                if (idx == deploymentLogList.size()) {
+                if (idx == logList.size()) {
                     logIncrement++;
-                    deploymentLogList = dbClient.fetchLogList(logKey, logIncrement);
+                    logList = dbClient.fetchLogList(logKey, logIncrement);
                     idx = 0;
                 }
             }
         }
-        while (idx < deploymentLogList.size()) {
-            if (deploymentLogList.get(idx).getStatus().equals(DeploymentLog.DeploymentStatus.SUCCESS.name())) {
-                var gitCommitVersion = deploymentLogList.get(idx).getGitCommitVersion();
+        while (idx < logList.size()) {
+            if (!(logList.get(idx) instanceof DeploymentLog)) {
+                idx++;
+                continue;
+            }
+            var deploymentLog = (DeploymentLog) logList.get(idx);
+            if (deploymentLog.getStatus().equals(DeploymentLog.DeploymentStatus.SUCCESS.name())) {
+                var gitCommitVersion = deploymentLog.getGitCommitVersion();
 
                 logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName());
                 var newLog = new DeploymentLog(
-                        deploymentLogList.get(idx).getUniqueVersionNumber(),
-                        deploymentLogList.get(idx).getUniqueVersionInstance() + 1,
+                        currentLog.getPipelineUniqueVersionNumber(),
+                        logList.get(idx).getPipelineUniqueVersionNumber(),
+                        logList.get(idx).getUniqueVersionInstance() + 1,
                         DeploymentLog.DeploymentStatus.PROGRESSING.name(),
                         false,
-                        deploymentLogList.get(idx).getArgoApplicationName(),
-                        deploymentLogList.get(idx).getArgoRevisionHash(),
+                        deploymentLog.getArgoApplicationName(),
+                        deploymentLog.getArgoRevisionHash(),
                         gitCommitVersion,
                         null,
                         null
@@ -146,9 +190,9 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
                 return gitCommitVersion;
             }
             idx++;
-            if (idx == deploymentLogList.size()) {
+            if (idx == logList.size()) {
                 logIncrement++;
-                deploymentLogList = dbClient.fetchLogList(logKey, logIncrement);
+                logList = dbClient.fetchLogList(logKey, logIncrement);
                 idx = 0;
             }
         }
@@ -158,27 +202,50 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
     @Override
     public String getCurrentGitCommitHash(Event event, String stepName) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
-        var currentDeploymentLog = dbClient.fetchLatestLog(logKey);
+        var currentDeploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
         if (currentDeploymentLog == null)
             throw new AtlasNonRetryableError("No deployment log found for this key, no commit hash will be found.");
         return currentDeploymentLog.getGitCommitVersion();
     }
 
     @Override
+    public String getCurrentArgoRevisionHash(Event event, String stepName) {
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
+        var currentDeploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
+        if (currentDeploymentLog == null)
+            throw new AtlasNonRetryableError("No deployment log found for this key, no commit hash will be found.");
+        return currentDeploymentLog.getArgoRevisionHash();
+    }
+
+    @Override
+    public String getCurrentPipelineUvn(Event event, String stepName) {
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
+        var currentDeploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
+        if (currentDeploymentLog == null)
+            throw new AtlasNonRetryableError("No deployment log found for this key, no commit hash will be found.");
+        return currentDeploymentLog.getPipelineUniqueVersionNumber();
+    }
+
+    @Override
     public String getLastSuccessfulStepGitCommitHash(Event event, String stepName) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
         var logIncrement = 0;
-        var deploymentLogList = dbClient.fetchLogList(logKey, logIncrement);
-        if (deploymentLogList == null || deploymentLogList.size() == 0) return null;
+        var logList = dbClient.fetchLogList(logKey, logIncrement);
+        if (logList == null || logList.size() == 0) return null;
         int idx = 0;
-        while (idx < deploymentLogList.size()) {
-            if (deploymentLogList.get(idx).getStatus().equals(DeploymentLog.DeploymentStatus.SUCCESS.name())) {
-                return deploymentLogList.get(idx).getGitCommitVersion();
+        while (idx < logList.size()) {
+            if (!(logList.get(idx) instanceof DeploymentLog)) {
+                idx++;
+                continue;
+            }
+            var deploymentLog = (DeploymentLog) logList.get(idx);
+            if (deploymentLog.getStatus().equals(DeploymentLog.DeploymentStatus.SUCCESS.name())) {
+                return deploymentLog.getGitCommitVersion();
             }
             idx++;
-            if (idx == deploymentLogList.size()) {
+            if (idx == logList.size()) {
                 logIncrement++;
-                deploymentLogList = dbClient.fetchLogList(logKey, logIncrement);
+                logList = dbClient.fetchLogList(logKey, logIncrement);
                 idx = 0;
             }
         }
@@ -189,20 +256,31 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
     public String getLastSuccessfulDeploymentGitCommitHash(Event event, String stepName) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
         var logIncrement = 0;
-        var deploymentLogList = dbClient.fetchLogList(logKey, logIncrement);
-        if (deploymentLogList == null || deploymentLogList.size() == 0) return null;
+        var logList = dbClient.fetchLogList(logKey, logIncrement);
+        if (logList == null || logList.size() == 0) return null;
         int idx = 0;
-        while (idx < deploymentLogList.size()) {
-            if (deploymentLogList.get(idx).isDeploymentComplete()) {
-                return deploymentLogList.get(idx).getGitCommitVersion();
+        while (idx < logList.size()) {
+            if (!(logList.get(idx) instanceof DeploymentLog)) {
+                idx++;
+                continue;
+            }
+            var deploymentLog = (DeploymentLog) logList.get(idx);
+            if (deploymentLog.isDeploymentComplete()) {
+                return deploymentLog.getGitCommitVersion();
             }
             idx++;
-            if (idx == deploymentLogList.size()) {
+            if (idx == logList.size()) {
                 logIncrement++;
-                deploymentLogList = dbClient.fetchLogList(logKey, logIncrement);
+                logList = dbClient.fetchLogList(logKey, logIncrement);
                 idx = 0;
             }
         }
         return null;
+    }
+
+    @Override
+    public DeploymentLog getLatestDeploymentLog(Event event, String stepName) {
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
+        return dbClient.fetchLatestDeploymentLog(logKey);
     }
 }

@@ -38,16 +38,13 @@ public class KafkaClient {
     }
 
     public void sendMessage(List<Event> events) {
-        kafkaTemplate.executeInTransaction(t -> {
+        try {
             for (var event : events) {
-                try {
-                    t.send(normalTopic, objectMapper.writeValueAsString(event));
-                } catch (JsonProcessingException e) {
-                    throw new AtlasNonRetryableError(e);
-                }
+                kafkaTemplate.send(normalTopic, objectMapper.writeValueAsString(event));
             }
-            return true;
-        });
+        } catch (JsonProcessingException e) {
+            throw new AtlasNonRetryableError(e);
+        }
         kafkaTemplate.flush();
     }
 

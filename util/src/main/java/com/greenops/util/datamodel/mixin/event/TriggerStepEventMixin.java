@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public abstract class TriggerStepEventMixin{
+public abstract class TriggerStepEventMixin {
 
     @JsonProperty(value = "orgName")
     String orgName;
@@ -14,6 +14,8 @@ public abstract class TriggerStepEventMixin{
     String pipelineName;
     @JsonProperty(value = "stepName")
     String stepName;
+    @JsonProperty(value = "pipelineUvn")
+    String pipelineUvn;
     @JsonProperty(value = "rollback")
     boolean rollback;
 
@@ -22,6 +24,7 @@ public abstract class TriggerStepEventMixin{
                                  @JsonProperty(value = "teamName") String teamName,
                                  @JsonProperty(value = "pipelineName") String pipelineName,
                                  @JsonProperty(value = "stepName") String stepName,
+                                 @JsonProperty(value = "pipelineUvn") String pipelineUvn,
                                  @JsonProperty(value = "rollback") boolean rollback) {
     }
 

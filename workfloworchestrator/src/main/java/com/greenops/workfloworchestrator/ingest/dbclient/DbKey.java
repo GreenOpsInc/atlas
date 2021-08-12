@@ -18,6 +18,10 @@ public class DbKey {
         return Strings.join(List.of(orgName, teamName, clusterName, "events"), '-');
     }
 
+    public static String makeDbMetadataKey(String orgName, String teamName, String pipelineName, String stepName) {
+        return Strings.join(List.of(orgName, teamName, pipelineName, stepName, "meta"), '-');
+    }
+
     public static String makeDbListOfTeamsKey(String orgName) {
         return orgName + "-teams";
     }

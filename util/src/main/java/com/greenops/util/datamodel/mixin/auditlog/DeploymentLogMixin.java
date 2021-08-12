@@ -3,10 +3,13 @@ package com.greenops.util.datamodel.mixin.auditlog;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class DeploymentLogMixin {
+public abstract class DeploymentLogMixin {
 
-    @JsonProperty(value = "uniqueVersionNumber")
-    private String uniqueVersionNumber;
+    @JsonProperty(value = "pipelineUniqueVersionNumber")
+    private String pipelineUniqueVersionNumber;
+
+    @JsonProperty(value = "rollbackUniqueVersionNumber")
+    private String rollbackUniqueVersionNumber;
 
     @JsonProperty(value = "uniqueVersionInstance")
     private int uniqueVersionInstance;
@@ -33,7 +36,8 @@ public class DeploymentLogMixin {
     private String brokenTestLog;
 
     @JsonCreator
-    DeploymentLogMixin(@JsonProperty(value = "uniqueVersionNumber") String uniqueVersionNumber,
+    DeploymentLogMixin(@JsonProperty(value = "pipelineUniqueVersionNumber") String pipelineUniqueVersionNumber,
+                       @JsonProperty(value = "rollbackUniqueVersionNumber") String rollbackUniqueVersionNumber,
                        @JsonProperty(value = "uniqueVersionInstance") int uniqueVersionInstance,
                        @JsonProperty(value = "status") String status,
                        @JsonProperty(value = "deploymentComplete") boolean deploymentComplete,

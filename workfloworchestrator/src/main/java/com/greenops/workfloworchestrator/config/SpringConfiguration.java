@@ -3,19 +3,17 @@ package com.greenops.workfloworchestrator.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.greenops.util.datamodel.auditlog.DeploymentLog;
+import com.greenops.util.datamodel.auditlog.RemediationLog;
 import com.greenops.util.datamodel.clientmessages.*;
 import com.greenops.util.datamodel.event.*;
-import com.greenops.util.datamodel.git.GitCredMachineUser;
-import com.greenops.util.datamodel.git.GitCredOpen;
-import com.greenops.util.datamodel.git.GitCredToken;
-import com.greenops.util.datamodel.git.GitRepoSchema;
+import com.greenops.util.datamodel.git.*;
+import com.greenops.util.datamodel.metadata.StepMetadata;
 import com.greenops.util.datamodel.mixin.auditlog.DeploymentLogMixin;
+import com.greenops.util.datamodel.mixin.auditlog.RemediationLogMixin;
 import com.greenops.util.datamodel.mixin.clientmessages.*;
 import com.greenops.util.datamodel.mixin.event.*;
-import com.greenops.util.datamodel.mixin.git.GitCredMachineUserMixin;
-import com.greenops.util.datamodel.mixin.git.GitCredOpenMixin;
-import com.greenops.util.datamodel.mixin.git.GitCredTokenMixin;
-import com.greenops.util.datamodel.mixin.git.GitRepoSchemaMixin;
+import com.greenops.util.datamodel.mixin.git.*;
+import com.greenops.util.datamodel.mixin.metadata.StepMetadataMixin;
 import com.greenops.util.datamodel.mixin.pipeline.PipelineSchemaMixin;
 import com.greenops.util.datamodel.mixin.pipeline.TeamSchemaMixin;
 import com.greenops.util.datamodel.mixin.request.*;
@@ -28,13 +26,9 @@ import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.CustomJobT
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.PipelineDataMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.StepDataMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.InjectScriptTestMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.requests.DeployResponseMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.requests.KubernetesCreationRequestMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.requests.WatchRequestMixin;
+import com.greenops.workfloworchestrator.datamodel.mixin.requests.*;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.*;
-import com.greenops.workfloworchestrator.datamodel.requests.DeployResponse;
-import com.greenops.workfloworchestrator.datamodel.requests.KubernetesCreationRequest;
-import com.greenops.workfloworchestrator.datamodel.requests.WatchRequest;
+import com.greenops.workfloworchestrator.datamodel.requests.*;
 import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.error.AtlasRetryableError;
 import com.greenops.workfloworchestrator.ingest.kafka.KafkaClient;
@@ -60,6 +54,7 @@ public class SpringConfiguration {
     ObjectMapper eventAndRequestObjectMapper() {
         return new ObjectMapper()
                 .addMixIn(ClientCompletionEvent.class, ClientCompletionEventMixin.class)
+                .addMixIn(ResourceStatus.class, ResourceStatusMixin.class)
                 .addMixIn(TestCompletionEvent.class, TestCompletionEventMixin.class)
                 .addMixIn(ApplicationInfraTriggerEvent.class, ApplicationInfraTriggerEventMixin.class)
                 .addMixIn(ApplicationInfraCompletionEvent.class, ApplicationInfraCompletionEventMixin.class)
@@ -73,6 +68,8 @@ public class SpringConfiguration {
                 .addMixIn(GetFileRequest.class, GetFileRequestMixin.class)
                 .addMixIn(WatchRequest.class, WatchRequestMixin.class)
                 .addMixIn(KubernetesCreationRequest.class, KubernetesCreationRequestMixin.class)
+                .addMixIn(ResourcesGvkRequest.class, ResourcesGvkRequestMixin.class)
+                .addMixIn(ResourceGvk.class, ResourceGvkMixin.class)
                 .addMixIn(DeployResponse.class, DeployResponseMixin.class)
                 .addMixIn(TriggerStepEvent.class, TriggerStepEventMixin.class);
     }
@@ -91,7 +88,11 @@ public class SpringConfiguration {
                 .addMixIn(GitCredMachineUser.class, GitCredMachineUserMixin.class)
                 .addMixIn(GitCredToken.class, GitCredTokenMixin.class)
                 .addMixIn(GitCredOpen.class, GitCredOpenMixin.class)
-                .addMixIn(DeploymentLog.class, DeploymentLogMixin.class);
+                .addMixIn(DeploymentLog.class, DeploymentLogMixin.class)
+                .addMixIn(RemediationLog.class, RemediationLogMixin.class)
+                .addMixIn(ResourceStatus.class, ResourceStatusMixin.class)
+                .addMixIn(StepMetadata.class, StepMetadataMixin.class)
+                .addMixIn(ArgoRepoSchema.class, ArgoRepoSchemaMixin.class);
     }
 
     @Bean

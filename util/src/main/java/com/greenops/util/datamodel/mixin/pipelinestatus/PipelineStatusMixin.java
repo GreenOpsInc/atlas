@@ -10,6 +10,9 @@ import java.util.List;
 
 public abstract class PipelineStatusMixin {
 
+    @JsonProperty("progressingSteps")
+    List<String> progressingSteps;
+
     @JsonProperty("stable")
     boolean stable;
 
@@ -20,13 +23,23 @@ public abstract class PipelineStatusMixin {
     List<FailedStep> failedSteps;
 
     @JsonCreator
-    public PipelineStatusMixin(@JsonProperty("stable") boolean stable,
+    public PipelineStatusMixin(@JsonProperty("progressingSteps") List<String> progressingSteps,
+                               @JsonProperty("stable") boolean stable,
                                @JsonProperty("complete") boolean complete,
                                @JsonProperty("failedSteps") List<FailedStep> failedSteps) {
     }
 
     @JsonIgnore
-    abstract void addDeploymentLog(DeploymentLog log, String step);
+    abstract void markIncomplete();
+
+    @JsonIgnore
+    abstract void addLatestLog(DeploymentLog log);
+
+    @JsonIgnore
+    abstract void addLatestDeploymentLog(DeploymentLog log, String step);
+
+    @JsonIgnore
+    abstract void addProgressingStep(String stepName);
 
     @JsonIgnore
     abstract void addFailedDeploymentLog(DeploymentLog log, String step);

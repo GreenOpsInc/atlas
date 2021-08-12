@@ -1,5 +1,7 @@
 package requestdatatypes
 
+import "k8s.io/apimachinery/pkg/runtime/schema"
+
 const (
 	DeployArgoRequest       string = "DeployArgoRequest"
 	DeployKubernetesRequest string = "DeployKubernetesRequest"
@@ -28,4 +30,14 @@ type KubernetesCreationRequest struct {
 	Args       []string          `json:"args"`
 	Config     string            `json:"configPayload"`
 	Variables  map[string]string `json:"variables"`
+}
+
+type GvkGroupRequest struct {
+	ResourceList []GvkResourceInfo
+}
+
+type GvkResourceInfo struct {
+	schema.GroupVersionKind
+	ResourceName      string
+	ResourceNamespace string
 }

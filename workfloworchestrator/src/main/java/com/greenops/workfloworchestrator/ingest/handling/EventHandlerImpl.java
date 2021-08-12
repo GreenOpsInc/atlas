@@ -2,6 +2,7 @@ package com.greenops.workfloworchestrator.ingest.handling;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.greenops.util.datamodel.auditlog.DeploymentLog;
 import com.greenops.util.datamodel.event.*;
 import com.greenops.util.datamodel.pipeline.TeamSchema;
 import com.greenops.util.datamodel.request.GetFileRequest;
@@ -9,6 +10,8 @@ import com.greenops.util.dbclient.DbClient;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.PipelineData;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.Test;
+import com.greenops.workfloworchestrator.datamodel.requests.ResourceGvk;
+import com.greenops.workfloworchestrator.datamodel.requests.ResourcesGvkRequest;
 import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManagerApi;
 import com.greenops.workfloworchestrator.ingest.dbclient.DbKey;
@@ -19,6 +22,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static com.greenops.util.datamodel.event.ClientCompletionEvent.*;
@@ -91,27 +95,62 @@ public class EventHandlerImpl implements EventHandler {
             return;
         }
 
-        var step = pipelineData.getStep(event.getStepName());
-        if (event.getHealthStatus().equals(DEGRADED) || event.getHealthStatus().equals(UNKNOWN)) {
-            deploymentLogHandler.markStepFailedWithFailedDeployment(event, event.getStepName());
-            if (step.getRollback()) rollback(event);
-            return;
-        }
-        //TODO: How do we handle the remaining sync/health statuses? We should be retriggering syncs, waiting for status updates (?), etc
-
-        deploymentLogHandler.markDeploymentSuccessful(event, event.getStepName());
-
         if (event.getStepName().equals(ROOT_STEP_NAME)) {
             dbClient.storeValue(DbKey.makeDbListOfStepsKey(event.getOrgName(), event.getTeamName(), event.getPipelineName()), pipelineData.getAllSteps());
             triggerNextSteps(pipelineData, createRootStep(), pipelineRepoUrl, event);
             return;
         }
 
-        var afterTestsExist = step.getTests().stream().anyMatch(test -> !test.shouldExecuteBefore());
-        if (afterTestsExist) {
-            testHandler.triggerTest(pipelineRepoUrl, step, false, deploymentLogHandler.getCurrentGitCommitHash(event, step.getName()), event);
+        var step = pipelineData.getStep(event.getStepName());
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName());
+        var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
+        if (deploymentLog != null && deploymentLog.getStatus().equals(DeploymentLog.DeploymentStatus.FAILURE.name()))
+            return;
+        else if (deploymentLog != null && deploymentLog.getStatus().equals(DeploymentLog.DeploymentStatus.SUCCESS.name())) {
+            //If the deployment was successful (rollback or otherwise), these client completion events are for state remediation
+            if (step.getRemediationLimit() == 0) {
+                return;
+            }
+
+            if (event.getSyncStatus().equals(OUT_OF_SYNC) && event.getHealthStatus().equals(MISSING)) {
+                if (deploymentHandler.rollbackInPipelineExists(event, pipelineData, step.getName())) {
+                    return;
+                }
+            }
+
+            //TODO: Right now, remediation is only based on health. We should be adding in pruning based on OutOfSync statuses as well.
+            //TODO: Right now the events are being sent but are just being ignored.
+            if (event.getHealthStatus().equals(DEGRADED)
+                    || event.getHealthStatus().equals(UNKNOWN)
+                    || event.getHealthStatus().equals(MISSING)) {
+                var remediationLog = dbClient.fetchLatestRemediationLog(logKey);
+                if (remediationLog != null && remediationLog.getUniqueVersionInstance() == step.getRemediationLimit()) {
+                    //Reached remediation limit
+                    return;
+                }
+                var resourceGvkList = new ArrayList<ResourceGvk>();
+                for (var resource : event.getResourceStatuses()) {
+                    resourceGvkList.add(new ResourceGvk(resource.getResourceName(), resource.getResourceNamespace(), resource.getGroup(), resource.getVersion(), resource.getKind()));
+                }
+                deploymentLogHandler.initializeNewRemediationLog(event, step.getName(), deploymentLog.getPipelineUniqueVersionNumber(), resourceGvkList);
+                deploymentHandler.triggerStateRemediation(event, pipelineRepoUrl, step, deploymentLog.getArgoApplicationName(), deploymentLog.getArgoRevisionHash(), resourceGvkList);
+            } else if (event.getHealthStatus().equals(HEALTHY)) {
+                deploymentLogHandler.markStateRemediated(event, step.getName());
+            }
         } else {
-            triggerNextSteps(pipelineData, step, pipelineRepoUrl, event);
+            if (event.getHealthStatus().equals(DEGRADED) || event.getHealthStatus().equals(UNKNOWN)) {
+                deploymentLogHandler.markStepFailedWithFailedDeployment(event, event.getStepName());
+                if (step.getRollback()) rollback(event);
+                return;
+            }
+            deploymentLogHandler.markDeploymentSuccessful(event, event.getStepName());
+
+            var afterTestsExist = step.getTests().stream().anyMatch(test -> !test.shouldExecuteBefore());
+            if (afterTestsExist) {
+                testHandler.triggerTest(pipelineRepoUrl, step, false, deploymentLogHandler.getCurrentGitCommitHash(event, step.getName()), event);
+            } else {
+                triggerNextSteps(pipelineData, step, pipelineRepoUrl, event);
+            }
         }
     }
 
@@ -170,14 +209,15 @@ public class EventHandlerImpl implements EventHandler {
     private void handleApplicationInfraCompletion(String pipelineRepoUrl, PipelineData pipelineData, ApplicationInfraCompletionEvent event) {
         var stepData = pipelineData.getStep(event.getStepName());
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepData.getName());
-        var deploymentLog = dbClient.fetchLatestLog(logKey);
+        var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
 
         var argoDeploymentInfo = NO_OP_ARGO_DEPLOYMENT;
         if ((stepData.getArgoApplicationPath() != null || stepData.getArgoApplication() != null) && deploymentLog.getUniqueVersionInstance() > 0) {
             deploymentHandler.rollbackArgoApplication(event, pipelineRepoUrl, stepData, deploymentLog.getArgoApplicationName(), deploymentLog.getArgoRevisionHash());
             return;
         } else if (stepData.getArgoApplicationPath() != null || stepData.getArgoApplication() != null) {
-            argoDeploymentInfo = deploymentHandler.deployArgoApplication(event, pipelineRepoUrl, stepData, deploymentLogHandler.getCurrentGitCommitHash(event, stepData.getName()));
+            var argoRevisionHash = deploymentLogHandler.getCurrentArgoRevisionHash(event, stepData.getName());
+            argoDeploymentInfo = deploymentHandler.deployArgoApplication(event, pipelineRepoUrl, pipelineData, stepData.getName(), argoRevisionHash, deploymentLogHandler.getCurrentGitCommitHash(event, stepData.getName()));
         }
 
         //Audit log updates
@@ -198,6 +238,7 @@ public class EventHandlerImpl implements EventHandler {
             deploymentLogHandler.initializeNewStepLog(
                     event,
                     event.getStepName(),
+                    event.getPipelineUvn(),
                     repoManagerApi.getCurrentPipelineCommitHash(pipelineRepoUrl, event.getOrgName(), event.getTeamName())
             );
         }
@@ -224,6 +265,7 @@ public class EventHandlerImpl implements EventHandler {
 
     private void triggerNextSteps(PipelineData pipelineData, StepData step, String pipelineRepoUrl, Event event) {
         deploymentLogHandler.markStepSuccessful(event, event.getStepName());
+        var currentPipelineUvn = step.getName().equals(ROOT_STEP_NAME) ? UUID.randomUUID().toString() : deploymentLogHandler.getCurrentPipelineUvn(event, step.getName());
 
         var childrenSteps = pipelineData.getChildrenSteps(step.getName());
         var triggerStepEvents = new ArrayList<Event>();
@@ -231,7 +273,9 @@ public class EventHandlerImpl implements EventHandler {
             var nextStep = pipelineData.getStep(stepName);
             var parentSteps = pipelineData.getParentSteps(stepName);
             if (deploymentLogHandler.areParentStepsComplete(event, parentSteps)) {
-                triggerStepEvents.add(new TriggerStepEvent(event.getOrgName(), event.getTeamName(), event.getPipelineName(), nextStep.getName(), false));
+                triggerStepEvents.add(
+                        new TriggerStepEvent(event.getOrgName(), event.getTeamName(), event.getPipelineName(), nextStep.getName(), currentPipelineUvn, false)
+                );
             }
         }
         kafkaClient.sendMessage(triggerStepEvents);
@@ -246,7 +290,16 @@ public class EventHandlerImpl implements EventHandler {
     }
 
     private void rollback(Event event) {
-        kafkaClient.sendMessage(new TriggerStepEvent(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName(), true));
+        kafkaClient.sendMessage(
+                new TriggerStepEvent(
+                        event.getOrgName(),
+                        event.getTeamName(),
+                        event.getPipelineName(),
+                        event.getStepName(),
+                        deploymentLogHandler.getCurrentPipelineUvn(event, event.getStepName()),
+                        true
+                )
+        );
     }
 
     private TeamSchema fetchTeamSchema(Event event) {

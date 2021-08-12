@@ -14,4 +14,5 @@ public interface PipelineData {
     public List<String> getParentSteps(String stepName);
     public List<String> getAllSteps();
     public String getClusterName();
+    public boolean isArgoVersionLock();
 }

@@ -1,9 +1,13 @@
 package com.greenops.util.dbclient.redis;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.auditlog.DeploymentLog;
+import com.greenops.util.datamodel.auditlog.Log;
+import com.greenops.util.datamodel.auditlog.RemediationLog;
 import com.greenops.util.datamodel.cluster.ClusterSchema;
+import com.greenops.util.datamodel.metadata.StepMetadata;
 import com.greenops.util.datamodel.pipeline.TeamSchema;
 import com.greenops.util.datamodel.clientmessages.ClientRequest;
 import com.greenops.util.dbclient.DbClient;
@@ -151,15 +155,69 @@ public class RedisDbClient implements DbClient {
     }
 
     @Override
-    public List<DeploymentLog> fetchLogList(String key, int increment) {
-        return (List<DeploymentLog>) fetch(key, ObjectType.LOG_LIST, increment);
+    public List<Log> fetchLogList(String key, int increment) {
+        var logList = (List<Log>) fetch(key, ObjectType.LOG_LIST, increment);
+        if (logList == null) return new ArrayList<>();
+        return logList;
     }
 
     @Override
-    public DeploymentLog fetchLatestLog(String key) {
-        var deploymentLog = (DeploymentLog) fetch(key, ObjectType.SINGLE_LOG, -1);
-        if (deploymentLog == null) throw new AtlasNonRetryableError("No deployment log exists");
-        return deploymentLog;
+    public Log fetchLatestLog(String key) {
+        return (Log) fetch(key, ObjectType.SINGLE_LOG, -1);
+    }
+
+    @Override
+    public DeploymentLog fetchLatestDeploymentLog(String key) {
+        var log = fetchLatestLog(key);
+        if (log == null) return null;
+        if (log instanceof DeploymentLog) {
+            return (DeploymentLog) log;
+        } else {
+            var idx = 0;
+            var logIncrement = 0;
+            var deploymentLogList = fetchLogList(key, logIncrement);
+            while (idx < deploymentLogList.size()) {
+                if (deploymentLogList.get(idx) instanceof DeploymentLog) {
+                    return (DeploymentLog) deploymentLogList.get(idx);
+                }
+                idx++;
+                if (idx == deploymentLogList.size()) {
+                    logIncrement++;
+                    deploymentLogList = fetchLogList(key, logIncrement);
+                    idx = 0;
+                }
+            }
+            return null;
+        }
+    }
+
+    @Override
+    public RemediationLog fetchLatestRemediationLog(String key) {
+        var log = fetchLatestLog(key);
+        if (log instanceof RemediationLog) {
+            return (RemediationLog) log;
+        } else {
+            var idx = 0;
+            var logIncrement = 0;
+            var logList = fetchLogList(key, logIncrement);
+            while (idx < logList.size()) {
+                if (logList.get(idx) instanceof RemediationLog) {
+                    return (RemediationLog) logList.get(idx);
+                }
+                idx++;
+                if (idx == logList.size()) {
+                    logIncrement++;
+                    logList = fetchLogList(key, logIncrement);
+                    idx = 0;
+                }
+            }
+            return null;
+        }
+    }
+
+    @Override
+    public StepMetadata fetchMetadata(String key) {
+        return (StepMetadata) fetch(key, ObjectType.METADATA, -1);
     }
 
     @Override
@@ -212,18 +270,21 @@ public class RedisDbClient implements DbClient {
                 //TODO: As logs get longer and longer, we cant be fetching a list of 100. We need to find a better way to get chunks of logs as needed.
                 var startIdx = increment * LOG_INCREMENT;
                 var result = redisCommands.lrange(key, startIdx, startIdx + LOG_INCREMENT - 1);
-                var deploymentLogList = new ArrayList<DeploymentLog>();
+                var deploymentLogList = new ArrayList<Log>();
                 for (var string : result) {
-                    var deploymentLog = objectMapper.readValue(string, DeploymentLog.class);
+                    var deploymentLog = objectMapper.readValue(string, Log.class);
                     deploymentLogList.add(deploymentLog);
                 }
                 return deploymentLogList;
             } else if (objectType == ObjectType.SINGLE_LOG) {
                 var result = redisCommands.lindex(key, 0);
-                return objectMapper.readValue(result, DeploymentLog.class);
+                return objectMapper.readValue(result, Log.class);
             } else if (objectType == ObjectType.CLUSTER_SCHEMA) {
                 var result = redisCommands.get(key);
                 return objectMapper.readValue(result, ClusterSchema.class);
+            } else if (objectType == ObjectType.METADATA) {
+                var result = redisCommands.get(key);
+                return objectMapper.readValue(result, StepMetadata.class);
             }
         } catch (JsonProcessingException e) {
             log.error("Jackson object mapping/serialization failed.", e);
