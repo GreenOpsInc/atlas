@@ -9,6 +9,7 @@ import (
 	"github.com/argoproj/argo-cd/util/io"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"greenops.io/client/k8sdriver"
+	"greenops.io/client/progressionchecker/datamodel"
 	"greenops.io/client/util"
 	utilpointer "k8s.io/utils/pointer"
 	"log"
@@ -31,6 +32,7 @@ const (
 )
 
 type ArgoGetRestrictedClient interface {
+	GetAppResourcesStatus(applicationName string) ([]datamodel.ResourceStatus, error)
 	GetOperationSuccess(applicationName string) (bool, bool, string, error)
 	GetCurrentRevisionHash(applicationName string) (string, error)
 	GetLatestRevision(applicationName string) (int64, error)
@@ -39,6 +41,7 @@ type ArgoGetRestrictedClient interface {
 type ArgoClient interface {
 	Deploy(configPayload *string, revisionHash string) (bool, string, string, string)
 	Sync(applicationName string) (bool, string, string, string)
+	GetAppResourcesStatus(applicationName string) ([]datamodel.ResourceStatus, error)
 	GetOperationSuccess(applicationName string) (bool, bool, string, error)
 	GetCurrentRevisionHash(applicationName string) (string, error)
 	GetLatestRevision(applicationName string) (int64, error)
@@ -212,6 +215,39 @@ func (a ArgoClientDriver) Sync(applicationName string) (bool, string, string, st
 	}
 	log.Printf("Triggered sync for Argo application named %s\n", argoApplication.Name)
 	return true, argoApplication.Name, argoApplication.Namespace, argoApplication.Operation.Sync.Revision
+}
+
+func (a ArgoClientDriver) GetAppResourcesStatus(applicationName string) ([]datamodel.ResourceStatus, error) {
+	ioCloser, applicationClient, err := a.client.NewApplicationClient()
+	resourceStatuses := make([]datamodel.ResourceStatus, 0)
+	if err != nil {
+		log.Printf("The deploy application client could not be made. Error was %s\n", err)
+		return resourceStatuses, err
+	}
+	defer ioCloser.Close()
+	app, err := applicationClient.Get(context.TODO(), &application.ApplicationQuery{Name: &applicationName})
+	if err != nil {
+		if strings.Contains(err.Error(), "\""+applicationName+"\" not found") {
+			//TODO: Probably need better handling for this
+			return resourceStatuses, err
+		}
+		log.Printf("Getting the application threw an error. Error was %s\n", err)
+		return resourceStatuses, err
+	}
+
+	for _, resource := range app.Status.Resources {
+		if resource.Health.Status != health.HealthStatusHealthy && resource.Status != v1alpha1.SyncStatusCodeSynced {
+			resourceStatuses = append(resourceStatuses, datamodel.ResourceStatus{
+				GroupVersionKind:  resource.GroupVersionKind(),
+				ResourceName:      resource.Name,
+				ResourceNamespace: resource.Namespace,
+				HealthStatus:      string(resource.Health.Status),
+				SyncStatus:        string(resource.Status),
+			})
+		}
+	}
+
+	return resourceStatuses, nil
 }
 
 func (a ArgoClientDriver) GetOperationSuccess(applicationName string) (bool, bool, string, error) {

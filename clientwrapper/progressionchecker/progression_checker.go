@@ -97,13 +97,25 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 								watchKey.GeneratedCompletionEvent = false
 							}
 							watchKey.HealthStatus = string(healthStatus)
+							watchKey.SyncStatus = string(appInfo.SyncStatus)
 							watchedApplications[mapKey] = watchKey
-							eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.HealthStatus, datamodel.HealthStatus, revisionHash)
+							resourceStatuses, err := argoClient.GetAppResourcesStatus(watchKey.Name)
+							if err != nil {
+								log.Printf("Getting operation success failed with error %s\n", err)
+								break
+							}
+							eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.HealthStatus, watchKey.SyncStatus, resourceStatuses, revisionHash)
 						} else {
 							oldSyncStatus := watchKey.SyncStatus
 							oldHealthStatus := watchKey.HealthStatus
 							watchKey.SyncStatus = string(appInfo.SyncStatus)
 							watchKey.HealthStatus = string(appInfo.HealthStatus)
+
+							resourceStatuses, err := argoClient.GetAppResourcesStatus(watchKey.Name)
+							if err != nil {
+								log.Printf("Getting operation success failed with error %s\n", err)
+								break
+							}
 
 							createdEvent := false
 							if !watchKey.GeneratedCompletionEvent {
@@ -119,7 +131,7 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 									} else {
 										healthStatus = string(health.HealthStatusUnknown)
 									}
-									eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, healthStatus, datamodel.HealthStatus, revisionHash)
+									eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, healthStatus, watchKey.SyncStatus, resourceStatuses, revisionHash)
 									createdEvent = true
 								}
 							}
@@ -133,9 +145,9 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 							//TODO: We will have to figure out what they should be and how we can accurately get the revisionId at all times.
 							if !createdEvent {
 								if watchKey.HealthStatus != oldHealthStatus {
-									eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.HealthStatus, datamodel.HealthStatus, "")
+									eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.HealthStatus, watchKey.SyncStatus, resourceStatuses, "")
 								} else {
-									eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.SyncStatus, datamodel.SyncStatus, "")
+									eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.SyncStatus, watchKey.SyncStatus, resourceStatuses, "")
 								}
 							}
 						}

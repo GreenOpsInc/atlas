@@ -1,10 +1,13 @@
 package com.greenops.util.datamodel.event;
 
+import java.util.List;
+
 public class ClientCompletionEvent implements Event {
 
     //Argo health status codes
     public static final String HEALTHY = "Healthy";
     public static final String PROGRESSING = "Progressing";
+    //Unknown is also for syncs
     public static final String UNKNOWN = "Unknown";
     public static final String DEGRADED = "Degraded";
     public static final String SUSPENDED = "Suspended";
@@ -13,9 +16,10 @@ public class ClientCompletionEvent implements Event {
     //Argo sync statuses
     public static final String SYNCED = "Missing";
     public static final String OUT_OF_SYNC = "Missing";
-    public static final String SYNC_UNKNOWN = "SyncUnknown";
 
     private String healthStatus;
+    private String syncStatus;
+    private List<ResourceStatus> resourceStatuses;
     private String orgName;
     private String teamName;
     private String pipelineName;
@@ -26,9 +30,10 @@ public class ClientCompletionEvent implements Event {
     private String repo;
     private String revisionHash;
 
-    public ClientCompletionEvent(String healthStatus, String orgName, String teamName, String pipelineName, String stepName,
+    public ClientCompletionEvent(String healthStatus, String syncStatus, String orgName, String teamName, String pipelineName, String stepName,
                                  String argoName, String operation, String project, String repo, String revisionHash) {
         this.healthStatus = healthStatus;
+        this.syncStatus = syncStatus;
         this.orgName = orgName;
         this.teamName = teamName;
         this.pipelineName = pipelineName;
@@ -62,6 +67,10 @@ public class ClientCompletionEvent implements Event {
 
     public String getHealthStatus() {
         return healthStatus;
+    }
+
+    public String getSyncStatus() {
+        return syncStatus;
     }
 
     public String getRepoUrl() {

@@ -8,6 +8,8 @@ public abstract class ClientCompletionEventMixin {
 
     @JsonProperty(value = "healthStatus")
     String healthStatus;
+    @JsonProperty(value = "syncStatus")
+    String syncStatus;
     @JsonProperty(value = "orgName")
     String orgName;
     @JsonProperty(value = "teamName")
@@ -29,6 +31,7 @@ public abstract class ClientCompletionEventMixin {
 
     @JsonCreator
     public ClientCompletionEventMixin(@JsonProperty(value = "healthStatus") String healthStatus,
+                                      @JsonProperty(value = "syncStatus") String syncStatus,
                                       @JsonProperty(value = "orgName") String orgName,
                                       @JsonProperty(value = "teamName") String teamName,
                                       @JsonProperty(value = "pipelineName") String pipelineName,

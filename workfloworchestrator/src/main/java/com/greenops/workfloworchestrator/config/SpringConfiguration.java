@@ -60,6 +60,7 @@ public class SpringConfiguration {
     ObjectMapper eventAndRequestObjectMapper() {
         return new ObjectMapper()
                 .addMixIn(ClientCompletionEvent.class, ClientCompletionEventMixin.class)
+                .addMixIn(ResourceStatus.class, ResourceStatusMixin.class)
                 .addMixIn(TestCompletionEvent.class, TestCompletionEventMixin.class)
                 .addMixIn(ApplicationInfraTriggerEvent.class, ApplicationInfraTriggerEventMixin.class)
                 .addMixIn(ApplicationInfraCompletionEvent.class, ApplicationInfraCompletionEventMixin.class)
