@@ -46,7 +46,7 @@ public class TestHandlerImpl implements TestHandler {
                 clusterName,
                 event.getOrgName(),
                 ClientWrapperApi.DEPLOY_TEST_REQUEST,
-                test.getPayload(testNumber, testConfig)
+                test.getPayload(testNumber, testConfig, event.getTeamName(), event.getPipelineName(), event.getStepName())
         );
         if (deployResponse.getSuccess()) {
             var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepName, WATCH_TEST_KEY, deployResponse.getResourceName(), deployResponse.getApplicationNamespace(), testNumber);

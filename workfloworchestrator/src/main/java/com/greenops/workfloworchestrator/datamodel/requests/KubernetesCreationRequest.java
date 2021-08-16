@@ -14,8 +14,8 @@ public class KubernetesCreationRequest {
     private final String configPayload;
     private final Map<String, String> variables;
 
-    public KubernetesCreationRequest(String configPayload, Map<String, String> variables) {
-        this(null, null, null, null, null, null, configPayload, variables);
+    public KubernetesCreationRequest(String objectName, String configPayload, Map<String, String> variables) {
+        this(null, objectName, null, null, null, null, configPayload, variables);
     }
 
     public KubernetesCreationRequest(String kind, String objectName, String namespace, String imageName, List<String> command, List<String> args, Map<String, String> variables) {

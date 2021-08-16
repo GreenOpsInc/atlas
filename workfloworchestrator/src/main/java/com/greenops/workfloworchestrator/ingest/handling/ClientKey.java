@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.UUID;
 
 public class ClientKey {
-    public static String makeTestKey(int testNumber) {
-        return Strings.join(List.of(testNumber, UUID.randomUUID()), '-');
+    public static String makeTestKey(String teamName, String pipelineName, String stepName, String filename) {
+        return String.join("-", teamName, pipelineName, stepName, filename);
     }
 
     public static int getTestNumberFromTestKey(String testKey) {

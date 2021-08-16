@@ -7,8 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.greenops.workfloworchestrator.ingest.handling.ClientKey.makeTestKey;
-import static com.greenops.workfloworchestrator.ingest.handling.util.deployment.SchemaHandlingUtil.escapeFile;
-import static com.greenops.workfloworchestrator.ingest.handling.util.deployment.SchemaHandlingUtil.getFileName;
+import static com.greenops.workfloworchestrator.ingest.handling.util.deployment.SchemaHandlingUtil.*;
 
 public class InjectScriptTest implements Test {
 
@@ -55,7 +54,7 @@ public class InjectScriptTest implements Test {
     }
 
     @Override
-    public Object getPayload(int testNumber, String testConfig) {
+    public Object getPayload(int testNumber, String testConfig, String teamName, String pipelineName, String stepName) {
         var filename = getFileName(getPath());
         var specifiedImage = getImage();
         var imageName = "";
@@ -72,7 +71,7 @@ public class InjectScriptTest implements Test {
         }
         return new KubernetesCreationRequest(
                 "Job",
-                makeTestKey(testNumber),
+                makeTestKey(teamName, pipelineName, stepName, getFileNameWithoutExtension(getPath())),
                 jobNamespace,
                 imageName,
                 List.of("/bin/sh", "-c"),

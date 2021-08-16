@@ -4,6 +4,9 @@ import com.greenops.workfloworchestrator.datamodel.requests.KubernetesCreationRe
 
 import java.util.Map;
 
+import static com.greenops.workfloworchestrator.ingest.handling.ClientKey.makeTestKey;
+import static com.greenops.workfloworchestrator.ingest.handling.util.deployment.SchemaHandlingUtil.getFileNameWithoutExtension;
+
 public class CustomJobTest implements Test {
 
     private String path;
@@ -32,7 +35,7 @@ public class CustomJobTest implements Test {
     }
 
     @Override
-    public Object getPayload(int testNumber, String testConfig) {
-        return new KubernetesCreationRequest(testConfig, getVariables());
+    public Object getPayload(int testNumber, String testConfig, String teamName, String pipelineName, String stepName) {
+        return new KubernetesCreationRequest(makeTestKey(teamName, pipelineName, stepName, getFileNameWithoutExtension(getPath())), testConfig, getVariables());
     }
 }

@@ -17,5 +17,5 @@ public interface Test {
     public boolean shouldExecuteBefore();
     public Map<String, String> getVariables();
     //The expectation is that getPayload will return either a String or a KubernetesCreationRequest
-    public Object getPayload(int testNumber, String testConfig);
+    public Object getPayload(int testNumber, String config, String teamName, String pipelineName, String testConfig);
 }
