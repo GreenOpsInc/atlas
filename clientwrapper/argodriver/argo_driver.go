@@ -33,7 +33,7 @@ type ArgoGetRestrictedClient interface {
 }
 
 type ArgoClient interface {
-	Deploy(configPayload *string) (bool, string, string, string)
+	Deploy(configPayload *string, labels map[string]string) (bool, string, string, string)
 	Sync(applicationName string) (bool, string, string, string)
 	GetOperationSuccess(applicationName string) (bool, bool, string, error)
 	GetCurrentRevisionHash(applicationName string) (string, error)
@@ -85,7 +85,7 @@ func New(kubernetesDriver *k8sdriver.KubernetesClient) ArgoClient {
 	return client
 }
 
-func (a ArgoClientDriver) Deploy(configPayload *string) (bool, string, string, string) {
+func (a ArgoClientDriver) Deploy(configPayload *string, labels map[string]string) (bool, string, string, string) {
 	ioCloser, applicationClient, err := a.client.NewApplicationClient()
 	if err != nil {
 		log.Printf("The deploy application client could not be made. Error was %s\n", err)
@@ -94,6 +94,7 @@ func (a ArgoClientDriver) Deploy(configPayload *string) (bool, string, string, s
 	defer ioCloser.Close()
 
 	applicationPayload := makeApplication(configPayload)
+	applicationPayload.SetLabels(labels)
 	_, err = a.kubernetesClient.CheckAndCreateNamespace(applicationPayload.Spec.Destination.Namespace)
 	if err != nil {
 		return false, "", "", ""

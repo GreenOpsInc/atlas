@@ -45,6 +45,9 @@ public class TestHandlerImpl implements TestHandler {
         var deployResponse = clientWrapperApi.deploy(
                 clusterName,
                 event.getOrgName(),
+                event.getTeamName(),
+                event.getPipelineName(),
+                event.getStepName(),
                 ClientWrapperApi.DEPLOY_TEST_REQUEST,
                 test.getPayload(testNumber, testConfig)
         );

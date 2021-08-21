@@ -12,7 +12,7 @@ public interface ClientWrapperApi {
     static final String DELETE_KUBERNETES_REQUEST = "DeleteKubernetesRequest";
     static final String DELETE_TEST_REQUEST = "DeleteTestRequest";
 
-    public DeployResponse deploy(String clusterName, String orgName, String type, Object payload);
+    public DeployResponse deploy(String clusterName, String orgName, String teamName, String pipelineName, String stepName, String type, Object payload);
 
     public DeployResponse deployArgoAppByName(String clusterName, String orgName, String appName);
 

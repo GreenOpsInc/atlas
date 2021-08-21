@@ -49,7 +49,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
             log.info("Deploying new application infrastructure...");
             for (var deploymentConfig : otherDeploymentsConfig.split("---")) {
                 if (deploymentConfig.isBlank()) continue;
-                var deployResponse = clientWrapperApi.deploy(stepData.getClusterName(), event.getOrgName(), ClientWrapperApi.DEPLOY_KUBERNETES_REQUEST, deploymentConfig);
+                var deployResponse = clientWrapperApi.deploy(stepData.getClusterName(), event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName(), ClientWrapperApi.DEPLOY_KUBERNETES_REQUEST, deploymentConfig);
                 if (!deployResponse.getSuccess()) {
                     var message = "Deploying other resources failed.";
                     log.error(message);
@@ -66,7 +66,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
             var argoApplicationConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
             //TODO: The splitting of the config file should eventually be done on the client side
             for (var applicationConfig : argoApplicationConfig.split("---")) {
-                var deployResponse = clientWrapperApi.deploy(stepData.getClusterName(), event.getOrgName(), ClientWrapperApi.DEPLOY_ARGO_REQUEST, applicationConfig);
+                var deployResponse = clientWrapperApi.deploy(stepData.getClusterName(), event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName(), ClientWrapperApi.DEPLOY_ARGO_REQUEST, applicationConfig);
                 log.info("Deploying Argo application {}...", deployResponse.getResourceName());
                 if (!deployResponse.getSuccess()) {
                     var message = "Deploying the Argo application failed.";

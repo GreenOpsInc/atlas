@@ -37,8 +37,8 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     }
 
     @Override
-    public DeployResponse deploy(String clusterName, String orgName, String type, Object payload) {
-        var request = new HttpPost(serverEndpoint + String.format("/deploy/%s/%s", orgName, type));
+    public DeployResponse deploy(String clusterName, String orgName, String teamName, String pipelineName, String stepName, String type, Object payload) {
+        var request = new HttpPost(serverEndpoint + String.format("/deploy/%s/%s/%s/%s/%s", orgName, teamName, pipelineName, stepName, type));
         try {
             var body = type.equals(DEPLOY_TEST_REQUEST) ? objectMapper.writeValueAsString(payload) : (String)payload;
             request.setEntity(new StringEntity(body, ContentType.DEFAULT_TEXT));

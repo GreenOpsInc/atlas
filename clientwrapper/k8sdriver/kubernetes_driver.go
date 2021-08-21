@@ -47,8 +47,8 @@ type KubernetesClientNamespaceRestricted interface {
 
 type KubernetesClient interface {
 	//TODO: Add parameters for Deploy
-	Deploy(configPayload *string) (bool, string, string)
-	CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, existingConfig string, variables map[string]string) (bool, string, string)
+	Deploy(configPayload *string, labels map[string]string) (bool, string, string)
+	CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, existingConfig string, variables map[string]string, labels map[string]string) (bool, string, string)
 	//TODO: Add parameters for Delete
 	Delete(resourceName string, resourceNamespace string, gvk schema.GroupVersionKind) bool
 	DeleteBasedOnConfig(configPayload *string) bool
@@ -87,7 +87,7 @@ func New() KubernetesClient {
 	return client
 }
 
-func (k KubernetesClientDriver) Deploy(configPayload *string) (bool, string, string) {
+func (k KubernetesClientDriver) Deploy(configPayload *string, labels map[string]string) (bool, string, string) {
 	//TODO: This method currently expects only one object per file. Add in support for separate YAML files combined into one. This can be done by splitting on the "---" string.
 	obj, groupVersionKind, err := getResourceObjectFromYAML(configPayload)
 	if err != nil {
@@ -100,6 +100,7 @@ func (k KubernetesClientDriver) Deploy(configPayload *string) (bool, string, str
 	//TODO: This current flow uses Create, just because it is simpler. Should eventually transition to Apply, which will cover more error cases.
 	case *batchv1.Job:
 		strongTypeObject := obj.(*batchv1.Job)
+		strongTypeObject.SetLabels(labels)
 		log.Printf("%s matched Job. Deploying...\n", strongTypeObject.Name)
 		resourceName = strongTypeObject.Name
 		namespace, err = k.CheckAndCreateNamespace(strongTypeObject.Namespace)
@@ -110,13 +111,14 @@ func (k KubernetesClientDriver) Deploy(configPayload *string) (bool, string, str
 		_, err = k.client.BatchV1().Jobs(namespace).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
-				return k.deleteAndDeploy(configPayload)
+				return k.deleteAndDeploy(configPayload, labels)
 			}
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
 			return false, "", ""
 		}
 	case *corev1.Service:
 		strongTypeObject := obj.(*corev1.Service)
+		strongTypeObject.SetLabels(labels)
 		log.Printf("%s matched ReplicaSet. Deploying...\n", strongTypeObject.Name)
 		resourceName = strongTypeObject.Name
 		namespace, err = k.CheckAndCreateNamespace(strongTypeObject.Namespace)
@@ -127,13 +129,14 @@ func (k KubernetesClientDriver) Deploy(configPayload *string) (bool, string, str
 		_, err = k.client.CoreV1().Services(namespace).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
-				return k.deleteAndDeploy(configPayload)
+				return k.deleteAndDeploy(configPayload, labels)
 			}
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
 			return false, "", ""
 		}
 	case *appsv1.ReplicaSet:
 		strongTypeObject := obj.(*appsv1.ReplicaSet)
+		strongTypeObject.SetLabels(labels)
 		log.Printf("%s matched ReplicaSet. Deploying...\n", strongTypeObject.Name)
 		resourceName = strongTypeObject.Name
 		namespace, err = k.CheckAndCreateNamespace(strongTypeObject.Namespace)
@@ -144,13 +147,14 @@ func (k KubernetesClientDriver) Deploy(configPayload *string) (bool, string, str
 		_, err = k.client.AppsV1().ReplicaSets(namespace).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
-				return k.deleteAndDeploy(configPayload)
+				return k.deleteAndDeploy(configPayload, labels)
 			}
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
 			return false, "", ""
 		}
 	case *unstructured.Unstructured:
 		strongTypeObject := obj.(*unstructured.Unstructured)
+		strongTypeObject.SetLabels(labels)
 		log.Printf("YAML file matched Unstructured of kind %s. Deploying...\n", groupVersionKind.Kind)
 		resourceName = strongTypeObject.GetName()
 		namespace, err = k.CheckAndCreateNamespace(strongTypeObject.GetNamespace())
@@ -165,7 +169,7 @@ func (k KubernetesClientDriver) Deploy(configPayload *string) (bool, string, str
 		}).Namespace(namespace).Create(context.TODO(), strongTypeObject, metav1.CreateOptions{})
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
-				return k.deleteAndDeploy(configPayload)
+				return k.deleteAndDeploy(configPayload, labels)
 			}
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
 			return false, "", ""
@@ -179,7 +183,7 @@ func (k KubernetesClientDriver) Deploy(configPayload *string) (bool, string, str
 
 //CreateAndDeploy should only be used for ephemeral runs ONLY. "Kind" should just be discerning between a chron job or a job.
 //They are both of type "batch/v1".
-func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, existingConfig string, variables map[string]string) (bool, string, string) {
+func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, existingConfig string, variables map[string]string, labels map[string]string) (bool, string, string) {
 	if imageName == "" {
 		imageName = DefaultContainer
 	}
@@ -200,6 +204,7 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 		switch obj.(type) {
 		case *batchv1.Job:
 			strongTypeObject := obj.(*batchv1.Job)
+			strongTypeObject.SetLabels(labels)
 			//TODO: Should be a way to make this variable injection process simpler
 			for idx, val := range strongTypeObject.Spec.Template.Spec.Containers {
 				for envidx, _ := range envVars {
@@ -232,7 +237,7 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 		if kind == JobType {
 			jobSpec := batchv1.Job{
 				TypeMeta:   metav1.TypeMeta{Kind: JobType, APIVersion: batchv1.SchemeGroupVersion.String()},
-				ObjectMeta: metav1.ObjectMeta{Name: objName, Namespace: namespace},
+				ObjectMeta: metav1.ObjectMeta{Name: objName, Namespace: namespace, Labels: labels},
 				Spec: batchv1.JobSpec{
 					BackoffLimit: utilpointer.Int32Ptr(1),
 					Template: corev1.PodTemplateSpec{
@@ -254,13 +259,13 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 			//TODO: Implement me
 		}
 	}
-	return k.Deploy(&configPayload)
+	return k.Deploy(&configPayload, labels)
 }
 
-func (k KubernetesClientDriver) deleteAndDeploy(configPayload *string) (bool, string, string) {
+func (k KubernetesClientDriver) deleteAndDeploy(configPayload *string, labels map[string]string) (bool, string, string) {
 	success := k.DeleteBasedOnConfig(configPayload)
 	if success {
-		return k.Deploy(configPayload)
+		return k.Deploy(configPayload, labels)
 	}
 	log.Printf("Failed to delete the existing resource successfully. Aborting deploy.")
 	return false, "", ""
