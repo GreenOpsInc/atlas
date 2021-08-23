@@ -1,6 +1,6 @@
 package datamodel
 
-import "github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
+import "k8s.io/apimachinery/pkg/runtime/schema"
 
 type EventInfoType string
 
@@ -23,12 +23,14 @@ type EventInfoMetaData struct {
 
 type ApplicationEventInfo struct {
 	EventInfoMetaData
-	HealthStatus string `json:"healthStatus"`
-	ArgoName     string `json:"argoName"`
-	Operation    string `json:"operation"`
-	Project      string `json:"project"`
-	Repo         string `json:"repo"`
-	RevisionHash string `json:"revisionId"`
+	HealthStatus     string           `json:"healthStatus"`
+	SyncStatus       string           `json:"syncStatus"`
+	ResourceStatuses []ResourceStatus `json:"resourceStatuses"`
+	ArgoName         string           `json:"argoName"`
+	Operation        string           `json:"operation"`
+	Project          string           `json:"project"`
+	Repo             string           `json:"repo"`
+	RevisionHash     string           `json:"revisionId"`
 }
 
 type TestEventInfo struct {
@@ -39,6 +41,14 @@ type TestEventInfo struct {
 	TestNumber int    `json:"testNumber"`
 }
 
+type ResourceStatus struct {
+	schema.GroupVersionKind
+	ResourceName      string `json:"resourceName"`
+	ResourceNamespace string `json:"resourceNamespace"`
+	HealthStatus      string `json:"healthStatus"`
+	SyncStatus        string `json:"syncStatus"`
+}
+
 // **
 //ApplicationEventInfo functionality
 // **
@@ -46,11 +56,7 @@ func (eventInfo ApplicationEventInfo) GetEventType() EventInfoType {
 	return eventInfo.Type
 }
 
-func MakeApplicationEvent(key WatchKey, appInfo ArgoAppMetricInfo, healthStatus string, statusType StatusType, revisionHash string) EventInfo {
-	status := healthStatus
-	if statusType == SyncStatus && healthStatus == string(v1alpha1.SyncStatusCodeUnknown) {
-		status = "SyncUnknown"
-	}
+func MakeApplicationEvent(key WatchKey, appInfo ArgoAppMetricInfo, healthStatus string, syncStatus string, resourceStatuses []ResourceStatus, revisionHash string) EventInfo {
 	return ApplicationEventInfo{
 		EventInfoMetaData: EventInfoMetaData{
 			Type:         ClientCompletionEvent,
@@ -59,12 +65,14 @@ func MakeApplicationEvent(key WatchKey, appInfo ArgoAppMetricInfo, healthStatus 
 			PipelineName: key.PipelineName,
 			StepName:     key.StepName,
 		},
-		HealthStatus: status,
-		ArgoName:     appInfo.Name,
-		Operation:    appInfo.Operation,
-		Project:      appInfo.Project,
-		Repo:         appInfo.Repo,
-		RevisionHash: revisionHash,
+		HealthStatus:     healthStatus,
+		SyncStatus:       syncStatus,
+		ResourceStatuses: resourceStatuses,
+		ArgoName:         appInfo.Name,
+		Operation:        appInfo.Operation,
+		Project:          appInfo.Project,
+		Repo:             appInfo.Repo,
+		RevisionHash:     revisionHash,
 	}
 }
 

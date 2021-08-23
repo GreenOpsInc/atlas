@@ -32,6 +32,7 @@ var channel chan string
 func deploy(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	deployType := vars["type"]
+	revision := vars["revision"]
 	byteReqBody, _ := ioutil.ReadAll(r.Body)
 	stringReqBody := string(byteReqBody)
 	var success bool
@@ -39,7 +40,7 @@ func deploy(w http.ResponseWriter, r *http.Request) {
 	var appNamespace string
 	var revisionHash string
 	if deployType == requestdatatypes.DeployArgoRequest {
-		success, resourceName, appNamespace, revisionHash = drivers.argoDriver.Deploy(&stringReqBody)
+		success, resourceName, appNamespace, revisionHash = drivers.argoDriver.Deploy(&stringReqBody, revision)
 	} else if deployType == requestdatatypes.DeployTestRequest {
 		var kubernetesCreationRequest requestdatatypes.KubernetesCreationRequest
 		err := json.NewDecoder(strings.NewReader(stringReqBody)).Decode(&kubernetesCreationRequest)
@@ -91,6 +92,25 @@ func deployArgoAppByName(w http.ResponseWriter, r *http.Request) {
 			RevisionHash: revisionHash,
 		},
 	)
+}
+
+func selectiveSyncArgoApp(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	appName := vars["appName"]
+	stringRevisionHash := vars["revisionId"]
+	var gvkGroupRequest requestdatatypes.GvkGroupRequest
+	byteReqBody, _ := ioutil.ReadAll(r.Body)
+	json.Unmarshal(byteReqBody, &gvkGroupRequest)
+
+	success, resourceName, appNamespace, revisionHash := drivers.argoDriver.SelectiveSync(appName, stringRevisionHash, gvkGroupRequest)
+
+	json.NewEncoder(w).Encode(
+		requestdatatypes.RemediationResponse{
+			Success:      success,
+			ResourceName: resourceName,
+			AppNamespace: appNamespace,
+			RevisionHash: revisionHash,
+		})
 }
 
 func rollbackArgoApp(w http.ResponseWriter, r *http.Request) {
@@ -210,11 +230,12 @@ func watch(w http.ResponseWriter, r *http.Request) {
 
 func handleRequests() {
 	myRouter := mux.NewRouter().StrictSlash(true)
-	myRouter.HandleFunc("/deploy/{orgName}/{type}", deploy).Methods("POST")
+	myRouter.HandleFunc("/deploy/{orgName}/{type}/{revision}", deploy).Methods("POST")
 	myRouter.HandleFunc("/deploy/{orgName}/{type}/{argoAppName}", deployArgoAppByName).Methods("POST")
 	myRouter.HandleFunc("/delete/{orgName}/{type}/{resourceName}/{resourceNamespace}/{group}/{version}{kind}", deleteResource).Methods("POST")
 	myRouter.HandleFunc("/delete/{orgName}/{type}", deleteResourceFromConfig).Methods("POST")
 	myRouter.HandleFunc("/rollback/{orgName}/{appName}/{revisionId}", rollbackArgoApp).Methods("POST")
+	myRouter.HandleFunc("/sync/{orgName}/{appName}/{revisionId}", selectiveSyncArgoApp).Methods("POST")
 	myRouter.HandleFunc("/delete/{group}/{version}/{kind}/{name}", deleteApplication).Methods("POST")
 	myRouter.HandleFunc("/checkStatus/{group}/{version}/{kind}/{name}", checkStatus).Methods("GET")
 	myRouter.HandleFunc("/watch/{orgName}", watch).Methods("POST")

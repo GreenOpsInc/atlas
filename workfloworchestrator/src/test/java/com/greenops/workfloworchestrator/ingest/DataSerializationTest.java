@@ -43,6 +43,7 @@ public class DataSerializationTest {
                 "  rollback: true #not required; default is false\n" +
                 "  tests: #not required; executed sequentially\n" +
                 "  - path: \"/relative/to/root\"\n" +
+                "    type: inject\n" +
                 "    in_application_pod: true\n" +
                 "    before: true\n" +
                 "    variables:\n" +

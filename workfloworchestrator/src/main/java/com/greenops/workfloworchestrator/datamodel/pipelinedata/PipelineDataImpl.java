@@ -12,14 +12,16 @@ public class PipelineDataImpl implements PipelineData {
 
     private String name;
     private List<StepData> steps;
-    private String clusterName;
-    private Map<String, List<String>> stepParents;
-    private Map<String, List<String>> stepChildren;
+    private final String clusterName;
+    private final boolean argoVersionLock;
+    private final Map<String, List<String>> stepParents;
+    private final Map<String, List<String>> stepChildren;
 
-    public PipelineDataImpl(String name, String clusterName, List<StepData> stepDataList) {
+    public PipelineDataImpl(String name, String clusterName, boolean argoVersionLock, List<StepData> stepDataList) {
         this.name = name;
         this.steps = stepDataList;
         this.clusterName = clusterName;
+        this.argoVersionLock = argoVersionLock;
         this.stepParents = new HashMap<>();
         this.stepChildren = new HashMap<>();
         for (var step : stepDataList) {
@@ -76,5 +78,12 @@ public class PipelineDataImpl implements PipelineData {
     }
 
     @Override
-    public List<String> getAllSteps() { return steps.stream().map(s -> s.getName()).collect(Collectors.toList()); }
+    public List<String> getAllSteps() {
+        return steps.stream().map(StepData::getName).collect(Collectors.toList());
+    }
+
+    @Override
+    public boolean isArgoVersionLock() {
+        return argoVersionLock;
+    }
 }

@@ -2,12 +2,14 @@ package com.greenops.workflowtrigger.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.auditlog.DeploymentLog;
+import com.greenops.util.datamodel.auditlog.RemediationLog;
 import com.greenops.util.datamodel.cluster.ClusterSchema;
 import com.greenops.util.datamodel.event.ClientCompletionEvent;
 import com.greenops.util.datamodel.git.GitCredMachineUser;
 import com.greenops.util.datamodel.git.GitCredToken;
 import com.greenops.util.datamodel.git.GitRepoSchema;
 import com.greenops.util.datamodel.mixin.auditlog.DeploymentLogMixin;
+import com.greenops.util.datamodel.mixin.auditlog.RemediationLogMixin;
 import com.greenops.util.datamodel.mixin.cluster.ClusterSchemaMixin;
 import com.greenops.util.datamodel.mixin.event.ClientCompletionEventMixin;
 import com.greenops.util.datamodel.mixin.git.GitCredMachineUserMixin;
@@ -43,6 +45,7 @@ public class SpringConfiguration {
                 .addMixIn(GitCredToken.class, GitCredTokenMixin.class)
                 .addMixIn(ClientCompletionEvent.class, ClientCompletionEventMixin.class)
                 .addMixIn(DeploymentLog.class, DeploymentLogMixin.class)
+                .addMixIn(RemediationLog.class, RemediationLogMixin.class)
                 .addMixIn(ClusterSchema.class, ClusterSchemaMixin.class)
                 .addMixIn(FailedStep.class, FailedStepMixin.class)
                 .addMixIn(PipelineStatus.class, PipelineStatusMixin.class);

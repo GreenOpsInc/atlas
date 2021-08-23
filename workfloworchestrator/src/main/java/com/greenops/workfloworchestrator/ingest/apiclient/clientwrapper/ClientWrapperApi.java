@@ -1,9 +1,14 @@
 package com.greenops.workfloworchestrator.ingest.apiclient.clientwrapper;
 
+import com.greenops.util.datamodel.event.ResourceStatus;
 import com.greenops.workfloworchestrator.datamodel.requests.DeployResponse;
 import com.greenops.workfloworchestrator.datamodel.requests.WatchRequest;
 
+import java.util.List;
+
 public interface ClientWrapperApi {
+
+    static final String LATEST_REVISION = "LATEST_REVISION";
 
     static final String DEPLOY_ARGO_REQUEST = "DeployArgoRequest";
     static final String DEPLOY_KUBERNETES_REQUEST = "DeployKubernetesRequest";
@@ -12,9 +17,11 @@ public interface ClientWrapperApi {
     static final String DELETE_KUBERNETES_REQUEST = "DeleteKubernetesRequest";
     static final String DELETE_TEST_REQUEST = "DeleteTestRequest";
 
-    public DeployResponse deploy(String clusterName, String orgName, String type, Object payload);
+    public DeployResponse deploy(String clusterName, String orgName, String type, String revisionHash, Object payload);
 
     public DeployResponse deployArgoAppByName(String clusterName, String orgName, String appName);
+
+    public DeployResponse selectiveSyncForArgoApp(String clusterName, String orgName, String appName, String revisionId, Object payload);
 
     public DeployResponse rollback(String clusterName, String orgName, String appName, String revisionHash);
 

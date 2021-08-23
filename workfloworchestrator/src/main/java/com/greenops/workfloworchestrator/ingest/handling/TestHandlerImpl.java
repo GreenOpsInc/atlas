@@ -46,6 +46,7 @@ public class TestHandlerImpl implements TestHandler {
                 clusterName,
                 event.getOrgName(),
                 ClientWrapperApi.DEPLOY_TEST_REQUEST,
+                ClientWrapperApi.LATEST_REVISION,
                 test.getPayload(testNumber, testConfig)
         );
         if (deployResponse.getSuccess()) {

@@ -2,7 +2,7 @@ package com.greenops.util.datamodel.auditlog;
 
 import java.util.UUID;
 
-public class DeploymentLog {
+public class DeploymentLog implements Log {
 
     public enum DeploymentStatus {
         SUCCESS,
@@ -10,7 +10,8 @@ public class DeploymentLog {
         FAILURE
     }
 
-    private final String uniqueVersionNumber;
+    private final String pipelineUniqueVersionNumber;
+    private final String rollbackUniqueVersionNumber;
     private final int uniqueVersionInstance;
     private String status;
     private boolean deploymentComplete;
@@ -20,8 +21,9 @@ public class DeploymentLog {
     private String brokenTest;
     private String brokenTestLog;
 
-    public DeploymentLog(String uniqueVersionNumber, int uniqueVersionInstance, String status, boolean deploymentComplete, String argoApplicationName, String argoRevisionHash, String gitCommitVersion, String brokenTest, String brokenTestLog) {
-        this.uniqueVersionNumber = uniqueVersionNumber;
+    public DeploymentLog(String pipelineUniqueVersionNumber, String rollbackUniqueVersionNumber, int uniqueVersionInstance, String status, boolean deploymentComplete, String argoApplicationName, String argoRevisionHash, String gitCommitVersion, String brokenTest, String brokenTestLog) {
+        this.pipelineUniqueVersionNumber = pipelineUniqueVersionNumber == null ? UUID.randomUUID().toString() : pipelineUniqueVersionNumber;
+        this.rollbackUniqueVersionNumber = rollbackUniqueVersionNumber;
         this.uniqueVersionInstance = uniqueVersionInstance;
         this.status = status;
         this.argoApplicationName = argoApplicationName;
@@ -32,14 +34,20 @@ public class DeploymentLog {
         this.brokenTestLog = brokenTestLog;
     }
 
-    public DeploymentLog(String status, boolean deploymentComplete, String argoRevisionHash, String gitCommitVersion) {
-        this(UUID.randomUUID().toString(), 0, status, deploymentComplete, null, argoRevisionHash, gitCommitVersion, null, null);
+    public DeploymentLog(String pipelineUniqueVersionNumber, String status, boolean deploymentComplete, String argoRevisionHash, String gitCommitVersion) {
+        this(pipelineUniqueVersionNumber, null, 0, status, deploymentComplete, null, argoRevisionHash, gitCommitVersion, null, null);
     }
 
-    public String getUniqueVersionNumber() {
-        return uniqueVersionNumber;
+    @Override
+    public String getPipelineUniqueVersionNumber() {
+        return pipelineUniqueVersionNumber;
     }
 
+    public String getRollbackUniqueVersionNumber() {
+        return rollbackUniqueVersionNumber;
+    }
+
+    @Override
     public int getUniqueVersionInstance() {
         return uniqueVersionInstance;
     }

@@ -26,7 +26,9 @@ public interface StepData {
 
     List<String> getDependencies();
 
+    int getRemediationLimit();
+
     static StepData createRootStep() {
-        return new StepDataImpl(ROOT_STEP_NAME, null, null, null, null, false, List.of(), List.of());
+        return new StepDataImpl(ROOT_STEP_NAME, null, null, null, null, false, List.of(), 0, List.of());
     }
 }

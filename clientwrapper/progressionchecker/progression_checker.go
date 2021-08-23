@@ -81,69 +81,16 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 			if watchKey.Type == datamodel.WatchArgoApplicationKey {
 				for _, appInfo := range argoAppInfo {
 					if watchKey.Name == appInfo.Name && watchKey.Namespace == appInfo.Namespace {
-						var eventInfo datamodel.EventInfo
-						if appInfo.HealthStatus == health.HealthStatusProgressing {
+						newWatchKey, eventInfo := CheckArgoStatus(watchKey, appInfo, argoClient)
+						if newWatchKey == GetEmptyWatchKey() && eventInfo == nil {
 							break
-						} else if appInfo.SyncStatus == v1alpha1.SyncStatusCodeSynced {
-							watchKey.SyncStatus = string(v1alpha1.SyncStatusCodeSynced)
-							//If revisionHash = "", it means the app can't be found
-							revisionHash, err := argoClient.GetCurrentRevisionHash(watchKey.Name)
-							if err != nil {
-								break
-							}
-							var healthStatus health.HealthStatusCode
-							healthStatus = appInfo.HealthStatus
-							if string(healthStatus) != watchKey.HealthStatus {
-								watchKey.GeneratedCompletionEvent = false
-							}
-							watchKey.HealthStatus = string(healthStatus)
-							watchedApplications[mapKey] = watchKey
-							eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.HealthStatus, datamodel.HealthStatus, revisionHash)
-						} else {
-							oldSyncStatus := watchKey.SyncStatus
-							oldHealthStatus := watchKey.HealthStatus
-							watchKey.SyncStatus = string(appInfo.SyncStatus)
-							watchKey.HealthStatus = string(appInfo.HealthStatus)
-
-							createdEvent := false
-							if !watchKey.GeneratedCompletionEvent {
-								completed, success, revisionHash, err := argoClient.GetOperationSuccess(appInfo.Name)
-								if err != nil {
-									log.Printf("Getting operation success failed with error %s\n", err)
-									break
-								}
-								if completed {
-									healthStatus := string(health.HealthStatusMissing)
-									if success {
-										healthStatus = string(health.HealthStatusHealthy)
-									} else {
-										healthStatus = string(health.HealthStatusUnknown)
-									}
-									eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, healthStatus, datamodel.HealthStatus, revisionHash)
-									createdEvent = true
-								}
-							}
-							if oldSyncStatus == watchKey.SyncStatus && oldHealthStatus == watchKey.HealthStatus && !createdEvent {
-								break
-							}
-							watchKey.GeneratedCompletionEvent = false
-							watchedApplications[mapKey] = watchKey
-							//If the application is not in sync, it is difficult to know whether an operation is progressing or not. We don't want to prematurely send the wrong revisionId.
-							//They are temporarily set to -1 for now, given that the events generated below are remediation events.
-							//TODO: We will have to figure out what they should be and how we can accurately get the revisionId at all times.
-							if !createdEvent {
-								if watchKey.HealthStatus != oldHealthStatus {
-									eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.HealthStatus, datamodel.HealthStatus, "")
-								} else {
-									eventInfo = datamodel.MakeApplicationEvent(watchedApplications[mapKey], appInfo, watchKey.SyncStatus, datamodel.SyncStatus, "")
-								}
-							}
 						}
+						watchedApplications[mapKey] = newWatchKey
 						for i := 0; i < HttpRequestRetryLimit; i++ {
 							if !watchedApplications[mapKey].GeneratedCompletionEvent && generateEvent(eventInfo, workflowTriggerAddress) {
 								log.Printf("Generated Client Completion event for %s", appInfo.Name)
-								watchKey.GeneratedCompletionEvent = true
-								watchedApplications[mapKey] = watchKey
+								newWatchKey.GeneratedCompletionEvent = true
+								watchedApplications[mapKey] = newWatchKey
 								break
 							}
 						}
@@ -151,34 +98,23 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 					}
 				}
 			} else if watchKey.Type == datamodel.WatchTestKey {
-				jobStatus, selector, numPods := kubernetesClient.GetJob(watchKey.Name, watchKey.Namespace)
-				log.Printf("Job status succeeded: %d, status failed %d", jobStatus.Succeeded, jobStatus.Failed)
-				if numPods == -1 {
-					log.Printf("Getting the Job failed")
-					continue
-				}
-				if jobStatus.Succeeded == numPods || jobStatus.Failed >= numPods {
-					podLogs, err := kubernetesClient.GetLogs(watchKey.Namespace, selector)
-					if err != nil {
-						//TODO: This should have a timeout. For example, if it fails 5 times just send the event without the logs
-						log.Printf("Pod logs could not be fetched...will try again next time")
+				for i := 0; i < HttpRequestRetryLimit; i++ {
+					eventInfo := CheckKubernetesStatus(watchKey, kubernetesClient)
+					if eventInfo == nil {
 						continue
 					}
-					eventInfo := datamodel.MakeTestEvent(watchKey, jobStatus.Succeeded > 0, podLogs)
-					for i := 0; i < HttpRequestRetryLimit; i++ {
-						if !watchKey.GeneratedCompletionEvent && generateEvent(eventInfo, workflowTriggerAddress) {
-							log.Printf("Generated Test Completion event for %s", watchKey.Name)
-							watchKey.GeneratedCompletionEvent = true
-							watchedApplications[mapKey] = watchKey
-							if !kubernetesClient.Delete(watchKey.Name, watchKey.Namespace, schema.GroupVersionKind{Kind: k8sdriver.JobType}) {
-								continue
-							}
-							deleteKeys = append(deleteKeys, mapKey)
-							break
-						} else if kubernetesClient.Delete(watchKey.Name, watchKey.Namespace, schema.GroupVersionKind{Kind: k8sdriver.JobType}) {
-							deleteKeys = append(deleteKeys, mapKey)
-							break
+					if !watchKey.GeneratedCompletionEvent && generateEvent(eventInfo, workflowTriggerAddress) {
+						log.Printf("Generated Test Completion event for %s", watchKey.Name)
+						watchKey.GeneratedCompletionEvent = true
+						watchedApplications[mapKey] = watchKey
+						if !kubernetesClient.Delete(watchKey.Name, watchKey.Namespace, schema.GroupVersionKind{Kind: k8sdriver.JobType}) {
+							continue
 						}
+						deleteKeys = append(deleteKeys, mapKey)
+						break
+					} else if kubernetesClient.Delete(watchKey.Name, watchKey.Namespace, schema.GroupVersionKind{Kind: k8sdriver.JobType}) {
+						deleteKeys = append(deleteKeys, mapKey)
+						break
 					}
 				}
 			}

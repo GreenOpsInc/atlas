@@ -22,6 +22,8 @@ public abstract class StepDataMixin {
     private boolean rollback;
     @JsonProperty(value = "tests")
     private List<Test> tests;
+    @JsonProperty(value = "remediation_limit")
+    private int remediationLimit;
     @JsonProperty(value = "dependencies")
     private List<String> dependencies;
 
@@ -32,6 +34,7 @@ public abstract class StepDataMixin {
                          @JsonProperty(value = "cluster_name") String clusterName,
                          @JsonProperty(value = "rollback") boolean rollback,
                          @JsonProperty(value = "tests") List<Test> tests,
+                         @JsonProperty(value = "remediation_limit") int remediationLimit,
                          @JsonProperty(value = "dependencies") List<String> dependencies) {
     }
 

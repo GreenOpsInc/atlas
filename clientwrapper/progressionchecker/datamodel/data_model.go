@@ -48,6 +48,7 @@ type WatchKey struct {
 	HealthStatus             string
 	SyncStatus               string
 	GeneratedCompletionEvent bool
+	Resources                *[]ResourceStatus
 }
 
 func (key WatchKey) GetKeyFromWatchKey() string {

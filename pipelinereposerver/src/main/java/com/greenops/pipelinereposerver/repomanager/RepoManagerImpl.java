@@ -134,7 +134,7 @@ public class RepoManagerImpl implements RepoManager {
                 .filter(gitRepoCache -> gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoUrl))
                 .collect(Collectors.toList());
         if (listOfSchemas.size() != 1) {
-            log.error("Too many git repos with the given url");
+            log.info("Too many git repos with the given url");
             return null;
         }
 
@@ -146,9 +146,11 @@ public class RepoManagerImpl implements RepoManager {
                     '/')
             );
             var reader = Files.newBufferedReader(path);
-            return reader.lines().collect(Collectors.joining("\n"));
+            var data = reader.lines().collect(Collectors.joining("\n"));
+            reader.close();
+            return data;
         } catch (IOException ex) {
-            log.error("File was not found or could not be read.");
+            log.info("File was not found or could not be read.");
             return null;
         }
     }
