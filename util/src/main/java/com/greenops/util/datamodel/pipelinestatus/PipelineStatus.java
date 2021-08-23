@@ -40,7 +40,7 @@ public class PipelineStatus {
             }
         } else {
             //Was instance of a RemediationLog
-            if (!((RemediationLog) log).isStateRemediated()) {
+            if (!((RemediationLog) log).getRemediationStatus().equals(RemediationLog.RemediationStatus.FAILURE.name())) {
                 this.stable = false;
             }
             //TODO: Needs to be added to failed step

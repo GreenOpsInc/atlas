@@ -16,13 +16,13 @@ public abstract class RemediationLogMixin {
     @JsonProperty(value = "unhealthyResources")
     private List<String> unhealthyResources;
 
-    @JsonProperty(value = "stateRemediated")
-    private boolean stateRemediated;
+    @JsonProperty(value = "remediationStatus")
+    private String remediationStatus;
 
     @JsonCreator
     RemediationLogMixin(@JsonProperty(value = "pipelineUniqueVersionNumber") String pipelineUniqueVersionNumber,
                         @JsonProperty(value = "uniqueVersionInstance") int uniqueVersionInstance,
                         @JsonProperty(value = "unhealthyResources") List<String> unhealthyResources,
-                        @JsonProperty(value = "stateRemediated") boolean stateRemediated) {
+                        @JsonProperty(value = "remediationStatus") String remediationStatus) {
     }
 }

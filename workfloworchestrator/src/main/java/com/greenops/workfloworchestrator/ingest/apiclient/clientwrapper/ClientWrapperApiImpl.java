@@ -78,8 +78,8 @@ public class ClientWrapperApiImpl implements ClientWrapperApi {
     }
 
     @Override
-    public DeployResponse selectiveSyncForArgoApp(String clusterName, String orgName, String appName, String revisionId, Object payload) {
-        var request = new HttpPost(serverEndpoint + String.format("/sync/%s/%s/%s", orgName, appName, revisionId));
+    public DeployResponse selectiveSyncForArgoApp(String clusterName, String orgName, String teamName, String pipelineName, String stepName, String appName, String revisionId, Object payload) {
+        var request = new HttpPost(serverEndpoint + String.format("/sync/%s/%s/%s/%s/%s/%s", orgName, teamName, pipelineName, stepName, appName, revisionId));
         try {
             var body = objectMapper.writeValueAsString(payload);
             request.setEntity(new StringEntity(body, ContentType.DEFAULT_TEXT));

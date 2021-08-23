@@ -32,6 +32,7 @@ import com.greenops.workfloworchestrator.datamodel.requests.*;
 import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.error.AtlasRetryableError;
 import com.greenops.workfloworchestrator.ingest.kafka.KafkaClient;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -40,6 +41,7 @@ import org.springframework.kafka.listener.ContainerAwareErrorHandler;
 import org.springframework.kafka.listener.SeekToCurrentErrorHandler;
 import org.springframework.util.backoff.FixedBackOff;
 
+@Slf4j
 @Configuration
 public class SpringConfiguration {
 
@@ -110,6 +112,7 @@ public class SpringConfiguration {
                         kafkaClient.sendMessage((String)record.value());
                     } else {
                         //send to DLQ
+                        log.info(exception.getMessage(), exception.getCause());
                         kafkaClient.sendMessageToDlq((String)record.value());
                     }
                 }, new FixedBackOff(100L, 5L));

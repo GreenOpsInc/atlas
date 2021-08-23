@@ -124,7 +124,16 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
     @Override
     public void triggerStateRemediation(Event event, String pipelineRepoUrl, StepData stepData, String argoApplicationName, String argoRevisionHash, List<ResourceGvk> resourceStatuses) {
         var syncRequestPayload = new ResourcesGvkRequest(resourceStatuses);
-        clientWrapperApi.selectiveSyncForArgoApp(stepData.getClusterName(), event.getOrgName(), argoApplicationName, argoRevisionHash, syncRequestPayload);
+        clientWrapperApi.selectiveSyncForArgoApp(
+                stepData.getClusterName(),
+                event.getOrgName(),
+                event.getTeamName(),
+                event.getPipelineName(),
+                stepData.getName(),
+                argoApplicationName,
+                argoRevisionHash,
+                syncRequestPayload
+        );
     }
 
     @Override

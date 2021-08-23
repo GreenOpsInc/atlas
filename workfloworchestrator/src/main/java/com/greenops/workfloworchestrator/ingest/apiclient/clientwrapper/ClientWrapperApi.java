@@ -21,7 +21,7 @@ public interface ClientWrapperApi {
 
     public DeployResponse deployArgoAppByName(String clusterName, String orgName, String appName);
 
-    public DeployResponse selectiveSyncForArgoApp(String clusterName, String orgName, String appName, String revisionId, Object payload);
+    public DeployResponse selectiveSyncForArgoApp(String clusterName, String orgName, String teamName, String pipelineName, String stepName, String appName, String revisionId, Object payload);
 
     public DeployResponse rollback(String clusterName, String orgName, String appName, String revisionHash);
 
