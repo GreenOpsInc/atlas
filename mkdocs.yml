@@ -1,0 +1,15 @@
+site_name: Atlas
+theme:
+  name: material
+
+nav:
+  - 'index.md'
+  - 'core-concepts.md'
+  - 'Build Book':
+    - 'buildbook/step.md'
+    - 'buildbook/pipeline.md'
+  - 'Task/Test Registry':
+    - 'tasktestregistry/overview.md'
+    - 'tasktestregistry/contributing.md'
+    - 'tasktestregistry/scriptinjection.md'
+    - 'tasktestregistry/k8sjob.md'
