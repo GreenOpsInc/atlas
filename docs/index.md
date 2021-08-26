@@ -49,17 +49,3 @@ Atlas provides rich audit logs that provide great visibility into both pipelines
 ### Reduced Complexity
 
 Atlas can help provide simple transitions to ArgoCD for new users, and also help automate and simplify large-scale ArgoCD deployments.
-
-## Commands
-
-* `mkdocs new [dir-name]` - Create a new project.
-* `mkdocs serve` - Start the live-reloading docs server.
-* `mkdocs build` - Build the documentation site.
-* `mkdocs -h` - Print help message and exit.
-
-## Project layout
-
-    mkdocs.yml    # The configuration file.
-    docs/
-        index.md  # The documentation homepage.
-        ...       # Other markdown pages, images and other files.

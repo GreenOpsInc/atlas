@@ -5,6 +5,7 @@ theme:
 nav:
   - 'index.md'
   - 'core-concepts.md'
+  - 'getting-started.md'
   - 'Build Book':
     - 'buildbook/step.md'
     - 'buildbook/pipeline.md'

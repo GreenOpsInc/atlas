@@ -11,4 +11,4 @@ This page will introduce the core concepts and terminology of Atlas.
 - **Task/Test**: Custom deployment logic that users can inject into their pipelines. Could be tests for custom business logic, a blocker that waits for 2 days before progressing to the next step, or anything else.
 - **State Remediation**: Atlas watches applications and environments past the deployment or pipeline run. State remediation is when the application degrades and Atlas takes action to make the app healthy again.
 
-To see how to put these pieces together and write your own pipelines, see the Build Book.
+To see how to put these pieces together and write your own pipelines, see the [Build Book](buildbook/step.md).
