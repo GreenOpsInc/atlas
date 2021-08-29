@@ -93,7 +93,21 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
             log.info("No remediation log present");
             return;
         }
-        remediationLog.setStateRemediated(true);
+        remediationLog.setStateRemediated(RemediationLog.RemediationStatus.SUCCESS.name());
+        dbClient.updateHeadInList(logKey, remediationLog);
+    }
+
+    @Override
+    public void markStateRemediationFailed(Event event, String stepName) {
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
+        //TODO: Remove this line when the TriggerStep event is added
+        if (stepName.equals(ROOT_STEP_NAME)) return;
+        var remediationLog = dbClient.fetchLatestRemediationLog(logKey);
+        if (remediationLog == null) {
+            log.info("No remediation log present");
+            return;
+        }
+        remediationLog.setStateRemediated(RemediationLog.RemediationStatus.FAILURE.name());
         dbClient.updateHeadInList(logKey, remediationLog);
     }
 
@@ -149,11 +163,28 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
             return currentLog.getGitCommitVersion();
         }
         int idx = 0;
+        //If a specific rollback UVN has already been tried but has failed, we want to skip to the first instance of that UVN and search before then.
         if (currentLog.getUniqueVersionInstance() > 0) {
             while (idx < logList.size()) {
                 if (currentLog.getRollbackUniqueVersionNumber().equals(logList.get(idx).getPipelineUniqueVersionNumber())
                         && logList.get(idx).getUniqueVersionInstance() == 0) {
                     idx++;
+                    break;
+                }
+                idx++;
+                if (idx == logList.size()) {
+                    logIncrement++;
+                    logList = dbClient.fetchLogList(logKey, logIncrement);
+                    idx = 0;
+                }
+            }
+        } else if (currentLog.getStatus().equals(DeploymentLog.DeploymentStatus.SUCCESS.name())) {
+            while (idx < logList.size()) {
+                if (!(logList.get(idx) instanceof DeploymentLog)) {
+                    idx++;
+                    continue;
+                }
+                if (!currentLog.getPipelineUniqueVersionNumber().equals((logList.get(idx)).getPipelineUniqueVersionNumber())) {
                     break;
                 }
                 idx++;

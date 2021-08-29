@@ -54,3 +54,7 @@ type WatchKey struct {
 func (key WatchKey) GetKeyFromWatchKey() string {
 	return strings.Join([]string{key.TeamName, key.PipelineName, key.StepName, key.Name, key.Namespace}, "-")
 }
+
+func GetKeyForWatchKey(teamName string, pipelineName string, stepName string, name string, namespace string) string {
+	return strings.Join([]string{teamName, pipelineName, stepName, name, namespace}, "-")
+}

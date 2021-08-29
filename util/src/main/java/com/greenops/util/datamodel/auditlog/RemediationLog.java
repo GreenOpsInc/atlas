@@ -4,20 +4,26 @@ import java.util.List;
 
 public class RemediationLog implements Log {
 
+    public enum RemediationStatus {
+        SUCCESS,
+        PROGRESSING,
+        FAILURE
+    }
+
     private final String pipelineUniqueVersionNumber;
     private final int uniqueVersionInstance;
     private List<String> unhealthyResources;
-    private boolean stateRemediated;
+    private String remediationStatus;
 
     public RemediationLog(String pipelineUniqueVersionNumber, int uniqueVersionInstance, List<String> unhealthyResources) {
-        this(pipelineUniqueVersionNumber, uniqueVersionInstance, unhealthyResources, false);
+        this(pipelineUniqueVersionNumber, uniqueVersionInstance, unhealthyResources, RemediationStatus.PROGRESSING.name());
     }
 
-    public RemediationLog(String pipelineUniqueVersionNumber, int uniqueVersionInstance, List<String> unhealthyResources, boolean stateRemediated) {
+    public RemediationLog(String pipelineUniqueVersionNumber, int uniqueVersionInstance, List<String> unhealthyResources, String remediationStatus) {
         this.pipelineUniqueVersionNumber = pipelineUniqueVersionNumber;
         this.uniqueVersionInstance = uniqueVersionInstance;
         this.unhealthyResources = unhealthyResources;
-        this.stateRemediated = stateRemediated;
+        this.remediationStatus = remediationStatus;
     }
 
     @Override
@@ -30,11 +36,11 @@ public class RemediationLog implements Log {
         return uniqueVersionInstance;
     }
 
-    public boolean isStateRemediated() {
-        return stateRemediated;
+    public String getRemediationStatus() {
+        return remediationStatus;
     }
 
-    public void setStateRemediated(boolean stateRemediated) {
-        this.stateRemediated = stateRemediated;
+    public void setStateRemediated(String remediationStatus) {
+        this.remediationStatus = remediationStatus;
     }
 }

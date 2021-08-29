@@ -3,6 +3,7 @@ package com.greenops.workfloworchestrator.ingest.handling;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.auditlog.DeploymentLog;
+import com.greenops.util.datamodel.auditlog.RemediationLog;
 import com.greenops.util.datamodel.event.*;
 import com.greenops.util.datamodel.pipeline.TeamSchema;
 import com.greenops.util.datamodel.request.GetFileRequest;
@@ -104,9 +105,9 @@ public class EventHandlerImpl implements EventHandler {
         var step = pipelineData.getStep(event.getStepName());
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName());
         var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
-        if (deploymentLog != null && deploymentLog.getStatus().equals(DeploymentLog.DeploymentStatus.FAILURE.name()))
-            return;
-        else if (deploymentLog != null && deploymentLog.getStatus().equals(DeploymentLog.DeploymentStatus.SUCCESS.name())) {
+        if (deploymentLog == null) return;
+        if (deploymentLog.getStatus().equals(DeploymentLog.DeploymentStatus.FAILURE.name())) return;
+        else if (deploymentLog.getStatus().equals(DeploymentLog.DeploymentStatus.SUCCESS.name())) {
             //If the deployment was successful (rollback or otherwise), these client completion events are for state remediation
             if (step.getRemediationLimit() == 0) {
                 return;
@@ -124,9 +125,17 @@ public class EventHandlerImpl implements EventHandler {
                     || event.getHealthStatus().equals(UNKNOWN)
                     || event.getHealthStatus().equals(MISSING)) {
                 var remediationLog = dbClient.fetchLatestRemediationLog(logKey);
-                if (remediationLog != null && remediationLog.getUniqueVersionInstance() == step.getRemediationLimit()) {
-                    //Reached remediation limit
-                    return;
+                if (remediationLog != null) {
+                    if (remediationLog.getRemediationStatus().equals(RemediationLog.RemediationStatus.PROGRESSING.name())) {
+                        deploymentLogHandler.markStateRemediationFailed(event, step.getName());
+                    }
+                    if (remediationLog.getUniqueVersionInstance() == step.getRemediationLimit()) {
+                        //Reached remediation limit
+                        if (step.getRollback()) {
+                            rollback(event);
+                        }
+                        return;
+                    }
                 }
                 var resourceGvkList = new ArrayList<ResourceGvk>();
                 for (var resource : event.getResourceStatuses()) {

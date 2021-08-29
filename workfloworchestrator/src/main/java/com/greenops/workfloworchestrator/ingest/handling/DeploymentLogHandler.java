@@ -20,6 +20,8 @@ public interface DeploymentLogHandler {
 
     void markStateRemediated(Event event, String stepName);
 
+    void markStateRemediationFailed(Event event, String stepName);
+
     void markStepFailedWithFailedDeployment(Event event, String stepName);
 
     void markStepFailedWithBrokenTest(Event event, String stepName, String testName, String testLog);

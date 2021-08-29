@@ -96,6 +96,9 @@ func deployArgoAppByName(w http.ResponseWriter, r *http.Request) {
 
 func selectiveSyncArgoApp(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	teamName := vars["teamName"]
+	pipelineName := vars["pipelineName"]
+	stepName := vars["stepName"]
 	appName := vars["appName"]
 	stringRevisionHash := vars["revisionId"]
 	var gvkGroupRequest requestdatatypes.GvkGroupRequest
@@ -103,6 +106,12 @@ func selectiveSyncArgoApp(w http.ResponseWriter, r *http.Request) {
 	json.Unmarshal(byteReqBody, &gvkGroupRequest)
 
 	success, resourceName, appNamespace, revisionHash := drivers.argoDriver.SelectiveSync(appName, stringRevisionHash, gvkGroupRequest)
+	if success {
+		key := makeWatchKeyFromRequest(datamodel.WatchArgoApplicationKey, vars["orgName"], teamName, pipelineName, stepName, -1, resourceName, appNamespace)
+		byteKey, _ := json.Marshal(key)
+		channel <- string(byteKey)
+		channel <- progressionchecker.EndTransactionMarker
+	}
 
 	json.NewEncoder(w).Encode(
 		requestdatatypes.RemediationResponse{
@@ -207,25 +216,29 @@ func watch(w http.ResponseWriter, r *http.Request) {
 		watchKeyType = datamodel.WatchArgoApplicationKey
 	}
 
-	key := datamodel.WatchKey{
-		WatchKeyMetaData: datamodel.WatchKeyMetaData{
-			Type:         watchKeyType,
-			OrgName:      vars["orgName"],
-			TeamName:     watchRequest.TeamName,
-			PipelineName: watchRequest.PipelineName,
-			StepName:     watchRequest.StepName,
-			TestNumber:   watchRequest.TestNumber,
-		},
-		Name:                     watchRequest.Name,
-		Namespace:                watchRequest.Namespace,
-		HealthStatus:             string(health.HealthStatusMissing),
-		SyncStatus:               string(v1alpha1.SyncStatusCodeOutOfSync),
-		GeneratedCompletionEvent: false,
-	}
+	key := makeWatchKeyFromRequest(watchKeyType, vars["orgName"], watchRequest.TeamName, watchRequest.PipelineName, watchRequest.StepName, watchRequest.TestNumber, watchRequest.Name, watchRequest.Namespace)
 	byteKey, _ := json.Marshal(key)
 	channel <- string(byteKey)
 	channel <- progressionchecker.EndTransactionMarker
 	json.NewEncoder(w).Encode(true)
+}
+
+func makeWatchKeyFromRequest(watchKeyType datamodel.WatchKeyType, orgName string, teamName string, pipelineName string, stepName string, testNumber int, name string, namespace string) *datamodel.WatchKey {
+	return &datamodel.WatchKey{
+		WatchKeyMetaData: datamodel.WatchKeyMetaData{
+			Type:         watchKeyType,
+			OrgName:      orgName,
+			TeamName:     teamName,
+			PipelineName: pipelineName,
+			StepName:     stepName,
+			TestNumber:   testNumber,
+		},
+		Name:                     name,
+		Namespace:                namespace,
+		HealthStatus:             string(health.HealthStatusMissing),
+		SyncStatus:               string(v1alpha1.SyncStatusCodeOutOfSync),
+		GeneratedCompletionEvent: false,
+	}
 }
 
 func handleRequests() {
@@ -235,7 +248,7 @@ func handleRequests() {
 	myRouter.HandleFunc("/delete/{orgName}/{type}/{resourceName}/{resourceNamespace}/{group}/{version}{kind}", deleteResource).Methods("POST")
 	myRouter.HandleFunc("/delete/{orgName}/{type}", deleteResourceFromConfig).Methods("POST")
 	myRouter.HandleFunc("/rollback/{orgName}/{appName}/{revisionId}", rollbackArgoApp).Methods("POST")
-	myRouter.HandleFunc("/sync/{orgName}/{appName}/{revisionId}", selectiveSyncArgoApp).Methods("POST")
+	myRouter.HandleFunc("/sync/{orgName}/{teamName}/{pipelineName}/{stepName}/{appName}/{revisionId}", selectiveSyncArgoApp).Methods("POST")
 	myRouter.HandleFunc("/delete/{group}/{version}/{kind}/{name}", deleteApplication).Methods("POST")
 	myRouter.HandleFunc("/checkStatus/{group}/{version}/{kind}/{name}", checkStatus).Methods("GET")
 	myRouter.HandleFunc("/watch/{orgName}", watch).Methods("POST")
