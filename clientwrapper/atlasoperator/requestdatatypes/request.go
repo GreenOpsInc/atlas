@@ -11,14 +11,17 @@ const (
 	DeleteTestRequest       string = "DeleteTestRequest"
 )
 
+type RollbackRequest struct {
+	AppName    string `json:"appName"`
+	RevisionId string `json:"revisionId"`
+}
+
 type WatchRequest struct {
-	TeamName     string `json:"teamName"`
-	PipelineName string `json:"pipelineName"`
-	StepName     string `json:"stepName"`
-	Type         string `json:"type"`
-	Name         string `json:"name"`
-	Namespace    string `json:"namespace"`
-	TestNumber   int    `json:"testNumber"`
+	ClientEventMetadata
+	Type       string `json:"type"`
+	Name       string `json:"name"`
+	Namespace  string `json:"namespace"`
+	TestNumber int    `json:"testNumber"`
 }
 
 type KubernetesCreationRequest struct {

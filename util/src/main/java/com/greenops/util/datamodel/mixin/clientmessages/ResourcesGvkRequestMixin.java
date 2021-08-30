@@ -1,8 +1,8 @@
-package com.greenops.workfloworchestrator.datamodel.mixin.requests;
+package com.greenops.util.datamodel.mixin.clientmessages;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.greenops.workfloworchestrator.datamodel.requests.ResourceGvk;
+import com.greenops.util.datamodel.clientmessages.ResourceGvk;
 
 import java.util.List;
 

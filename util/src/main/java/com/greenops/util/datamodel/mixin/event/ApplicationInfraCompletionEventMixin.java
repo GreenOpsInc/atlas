@@ -13,11 +13,14 @@ public abstract class ApplicationInfraCompletionEventMixin {
     String pipelineName;
     @JsonProperty(value = "stepName")
     String stepName;
+    @JsonProperty(value = "success")
+    boolean success;
 
     @JsonCreator
     public ApplicationInfraCompletionEventMixin(@JsonProperty(value = "orgName") String orgName,
                                                 @JsonProperty(value = "teamName") String teamName,
                                                 @JsonProperty(value = "pipelineName") String pipelineName,
-                                                @JsonProperty(value = "stepName") String stepName) {
+                                                @JsonProperty(value = "stepName") String stepName,
+                                                @JsonProperty(value = "success") boolean success) {
     }
 }

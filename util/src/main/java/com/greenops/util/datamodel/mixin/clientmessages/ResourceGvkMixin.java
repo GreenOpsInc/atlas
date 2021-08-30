@@ -1,4 +1,4 @@
-package com.greenops.workfloworchestrator.datamodel.mixin.requests;
+package com.greenops.util.datamodel.mixin.clientmessages;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

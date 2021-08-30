@@ -146,7 +146,7 @@ public class PipelineApi {
         dbClient.storeValue(key, teamSchema);
 
         //TODO: TriggerEvents don't need all of this information. This should be replaced with a special type called a "TriggerEvent"
-        var triggerEvent = new ClientCompletionEvent("Healthy", "Synced", orgName, teamName, pipelineName, "ATLAS_ROOT_DATA", "", "", "", gitRepo.getGitRepo(), "");
+        var triggerEvent = new ClientCompletionEvent("Healthy", "Synced", orgName, teamName, pipelineName, "ATLAS_ROOT_DATA", "", "", "", gitRepo.getGitRepo(), "","");
         try {
             generateEvent(objectMapper.writeValueAsString(triggerEvent));
         } catch (JsonProcessingException e) {
@@ -235,7 +235,7 @@ public class PipelineApi {
         }
 
         //TODO: TriggerEvents don't need all of this information. This should be replaced with a special type called a "TriggerEvent"
-        var triggerEvent = new ClientCompletionEvent("Healthy", "Synced", orgName, teamName, pipelineName, "ATLAS_ROOT_DATA", "", "", "", gitRepo.getGitRepo(), "");
+        var triggerEvent = new ClientCompletionEvent("Healthy", "Synced", orgName, teamName, pipelineName, "ATLAS_ROOT_DATA", "", "", "", gitRepo.getGitRepo(), "", "");
         try {
             generateEvent(objectMapper.writeValueAsString(triggerEvent));
         } catch (JsonProcessingException e) {

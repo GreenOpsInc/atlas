@@ -12,7 +12,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
                 @JsonSubTypes.Type(value = ClientDeployNamedArgoAppAndWatchRequest.class, name = "deploy_namedargo_watch"),
                 @JsonSubTypes.Type(value = ClientDeployNamedArgoApplicationRequest.class, name = "deploy_namedargo"),
                 @JsonSubTypes.Type(value = ClientDeployRequest.class, name = "deploy"),
-                @JsonSubTypes.Type(value = ClientRollbackAndWatchRequest.class, name = "rollback")
+                @JsonSubTypes.Type(value = ClientRollbackAndWatchRequest.class, name = "rollback"),
+                @JsonSubTypes.Type(value = ClientSelectiveSyncAndWatchRequest.class, name = "sel_sync_watch")
         }
 )
 public interface ClientRequest {

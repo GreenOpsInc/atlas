@@ -1,10 +1,10 @@
 package progressionchecker
 
 import (
-	"bytes"
 	"encoding/json"
 	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
+	"greenops.io/client/api/generation"
 	"greenops.io/client/argodriver"
 	"greenops.io/client/k8sdriver"
 	"greenops.io/client/progressionchecker/datamodel"
@@ -23,10 +23,8 @@ const (
 	ProgressionChannelBufferSize int    = 100
 	DefaultMetricsServerAddress  string = "http://argocd-metrics.argocd.svc.cluster.local:8082/metrics"
 	//Command to get localhost address: "minikube ssh 'grep host.minikube.internal /etc/hosts | cut -f1'"
-	DefaultWorkflowTriggerAddress string = "http://workflowtrigger.default.svc.cluster.local:8080"
-	MetricsServerEnvVar           string = "ARGOCD_METRICS_SERVER_ADDR"
-	WorkflowTriggerEnvVar         string = "WORKFLOW_TRIGGER_SERVER_ADDR"
-	HttpRequestRetryLimit         int    = 3
+	MetricsServerEnvVar   string = "ARGOCD_METRICS_SERVER_ADDR"
+	HttpRequestRetryLimit int    = 3
 )
 
 func listenForApplicationsToWatch(inputChannel chan string, outputChannel chan string) {
@@ -46,7 +44,7 @@ func listenForApplicationsToWatch(inputChannel chan string, outputChannel chan s
 	}
 }
 
-func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGetRestricted, argoClient argodriver.ArgoGetRestrictedClient, channel chan string, metricsServerAddress string, workflowTriggerAddress string) {
+func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGetRestricted, argoClient argodriver.ArgoGetRestrictedClient, eventGenerationApi generation.EventGenerationApi, channel chan string, metricsServerAddress string) {
 	watchedApplications := make(map[string]datamodel.WatchKey)
 	for {
 		//Update watched applications list with new entries
@@ -87,7 +85,7 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 						}
 						watchedApplications[mapKey] = newWatchKey
 						for i := 0; i < HttpRequestRetryLimit; i++ {
-							if !watchedApplications[mapKey].GeneratedCompletionEvent && generateEvent(eventInfo, workflowTriggerAddress) {
+							if !watchedApplications[mapKey].GeneratedCompletionEvent && eventGenerationApi.GenerateEvent(eventInfo) {
 								log.Printf("Generated Client Completion event for %s", appInfo.Name)
 								newWatchKey.GeneratedCompletionEvent = true
 								watchedApplications[mapKey] = newWatchKey
@@ -103,7 +101,7 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 					if eventInfo == nil {
 						continue
 					}
-					if !watchKey.GeneratedCompletionEvent && generateEvent(eventInfo, workflowTriggerAddress) {
+					if !watchKey.GeneratedCompletionEvent && eventGenerationApi.GenerateEvent(eventInfo) {
 						log.Printf("Generated Test Completion event for %s", watchKey.Name)
 						watchKey.GeneratedCompletionEvent = true
 						watchedApplications[mapKey] = watchKey
@@ -171,31 +169,13 @@ func getUnmarshalledMetrics(metricsServerAddress string) []datamodel.ArgoAppMetr
 	return unmarshall(&stringBody)
 }
 
-func generateEvent(eventInfo datamodel.EventInfo, workflowTriggerAddress string) bool {
-	data, err := json.Marshal(eventInfo)
-	if err != nil {
-		return false
-	}
-	resp, err := http.Post(workflowTriggerAddress+"/client/generateEvent", "application/json", bytes.NewBuffer(data))
-	if err != nil {
-		log.Printf("Error generating progression event. Error was %s\n", err)
-		return false
-	}
-	defer resp.Body.Close()
-	return resp.StatusCode/100 == 2
-}
-
-func Start(kubernetesClient k8sdriver.KubernetesClientGetRestricted, argoClient argodriver.ArgoGetRestrictedClient, channel chan string) {
+func Start(kubernetesClient k8sdriver.KubernetesClientGetRestricted, argoClient argodriver.ArgoGetRestrictedClient, eventGenerationApi generation.EventGenerationApi, channel chan string) {
 	metricsServerAddress := os.Getenv(MetricsServerEnvVar)
 	if metricsServerAddress == "" {
 		metricsServerAddress = DefaultMetricsServerAddress
 	}
-	workflowTriggerAddress := os.Getenv(WorkflowTriggerEnvVar)
-	if workflowTriggerAddress == "" {
-		workflowTriggerAddress = DefaultWorkflowTriggerAddress
-	}
 	progressionCheckerChannel := make(chan string, ProgressionChannelBufferSize)
 	//TODO: Add initial cache creation
 	go listenForApplicationsToWatch(channel, progressionCheckerChannel)
-	checkForCompletedApplications(kubernetesClient, argoClient, progressionCheckerChannel, metricsServerAddress, workflowTriggerAddress)
+	checkForCompletedApplications(kubernetesClient, argoClient, eventGenerationApi, progressionCheckerChannel, metricsServerAddress)
 }

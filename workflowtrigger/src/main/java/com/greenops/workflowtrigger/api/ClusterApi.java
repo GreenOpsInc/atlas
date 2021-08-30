@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.cluster.ClusterSchema;
 import com.greenops.util.dbclient.DbClient;
+import com.greenops.util.error.AtlasNonRetryableError;
 import com.greenops.workflowtrigger.dbclient.DbKey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +24,10 @@ public class ClusterApi {
     public ClusterApi(DbClient dbClient, ObjectMapper objectMapper) {
         this.dbClient = dbClient;
         this.objectMapper = objectMapper;
+        //Make local cluster
+        //TODO: Can't be done as part of a initialization
+        var localK8sCluster = new ClusterSchema("kubernetes.default.svc.cluster.local", 443, "kubernetes_local");
+        if (createCluster("org", localK8sCluster).getStatusCodeValue() != 200) throw new AtlasNonRetryableError();
     }
 
     @PostMapping(value = "/{orgName}")

@@ -11,8 +11,7 @@ import com.greenops.util.dbclient.DbClient;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.PipelineData;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.Test;
-import com.greenops.workfloworchestrator.datamodel.requests.ResourceGvk;
-import com.greenops.workfloworchestrator.datamodel.requests.ResourcesGvkRequest;
+import com.greenops.util.datamodel.clientmessages.ResourceGvk;
 import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManagerApi;
 import com.greenops.workfloworchestrator.ingest.dbclient.DbKey;
@@ -121,9 +120,8 @@ public class EventHandlerImpl implements EventHandler {
 
             //TODO: Right now, remediation is only based on health. We should be adding in pruning based on OutOfSync statuses as well.
             //TODO: Right now the events are being sent but are just being ignored.
-            if (event.getHealthStatus().equals(DEGRADED)
-                    || event.getHealthStatus().equals(UNKNOWN)
-                    || event.getHealthStatus().equals(MISSING)) {
+            if (event.getHealthStatus().equals(DEGRADED) || event.getHealthStatus().equals(UNKNOWN)) {
+//                    || event.getHealthStatus().equals(MISSING)) {
                 var remediationLog = dbClient.fetchLatestRemediationLog(logKey);
                 if (remediationLog != null) {
                     if (remediationLog.getRemediationStatus().equals(RemediationLog.RemediationStatus.PROGRESSING.name())) {
@@ -147,6 +145,7 @@ public class EventHandlerImpl implements EventHandler {
                 deploymentLogHandler.markStateRemediated(event, step.getName());
             }
         } else {
+            deploymentLogHandler.updateStepDeploymentLog(event, event.getStepName(), event.getArgoName(), event.getRevisionHash());
             if (event.getHealthStatus().equals(DEGRADED) || event.getHealthStatus().equals(UNKNOWN)) {
                 deploymentLogHandler.markStepFailedWithFailedDeployment(event, event.getStepName());
                 if (step.getRollback()) rollback(event);
@@ -212,11 +211,11 @@ public class EventHandlerImpl implements EventHandler {
             deploymentHandler.deleteApplicationInfrastructure(event, pipelineRepoUrl, oldStepData, oldGitCommitHash);
         }
         deploymentHandler.deployApplicationInfrastructure(event, pipelineRepoUrl, pipelineData.getStep(event.getStepName()), deploymentLogHandler.getCurrentGitCommitHash(event, event.getStepName()));
-        notifyAppInfraCompletion(event.getStepName(), event);
     }
 
     private void handleApplicationInfraCompletion(String pipelineRepoUrl, PipelineData pipelineData, ApplicationInfraCompletionEvent event) {
         var stepData = pipelineData.getStep(event.getStepName());
+        if (!event.isSuccess() && stepData.getRollback()) rollback(event);
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepData.getName());
         var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
 
@@ -226,11 +225,8 @@ public class EventHandlerImpl implements EventHandler {
             return;
         } else if (stepData.getArgoApplicationPath() != null || stepData.getArgoApplication() != null) {
             var argoRevisionHash = deploymentLogHandler.getCurrentArgoRevisionHash(event, stepData.getName());
-            argoDeploymentInfo = deploymentHandler.deployArgoApplication(event, pipelineRepoUrl, pipelineData, stepData.getName(), argoRevisionHash, deploymentLogHandler.getCurrentGitCommitHash(event, stepData.getName()));
+            deploymentHandler.deployArgoApplication(event, pipelineRepoUrl, pipelineData, stepData.getName(), argoRevisionHash, deploymentLogHandler.getCurrentGitCommitHash(event, stepData.getName()));
         }
-
-        //Audit log updates
-        deploymentLogHandler.updateStepDeploymentLog(event, stepData.getName(), argoDeploymentInfo.getArgoApplicationName(), argoDeploymentInfo.getArgoRevisionHash());
     }
 
     private void handleTriggerStep(PipelineData pipelineData, String pipelineRepoUrl, TriggerStepEvent event) {
@@ -292,10 +288,6 @@ public class EventHandlerImpl implements EventHandler {
 
     private void triggerAppInfraDeploy(String stepName, Event event) {
         kafkaClient.sendMessage(new ApplicationInfraTriggerEvent(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName));
-    }
-
-    private void notifyAppInfraCompletion(String stepName, Event event) {
-        kafkaClient.sendMessage(new ApplicationInfraCompletionEvent(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName));
     }
 
     private void rollback(Event event) {

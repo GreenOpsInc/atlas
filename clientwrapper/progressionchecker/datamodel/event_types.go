@@ -1,12 +1,16 @@
 package datamodel
 
-import "k8s.io/apimachinery/pkg/runtime/schema"
+import (
+	"greenops.io/client/atlasoperator/requestdatatypes"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
 
 type EventInfoType string
 
 const (
 	ClientCompletionEvent EventInfoType = "clientcompletion"
 	TestCompletionEvent   EventInfoType = "testcompletion"
+	FailureEvent          EventInfoType = "failureevent"
 )
 
 type EventInfo interface {
@@ -27,6 +31,7 @@ type ApplicationEventInfo struct {
 	SyncStatus       string           `json:"syncStatus"`
 	ResourceStatuses []ResourceStatus `json:"resourceStatuses"`
 	ArgoName         string           `json:"argoName"`
+	ArgoNamespace    string           `json:"argoNamespace"`
 	Operation        string           `json:"operation"`
 	Project          string           `json:"project"`
 	Repo             string           `json:"repo"`
@@ -39,6 +44,12 @@ type TestEventInfo struct {
 	Log        string `json:"log"`
 	TestName   string `json:"testName"`
 	TestNumber int    `json:"testNumber"`
+}
+
+type FailureEventInfo struct {
+	EventInfoMetaData
+	StatusCode string `json:"statusCode"`
+	Error      string `json:"error"`
 }
 
 type ResourceStatus struct {
@@ -96,5 +107,26 @@ func MakeTestEvent(key WatchKey, successful bool, logs string) EventInfo {
 		Log:        logs,
 		TestName:   key.Name,
 		TestNumber: key.TestNumber,
+	}
+}
+
+// **
+//FailureEventInfo functionality
+// **
+func (eventInfo FailureEventInfo) GetEventType() EventInfoType {
+	return eventInfo.Type
+}
+
+func MakeFailureEventEvent(clientMetadata requestdatatypes.ClientEventMetadata, statusCode string, error string) EventInfo {
+	return FailureEventInfo{
+		EventInfoMetaData: EventInfoMetaData{
+			Type:         TestCompletionEvent,
+			OrgName:      clientMetadata.OrgName,
+			TeamName:     clientMetadata.TeamName,
+			PipelineName: clientMetadata.PipelineName,
+			StepName:     clientMetadata.StepName,
+		},
+		StatusCode: statusCode,
+		Error:      error,
 	}
 }

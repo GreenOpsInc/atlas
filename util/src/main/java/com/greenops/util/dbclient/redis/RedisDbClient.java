@@ -11,6 +11,7 @@ import com.greenops.util.datamodel.metadata.StepMetadata;
 import com.greenops.util.datamodel.pipeline.TeamSchema;
 import com.greenops.util.datamodel.clientmessages.ClientRequest;
 import com.greenops.util.dbclient.DbClient;
+import com.greenops.util.error.AtlasBadKeyError;
 import com.greenops.util.error.AtlasNonRetryableError;
 import com.greenops.util.error.AtlasRetryableError;
 import io.lettuce.core.RedisClient;
@@ -81,7 +82,10 @@ public class RedisDbClient implements DbClient {
 
     //This is done explicitly due to how rare the use case is. Should generally never be done.
     @Override
-    public void updateHeadInTransactionlessList(String key, Object schema) {
+    public void updateHeadInTransactionlessList(String key, Object schema) throws AtlasBadKeyError {
+        if (redisCommands.exists(key) == 0) {
+            throw new AtlasBadKeyError();
+        }
         log.info("Storing schema for key without a transaction {}", key);
         try {
             if (schema == null) {
@@ -221,7 +225,10 @@ public class RedisDbClient implements DbClient {
     }
 
     @Override
-    public ClientRequest fetchHeadInClientRequestList(String key) {
+    public ClientRequest fetchHeadInClientRequestList(String key) throws AtlasBadKeyError {
+        if (redisCommands.exists(key) == 0) {
+            throw new AtlasBadKeyError();
+        }
         return (ClientRequest) fetchTransactionless(key, ObjectType.CLIENT_REQUEST);
     }
 
