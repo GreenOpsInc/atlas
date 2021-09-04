@@ -94,7 +94,15 @@ public class SpringConfiguration {
                 .addMixIn(RemediationLog.class, RemediationLogMixin.class)
                 .addMixIn(ResourceStatus.class, ResourceStatusMixin.class)
                 .addMixIn(StepMetadata.class, StepMetadataMixin.class)
-                .addMixIn(ArgoRepoSchema.class, ArgoRepoSchemaMixin.class);
+                .addMixIn(ArgoRepoSchema.class, ArgoRepoSchemaMixin.class)
+                .addMixIn(ClientDeleteByConfigRequest.class, ClientDeleteByConfigRequestMixin.class)
+                .addMixIn(ClientDeleteByGvkRequest.class, ClientDeleteByGvkRequestMixin.class)
+                .addMixIn(ClientDeployAndWatchRequest.class, ClientDeployAndWatchRequestMixin.class)
+                .addMixIn(ClientDeployRequest.class, ClientDeployRequestMixin.class)
+                .addMixIn(ClientRollbackAndWatchRequest.class, ClientRollbackAndWatchRequestMixin.class)
+                .addMixIn(ClientSelectiveSyncAndWatchRequest.class, ClientSelectiveSyncAndWatchRequestMixin.class)
+                .addMixIn(ResourcesGvkRequest.class, ResourcesGvkRequestMixin.class)
+                .addMixIn(ResourceGvk.class, ResourceGvkMixin.class);
     }
 
     @Bean

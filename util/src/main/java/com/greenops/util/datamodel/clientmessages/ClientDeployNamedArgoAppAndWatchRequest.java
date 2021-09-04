@@ -4,7 +4,7 @@ public class ClientDeployNamedArgoAppAndWatchRequest implements ClientRequest {
 
     //For deploying
     private String orgName;
-    private String type;
+    private String deployType;
     private String appName;
     //For watching
     private String watchType;
@@ -13,9 +13,9 @@ public class ClientDeployNamedArgoAppAndWatchRequest implements ClientRequest {
     private String stepName;
 
 
-    public ClientDeployNamedArgoAppAndWatchRequest(String orgName, String type, String appName, String watchType, String teamName, String pipelineName, String stepName) {
+    public ClientDeployNamedArgoAppAndWatchRequest(String orgName, String deployType, String appName, String watchType, String teamName, String pipelineName, String stepName) {
         this.orgName = orgName;
-        this.type = type;
+        this.deployType = deployType;
         this.appName = appName;
         this.watchType = watchType;
         this.teamName = teamName;

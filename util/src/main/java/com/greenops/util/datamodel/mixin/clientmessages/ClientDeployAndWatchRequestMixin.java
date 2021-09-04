@@ -10,6 +10,8 @@ public abstract class ClientDeployAndWatchRequestMixin {
     String orgName;
     @JsonProperty("deployType")
     String deployType;
+    @JsonProperty("revisionHash")
+    String revisionHash;
     @JsonProperty("payload")
     String payload;
     //For watching
@@ -21,14 +23,18 @@ public abstract class ClientDeployAndWatchRequestMixin {
     String pipelineName;
     @JsonProperty("stepName")
     String stepName;
+    @JsonProperty("testNumber")
+    int testNumber;
 
     @JsonCreator
     public ClientDeployAndWatchRequestMixin(@JsonProperty("orgName") String orgName,
                                             @JsonProperty("deployType") String deployType,
+                                            @JsonProperty("revisionHash") String revisionHash,
                                             @JsonProperty("payload") String payload,
                                             @JsonProperty("watchType") String watchType,
                                             @JsonProperty("teamName") String teamName,
                                             @JsonProperty("pipelineName") String pipelineName,
-                                            @JsonProperty("stepName") String stepName) {
+                                            @JsonProperty("stepName") String stepName,
+                                            @JsonProperty("testNumber") int testNumber) {
     }
 }

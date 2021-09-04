@@ -15,5 +15,7 @@ cd ../PipelineRepoServer/
 ./gradlew jibDockerBuild --image=atlasreposerver
 cd ../WorkflowOrchestrator/
 ./gradlew jibDockerBuild --image=atlasworkfloworchestrator
+cd ../commanddelegator/
+./gradlew jibDockerBuild --image=atlascommanddelegator
 cd ../WorkflowTrigger/src/test/test_config
 perl -p -e "s/LOCALHOSTDYNAMICADDRESS/$localhostip/g" atlasinfrastructure.yaml | kubectl apply -f -

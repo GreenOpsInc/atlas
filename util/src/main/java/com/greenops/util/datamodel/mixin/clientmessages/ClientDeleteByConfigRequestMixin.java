@@ -7,6 +7,12 @@ public abstract class ClientDeleteByConfigRequestMixin {
 
     @JsonProperty("orgName")
     String orgName;
+    @JsonProperty("teamName")
+    String teamName;
+    @JsonProperty("pipelineName")
+    String pipelineName;
+    @JsonProperty("stepName")
+    String stepName;
     @JsonProperty("type")
     String type;
     @JsonProperty("configPayload")
@@ -14,6 +20,9 @@ public abstract class ClientDeleteByConfigRequestMixin {
 
     @JsonCreator
     public ClientDeleteByConfigRequestMixin(@JsonProperty("orgName") String orgName,
+                                            @JsonProperty("teamName") String teamName,
+                                            @JsonProperty("pipelineName") String pipelineName,
+                                            @JsonProperty("stepName") String stepName,
                                             @JsonProperty("type") String type,
                                             @JsonProperty("configPayload") String configPayload) {
     }

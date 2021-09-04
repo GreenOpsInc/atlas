@@ -5,16 +5,18 @@ import (
 	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/gorilla/mux"
+	"greenops.io/client/api/generation"
+	"greenops.io/client/api/ingest"
 	"greenops.io/client/argodriver"
 	"greenops.io/client/atlasoperator/requestdatatypes"
 	"greenops.io/client/k8sdriver"
 	"greenops.io/client/progressionchecker"
 	"greenops.io/client/progressionchecker/datamodel"
-	"io/ioutil"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 const (
@@ -29,12 +31,10 @@ type Drivers struct {
 var drivers Drivers
 var channel chan string
 
-func deploy(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	deployType := vars["type"]
-	revision := vars["revision"]
-	byteReqBody, _ := ioutil.ReadAll(r.Body)
-	stringReqBody := string(byteReqBody)
+func deploy(request *requestdatatypes.ClientDeployRequest) requestdatatypes.DeployResponse {
+	deployType := request.DeployType
+	revision := request.RevisionHash
+	stringReqBody := request.Payload
 	var success bool
 	var resourceName string
 	var appNamespace string
@@ -60,18 +60,22 @@ func deploy(w http.ResponseWriter, r *http.Request) {
 			revisionHash = NotApplicable
 		}
 	} else {
-		success, resourceName, appNamespace = drivers.k8sDriver.Deploy(&stringReqBody)
-		revisionHash = NotApplicable
+		resources := strings.Split(stringReqBody, "---")
+		for _, resource := range resources {
+			success, resourceName, appNamespace = drivers.k8sDriver.Deploy(&resource)
+			revisionHash = NotApplicable
+			if !success {
+				break
+			}
+		}
 	}
 
-	json.NewEncoder(w).Encode(
-		requestdatatypes.DeployResponse{
-			Success:      success,
-			ResourceName: resourceName,
-			AppNamespace: appNamespace,
-			RevisionHash: revisionHash,
-		},
-	)
+	return requestdatatypes.DeployResponse{
+		Success:      success,
+		ResourceName: resourceName,
+		AppNamespace: appNamespace,
+		RevisionHash: revisionHash,
+	}
 }
 
 func deployArgoAppByName(w http.ResponseWriter, r *http.Request) {
@@ -94,48 +98,42 @@ func deployArgoAppByName(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-func selectiveSyncArgoApp(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	teamName := vars["teamName"]
-	pipelineName := vars["pipelineName"]
-	stepName := vars["stepName"]
-	appName := vars["appName"]
-	stringRevisionHash := vars["revisionId"]
-	var gvkGroupRequest requestdatatypes.GvkGroupRequest
-	byteReqBody, _ := ioutil.ReadAll(r.Body)
-	json.Unmarshal(byteReqBody, &gvkGroupRequest)
-
-	success, resourceName, appNamespace, revisionHash := drivers.argoDriver.SelectiveSync(appName, stringRevisionHash, gvkGroupRequest)
+func selectiveSyncArgoApp(request *requestdatatypes.ClientSelectiveSyncRequest) requestdatatypes.RemediationResponse {
+	success, resourceName, appNamespace, revisionHash := drivers.argoDriver.SelectiveSync(request.AppName, request.RevisionHash, request.GvkResourceList)
 	if success {
-		key := makeWatchKeyFromRequest(datamodel.WatchArgoApplicationKey, vars["orgName"], teamName, pipelineName, stepName, -1, resourceName, appNamespace)
+		key := makeWatchKeyFromRequest(
+			datamodel.WatchArgoApplicationKey,
+			request.OrgName,
+			request.TeamName,
+			request.PipelineName,
+			request.StepName,
+			-1,
+			resourceName,
+			appNamespace,
+		)
 		byteKey, _ := json.Marshal(key)
 		channel <- string(byteKey)
 		channel <- progressionchecker.EndTransactionMarker
 	}
 
-	json.NewEncoder(w).Encode(
-		requestdatatypes.RemediationResponse{
-			Success:      success,
-			ResourceName: resourceName,
-			AppNamespace: appNamespace,
-			RevisionHash: revisionHash,
-		})
+	return requestdatatypes.RemediationResponse{
+		Success:      success,
+		ResourceName: resourceName,
+		AppNamespace: appNamespace,
+		RevisionHash: revisionHash,
+	}
 }
 
-func rollbackArgoApp(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	appName := vars["appName"]
-	stringRevisionHash := vars["revisionId"]
+func rollbackArgoApp(request *requestdatatypes.RollbackRequest) requestdatatypes.DeployResponse {
 	var revisionHash string
-	success, resourceName, appNamespace, revisionHash := drivers.argoDriver.Rollback(appName, stringRevisionHash)
+	success, resourceName, appNamespace, revisionHash := drivers.argoDriver.Rollback(request.AppName, request.RevisionId)
 
-	json.NewEncoder(w).Encode(
-		requestdatatypes.DeployResponse{
-			Success:      success,
-			ResourceName: resourceName,
-			AppNamespace: appNamespace,
-			RevisionHash: revisionHash,
-		})
+	return requestdatatypes.DeployResponse{
+		Success:      success,
+		ResourceName: resourceName,
+		AppNamespace: appNamespace,
+		RevisionHash: revisionHash,
+	}
 }
 
 func deleteResource(w http.ResponseWriter, r *http.Request) {
@@ -155,32 +153,33 @@ func deleteResource(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(success)
 }
 
-func deleteResourceFromConfig(w http.ResponseWriter, r *http.Request) {
-	//vars := mux.Vars(r)
-	//deleteType := vars["type"]
-	byteReqBody, _ := ioutil.ReadAll(r.Body)
-	stringReqBody := string(byteReqBody)
-	success := drivers.k8sDriver.DeleteBasedOnConfig(&stringReqBody)
-
-	json.NewEncoder(w).Encode(success)
+func deleteResourceFromConfig(request *requestdatatypes.ClientDeleteByConfigRequest) bool {
+	resources := strings.Split(request.ConfigPayload, "---")
+	var success bool
+	for _, resource := range resources {
+		success = drivers.k8sDriver.DeleteBasedOnConfig(&resource)
+		if !success {
+			return false
+		}
+	}
+	return true
 }
 
-func deleteApplication(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
+func deleteApplicationByGvk(request *requestdatatypes.ClientDeleteByGvkRequest) bool {
 	groupVersionKind := schema.GroupVersionKind{
-		Group:   vars["group"],
-		Version: vars["version"],
-		Kind:    vars["kind"],
+		Group:   request.Group,
+		Version: request.Version,
+		Kind:    request.Kind,
 	}
-	applicationName := vars["name"]
+	applicationName := request.ResourceName
 	var success bool
 	if strings.Contains(groupVersionKind.Group, "argo") {
 		success = drivers.argoDriver.Delete(applicationName)
 	} else {
-		panic("K8S delete method not implemented yet.")
+		success = drivers.k8sDriver.Delete(request.ResourceName, request.ResourceNamespace, groupVersionKind)
 	}
 
-	json.NewEncoder(w).Encode(success)
+	return success
 }
 
 func checkStatus(w http.ResponseWriter, r *http.Request) {
@@ -201,26 +200,33 @@ func checkStatus(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(success)
 }
 
-func watch(w http.ResponseWriter, r *http.Request) {
-	var watchRequest requestdatatypes.WatchRequest
-	err := json.NewDecoder(r.Body).Decode(&watchRequest)
-	if err != nil {
-		json.NewEncoder(w).Encode(false)
-		return
-	}
-	vars := mux.Vars(r)
+func watch(request *requestdatatypes.WatchRequest) bool {
 	var watchKeyType datamodel.WatchKeyType
-	if watchRequest.Type == string(datamodel.WatchTestKey) {
+	if request.Type == string(datamodel.WatchTestKey) {
 		watchKeyType = datamodel.WatchTestKey
 	} else {
 		watchKeyType = datamodel.WatchArgoApplicationKey
 	}
 
-	key := makeWatchKeyFromRequest(watchKeyType, vars["orgName"], watchRequest.TeamName, watchRequest.PipelineName, watchRequest.StepName, watchRequest.TestNumber, watchRequest.Name, watchRequest.Namespace)
+	key := datamodel.WatchKey{
+		WatchKeyMetaData: datamodel.WatchKeyMetaData{
+			Type:         watchKeyType,
+			OrgName:      request.OrgName,
+			TeamName:     request.TeamName,
+			PipelineName: request.PipelineName,
+			StepName:     request.StepName,
+			TestNumber:   request.TestNumber,
+		},
+		Name:                     request.Name,
+		Namespace:                request.Namespace,
+		HealthStatus:             string(health.HealthStatusMissing),
+		SyncStatus:               string(v1alpha1.SyncStatusCodeOutOfSync),
+		GeneratedCompletionEvent: false,
+	}
 	byteKey, _ := json.Marshal(key)
 	channel <- string(byteKey)
 	channel <- progressionchecker.EndTransactionMarker
-	json.NewEncoder(w).Encode(true)
+	return true
 }
 
 func makeWatchKeyFromRequest(watchKeyType datamodel.WatchKeyType, orgName string, teamName string, pipelineName string, stepName string, testNumber int, name string, namespace string) *datamodel.WatchKey {
@@ -241,21 +247,95 @@ func makeWatchKeyFromRequest(watchKeyType datamodel.WatchKeyType, orgName string
 	}
 }
 
-func handleRequests() {
-	myRouter := mux.NewRouter().StrictSlash(true)
-	myRouter.HandleFunc("/deploy/{orgName}/{type}/{revision}", deploy).Methods("POST")
-	myRouter.HandleFunc("/deploy/{orgName}/{type}/{argoAppName}", deployArgoAppByName).Methods("POST")
-	myRouter.HandleFunc("/delete/{orgName}/{type}/{resourceName}/{resourceNamespace}/{group}/{version}{kind}", deleteResource).Methods("POST")
-	myRouter.HandleFunc("/delete/{orgName}/{type}", deleteResourceFromConfig).Methods("POST")
-	myRouter.HandleFunc("/rollback/{orgName}/{appName}/{revisionId}", rollbackArgoApp).Methods("POST")
-	myRouter.HandleFunc("/sync/{orgName}/{teamName}/{pipelineName}/{stepName}/{appName}/{revisionId}", selectiveSyncArgoApp).Methods("POST")
-	myRouter.HandleFunc("/delete/{group}/{version}/{kind}/{name}", deleteApplication).Methods("POST")
-	myRouter.HandleFunc("/checkStatus/{group}/{version}/{kind}/{name}", checkStatus).Methods("GET")
-	myRouter.HandleFunc("/watch/{orgName}", watch).Methods("POST")
-	log.Fatal(http.ListenAndServe(":9091", myRouter))
+func deployAndWatch(request *requestdatatypes.ClientDeployAndWatchRequest) {
+	deployRequest := requestdatatypes.ClientDeployRequest{
+		ClientEventMetadata: request.ClientEventMetadata,
+		DeployType:          request.DeployType,
+		RevisionHash:        request.RevisionHash,
+		Payload:             request.Payload,
+	}
+	deployResponse := deploy(&deployRequest)
+	if deployResponse.Success {
+		watchRequest := requestdatatypes.WatchRequest{
+			ClientEventMetadata: request.ClientEventMetadata,
+			Type:                request.WatchType,
+			Name:                deployResponse.ResourceName,
+			Namespace:           deployResponse.AppNamespace,
+			TestNumber:          request.TestNumber,
+		}
+		watch(&watchRequest)
+	} else {
+		//TODO: Handle this
+	}
+}
+
+func rollbackAndWatch(request *requestdatatypes.ClientRollbackAndWatchRequest) {
+	rollbackRequest := requestdatatypes.RollbackRequest{
+		AppName:    request.AppName,
+		RevisionId: request.RevisionHash,
+	}
+	deployResponse := rollbackArgoApp(&rollbackRequest)
+	if deployResponse.Success {
+		watchRequest := requestdatatypes.WatchRequest{
+			ClientEventMetadata: request.ClientEventMetadata,
+			Type:                request.WatchType,
+			Name:                deployResponse.ResourceName,
+			Namespace:           deployResponse.AppNamespace,
+			TestNumber:          -1,
+		}
+		watch(&watchRequest)
+	} else {
+		//TODO: Handle this
+	}
+}
+
+func handleRequests(commandDelegatorApi ingest.CommandDelegatorApi, eventGenerationApi generation.EventGenerationApi) {
+	for {
+		commands, err := commandDelegatorApi.GetCommands()
+		if err != nil {
+			log.Printf("Error getting commands %s", err)
+			continue
+		}
+		for _, command := range *commands {
+			log.Printf("Handling event type %s", command.GetEvent())
+			if command.GetEvent() == requestdatatypes.ClientDeployRequestType {
+				var request requestdatatypes.ClientDeployRequest
+				request = command.(requestdatatypes.ClientDeployRequest)
+				deployResponse := deploy(&request)
+				if deployResponse.Success {
+					eventGenerationApi.GenerateResponseEvent(request.ResponseEventType.MakeResponseEvent(&deployResponse, &request))
+				}
+			} else if command.GetEvent() == requestdatatypes.ClientDeployAndWatchRequestType {
+				var request requestdatatypes.ClientDeployAndWatchRequest
+				request = command.(requestdatatypes.ClientDeployAndWatchRequest)
+				deployAndWatch(&request)
+			} else if command.GetEvent() == requestdatatypes.ClientRollbackAndWatchRequestType {
+				var request requestdatatypes.ClientRollbackAndWatchRequest
+				request = command.(requestdatatypes.ClientRollbackAndWatchRequest)
+				rollbackAndWatch(&request)
+			} else if command.GetEvent() == requestdatatypes.ClientDeleteByGvkRequestType {
+				var request requestdatatypes.ClientDeleteByGvkRequest
+				request = command.(requestdatatypes.ClientDeleteByGvkRequest)
+				deleteApplicationByGvk(&request)
+			} else if command.GetEvent() == requestdatatypes.ClientDeleteByConfigRequestType {
+				var request requestdatatypes.ClientDeleteByConfigRequest
+				request = command.(requestdatatypes.ClientDeleteByConfigRequest)
+				deleteResourceFromConfig(&request)
+			} else if command.GetEvent() == requestdatatypes.ClientSelectiveSyncRequestType {
+				var request requestdatatypes.ClientSelectiveSyncRequest
+				request = command.(requestdatatypes.ClientSelectiveSyncRequest)
+				selectiveSyncArgoApp(&request)
+			}
+			commandDelegatorApi.AckHeadOfRequestList()
+		}
+		duration := 10 * time.Second
+		time.Sleep(duration)
+	}
 }
 
 func main() {
+	commandDelegatorApi := ingest.Create()
+	eventGenerationApi := generation.Create()
 	kubernetesDriver := k8sdriver.New()
 	argoDriver := argodriver.New(&kubernetesDriver)
 	drivers = Drivers{
@@ -267,6 +347,6 @@ func main() {
 	getRestrictedKubernetesClient = kubernetesDriver
 	var getRestrictedArgoClient argodriver.ArgoGetRestrictedClient
 	getRestrictedArgoClient = argoDriver
-	go progressionchecker.Start(getRestrictedKubernetesClient, getRestrictedArgoClient, channel)
-	handleRequests()
+	go progressionchecker.Start(getRestrictedKubernetesClient, getRestrictedArgoClient, eventGenerationApi, channel)
+	handleRequests(commandDelegatorApi, eventGenerationApi)
 }

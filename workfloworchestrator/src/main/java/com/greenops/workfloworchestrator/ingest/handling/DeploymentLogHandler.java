@@ -2,7 +2,7 @@ package com.greenops.workfloworchestrator.ingest.handling;
 
 import com.greenops.util.datamodel.auditlog.DeploymentLog;
 import com.greenops.util.datamodel.event.Event;
-import com.greenops.workfloworchestrator.datamodel.requests.ResourceGvk;
+import com.greenops.util.datamodel.clientmessages.ResourceGvk;
 
 import java.util.List;
 

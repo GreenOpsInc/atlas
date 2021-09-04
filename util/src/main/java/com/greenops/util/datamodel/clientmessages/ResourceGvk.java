@@ -1,4 +1,4 @@
-package com.greenops.workfloworchestrator.datamodel.requests;
+package com.greenops.util.datamodel.clientmessages;
 
 public class ResourceGvk {
 

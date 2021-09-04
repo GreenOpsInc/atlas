@@ -1,4 +1,4 @@
-package com.greenops.workfloworchestrator.datamodel.requests;
+package com.greenops.util.datamodel.clientmessages;
 
 import java.util.ArrayList;
 import java.util.List;

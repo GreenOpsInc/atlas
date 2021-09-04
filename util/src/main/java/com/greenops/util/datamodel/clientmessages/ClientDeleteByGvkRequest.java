@@ -3,16 +3,22 @@ package com.greenops.util.datamodel.clientmessages;
 public class ClientDeleteByGvkRequest implements ClientRequest {
 
     private String orgName;
-    private String type;
+    private String teamName;
+    private String pipelineName;
+    private String stepName;
+    private String deleteType;
     private String resourceName;
     private String resourceNamespace;
     private String group;
     private String version;
     private String kind;
 
-    public ClientDeleteByGvkRequest(String orgName, String type, String resourceName, String resourceNamespace, String group, String version, String kind) {
+    public ClientDeleteByGvkRequest(String orgName, String teamName, String pipelineName, String stepName, String deleteType, String resourceName, String resourceNamespace, String group, String version, String kind) {
         this.orgName = orgName;
-        this.type = type;
+        this.teamName = teamName;
+        this.pipelineName = pipelineName;
+        this.stepName = stepName;
+        this.deleteType = deleteType;
         this.resourceName = resourceName;
         this.resourceNamespace = resourceNamespace;
         this.group = group;

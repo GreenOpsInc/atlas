@@ -3,12 +3,18 @@ package com.greenops.util.datamodel.clientmessages;
 public class ClientDeleteByConfigRequest implements ClientRequest {
 
     private String orgName;
-    private String type;
+    private String teamName;
+    private String pipelineName;
+    private String stepName;
+    private String deleteType;
     private String configPayload;
 
-    public ClientDeleteByConfigRequest(String orgName, String type, String configPayload) {
+    public ClientDeleteByConfigRequest(String orgName, String teamName, String pipelineName, String stepName, String deleteType, String configPayload) {
         this.orgName = orgName;
-        this.type = type;
+        this.teamName = teamName;
+        this.pipelineName = pipelineName;
+        this.stepName = stepName;
+        this.deleteType = deleteType;
         this.configPayload = configPayload;
     }
 }

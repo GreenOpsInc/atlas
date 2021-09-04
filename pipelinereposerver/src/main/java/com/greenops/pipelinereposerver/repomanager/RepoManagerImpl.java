@@ -73,7 +73,7 @@ public class RepoManagerImpl implements RepoManager {
                 gitRepos.add(new GitRepoCache(commitHash, commitHash, gitRepoSchema));
                 return true;
             } else {
-                log.info("Cloning repo {} was not successful. Cleaning up...", gitRepoSchema.getGitRepo());
+                log.info("Cloning repo {} was not successful. Error: {}\nCleaning up...", gitRepoSchema.getGitRepo(), new String(process.getErrorStream().readAllBytes()));
                 delete(gitRepoSchema);
                 return false;
             }
@@ -314,6 +314,7 @@ public class RepoManagerImpl implements RepoManager {
                     .command("/bin/bash", "-c", "apt-get update && apt-get install -y git; ls tmp;" + command)
                     .start();
             int exitCode = process.waitFor();
+            log.info("Errors: {}", new String(process.getErrorStream().readAllBytes()));
             return exitCode == 0;
         } catch (IOException | InterruptedException e) {
             return false;

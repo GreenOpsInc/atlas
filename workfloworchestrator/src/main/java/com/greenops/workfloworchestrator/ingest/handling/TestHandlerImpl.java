@@ -4,9 +4,7 @@ import com.greenops.util.datamodel.event.Event;
 import com.greenops.util.datamodel.request.GetFileRequest;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.Test;
-import com.greenops.workfloworchestrator.datamodel.requests.WatchRequest;
-import com.greenops.workfloworchestrator.error.AtlasRetryableError;
-import com.greenops.workfloworchestrator.ingest.apiclient.clientwrapper.ClientWrapperApi;
+import com.greenops.workfloworchestrator.ingest.apiclient.clientwrapper.ClientRequestQueue;
 import com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManagerApi;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,12 +17,12 @@ import static com.greenops.workfloworchestrator.ingest.handling.EventHandlerImpl
 public class TestHandlerImpl implements TestHandler {
 
     private RepoManagerApi repoManagerApi;
-    private ClientWrapperApi clientWrapperApi;
+    private ClientRequestQueue clientRequestQueue;
 
     @Autowired
-    TestHandlerImpl(RepoManagerApi repoManagerApi, ClientWrapperApi clientWrapperApi) {
+    TestHandlerImpl(RepoManagerApi repoManagerApi, ClientRequestQueue clientRequestQueue) {
         this.repoManagerApi = repoManagerApi;
-        this.clientWrapperApi = clientWrapperApi;
+        this.clientRequestQueue = clientRequestQueue;
     }
 
     @Override
@@ -42,19 +40,17 @@ public class TestHandlerImpl implements TestHandler {
         var getFileRequest = new GetFileRequest(pipelineRepoUrl, test.getPath(), gitCommitHash);
         var testConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
         log.info("Creating test Job...");
-        var deployResponse = clientWrapperApi.deploy(
+        clientRequestQueue.deployAndWatch(
                 clusterName,
                 event.getOrgName(),
-                ClientWrapperApi.DEPLOY_TEST_REQUEST,
-                ClientWrapperApi.LATEST_REVISION,
-                test.getPayload(testNumber, testConfig)
+                event.getTeamName(),
+                event.getPipelineName(),
+                stepName,
+                ClientRequestQueue.DEPLOY_TEST_REQUEST,
+                ClientRequestQueue.LATEST_REVISION,
+                test.getPayload(testNumber, testConfig),
+                WATCH_TEST_KEY,
+                testNumber
         );
-        if (deployResponse.getSuccess()) {
-            var watchRequest = new WatchRequest(event.getTeamName(), event.getPipelineName(), stepName, WATCH_TEST_KEY, deployResponse.getResourceName(), deployResponse.getApplicationNamespace(), testNumber);
-            clientWrapperApi.watchApplication(clusterName, event.getOrgName(), watchRequest);
-            log.info("Watching Job");
-        } else {
-            throw new AtlasRetryableError("Test deployment was unsuccessful");
-        }
     }
 }

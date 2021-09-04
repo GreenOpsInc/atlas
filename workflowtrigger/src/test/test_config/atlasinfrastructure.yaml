@@ -393,3 +393,62 @@ spec:
           resources: {}
       restartPolicy: Always
 status: {}
+---
+#CommandDelegator Service & Deployment
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: commanddelegator
+  name: commanddelegator
+spec:
+  ports:
+    - name: "8080"
+      port: 8080
+      targetPort: 8080
+  selector:
+    io.kompose.service: commanddelegator
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: commanddelegator
+  name: commanddelegator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: commanddelegator
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.23.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: commanddelegator
+    spec:
+      containers:
+        - env:
+            - name: REDIS_ENDPOINT
+              value: redisserver.default.svc.cluster.local:6379
+          image: atlascommanddelegator
+          imagePullPolicy: Never
+          name: commanddelegator
+          ports:
+            - containerPort: 8080
+          resources: {}
+      restartPolicy: Always
+status: {}

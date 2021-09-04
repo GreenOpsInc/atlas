@@ -9,6 +9,7 @@ import com.greenops.util.datamodel.metadata.StepMetadata;
 import com.greenops.util.datamodel.metadata.StepMetadata;
 import com.greenops.util.datamodel.pipeline.TeamSchema;
 import com.greenops.util.datamodel.clientmessages.ClientRequest;
+import com.greenops.util.error.AtlasBadKeyError;
 
 import java.util.List;
 
@@ -28,7 +29,7 @@ public interface DbClient {
     public void insertValueInList(String key, Object schema);
     public void insertValueInTransactionlessList(String key, Object schema);
     public void updateHeadInList(String key, Object schema);
-    public void updateHeadInTransactionlessList(String key, Object schema);
+    public void updateHeadInTransactionlessList(String key, Object schema) throws AtlasBadKeyError;
     public TeamSchema fetchTeamSchema(String key);
     public List<String> fetchStringList(String key);
     public ClusterSchema fetchClusterSchema(String key);
@@ -38,7 +39,7 @@ public interface DbClient {
     public DeploymentLog fetchLatestDeploymentLog(String key);
     public RemediationLog fetchLatestRemediationLog(String key);
     public StepMetadata fetchMetadata(String key);
-    public ClientRequest fetchHeadInClientRequestList(String key);
+    public ClientRequest fetchHeadInClientRequestList(String key) throws AtlasBadKeyError;
     public void shutdown();
 }
 

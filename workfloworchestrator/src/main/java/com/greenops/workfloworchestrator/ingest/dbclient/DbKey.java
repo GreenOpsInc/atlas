@@ -14,8 +14,8 @@ public class DbKey {
         return Strings.join(List.of(orgName, teamName, pipelineName, stepName), '-');
     }
 
-    public static String makeClientRequestQueueKey(String orgName, String teamName, String clusterName) {
-        return Strings.join(List.of(orgName, teamName, clusterName, "events"), '-');
+    public static String makeClientRequestQueueKey(String orgName, String clusterName) {
+        return Strings.join(List.of(orgName, clusterName, "events"), '-');
     }
 
     public static String makeDbMetadataKey(String orgName, String teamName, String pipelineName, String stepName) {

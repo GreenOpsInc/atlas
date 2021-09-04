@@ -26,13 +26,14 @@ public class ClientCompletionEvent implements Event {
     private String pipelineName;
     private String stepName;
     private String argoName;
+    private String argoNamespace;
     private String operation;
     private String project;
     private String repo;
     private String revisionHash;
 
     public ClientCompletionEvent(String healthStatus, String syncStatus, String orgName, String teamName, String pipelineName, String stepName,
-                                 String argoName, String operation, String project, String repo, String revisionHash, List<ResourceStatus> resourceStatuses) {
+                                 String argoName, String argoNamespace, String operation, String project, String repo, String revisionHash, List<ResourceStatus> resourceStatuses) {
         this.healthStatus = healthStatus;
         this.syncStatus = syncStatus;
         this.orgName = orgName;
@@ -40,6 +41,7 @@ public class ClientCompletionEvent implements Event {
         this.pipelineName = pipelineName;
         this.stepName = stepName;
         this.argoName = argoName;
+        this.argoNamespace = argoNamespace;
         this.operation = operation;
         this.project = project;
         this.repo = repo;
@@ -48,8 +50,8 @@ public class ClientCompletionEvent implements Event {
     }
 
     public ClientCompletionEvent(String healthStatus, String syncStatus, String orgName, String teamName, String pipelineName, String stepName,
-                                 String argoName, String operation, String project, String repo, String revisionHash) {
-        this(healthStatus, syncStatus, orgName, teamName, pipelineName, stepName, argoName, operation, project, repo, revisionHash, new ArrayList<>());
+                                 String argoName, String operation, String project, String repo, String revisionHash, String argoNamespace) {
+        this(healthStatus, syncStatus, orgName, teamName, pipelineName, stepName, argoName, argoNamespace, operation, project, repo, revisionHash, new ArrayList<>());
     }
 
     @Override
@@ -90,5 +92,13 @@ public class ClientCompletionEvent implements Event {
 
     public List<ResourceStatus> getResourceStatuses() {
         return resourceStatuses;
+    }
+
+    public String getArgoName() {
+        return argoName;
+    }
+
+    public String getArgoNamespace() {
+        return argoNamespace;
     }
 }

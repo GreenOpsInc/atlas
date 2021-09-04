@@ -4,7 +4,7 @@ import com.greenops.util.datamodel.auditlog.DeploymentLog;
 import com.greenops.util.datamodel.auditlog.RemediationLog;
 import com.greenops.util.datamodel.event.Event;
 import com.greenops.util.dbclient.DbClient;
-import com.greenops.workfloworchestrator.datamodel.requests.ResourceGvk;
+import com.greenops.util.datamodel.clientmessages.ResourceGvk;
 import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.ingest.dbclient.DbKey;
 import lombok.extern.slf4j.Slf4j;

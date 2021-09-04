@@ -2,6 +2,10 @@ package com.greenops.util.error;
 
 public class AtlasNonRetryableError extends RuntimeException {
 
+    public AtlasNonRetryableError() {
+        super();
+    }
+
     public AtlasNonRetryableError(String message) {
         super(message);
     }
