@@ -9,6 +9,7 @@ nav:
   - 'Build Book':
     - 'buildbook/step.md'
     - 'buildbook/pipeline.md'
+    - 'buildbook/sync-configs.md'
   - 'Task/Test Registry':
     - 'tasktestregistry/overview.md'
     - 'tasktestregistry/contributing.md'
