@@ -33,6 +33,17 @@ const (
 	ArgoRevisionHashLatest string = "LATEST_REVISION"
 )
 
+const (
+	ArgoSyncStrategyDefault          string = "N/A"
+	ArgoSyncStrategyForceDefault     bool   = false
+	ArgoSyncPruneDefault             bool   = false
+	ArgoSyncSelectiveDefault         bool   = false
+	AnnotationAtlasSyncStrategy      string = "atlas-argo-sync-strategy"
+	AnnotationAtlasSyncStrategyForce string = "atlas-argo-sync-strategy-force"
+	AnnotationAtlasSyncPrune         string = "atlas-argo-sync-prune"
+	AnnotationAtlasSyncSelective     string = "atlas-argo-sync-selective"
+)
+
 type ArgoGetRestrictedClient interface {
 	GetAppResourcesStatus(applicationName string) ([]datamodel.ResourceStatus, error)
 	GetOperationSuccess(applicationName string) (bool, bool, string, error)
@@ -211,7 +222,70 @@ func (a ArgoClientDriver) Sync(applicationName string) (bool, string, string, st
 	//Sync() returns the current state of the application and triggers the synchronization of the application, so the return
 	//value is not useful in this case
 	var argoApplication *v1alpha1.Application
-	argoApplication, err = applicationClient.Sync(context.TODO(), &application.ApplicationSyncRequest{Name: &applicationName})
+	argoApplication, err = applicationClient.Get(context.TODO(), &application.ApplicationQuery{Name: &applicationName})
+	if err != nil {
+		log.Printf("Getting the application threw an error. Error was %s\n", err)
+		return false, "", "", ""
+	}
+	prune := ArgoSyncPruneDefault
+	strategy := ArgoSyncStrategyDefault
+	selectiveSync := ArgoSyncSelectiveDefault
+	syncStrategyForce := ArgoSyncStrategyForceDefault
+	if val, ok := argoApplication.Annotations[AnnotationAtlasSyncPrune]; ok {
+		if val == "true" {
+			prune = true
+		}
+	}
+	if val, ok := argoApplication.Annotations[AnnotationAtlasSyncStrategy]; ok {
+		strategy = val
+	}
+	if val, ok := argoApplication.Annotations[AnnotationAtlasSyncSelective]; ok {
+		if val == "true" {
+			selectiveSync = true
+		}
+	}
+	if val, ok := argoApplication.Annotations[AnnotationAtlasSyncStrategyForce]; ok {
+		if val == "true" {
+			syncStrategyForce = true
+		}
+	}
+	var applicationSyncRequest application.ApplicationSyncRequest
+	applicationSyncRequest = application.ApplicationSyncRequest{
+		Name:          &applicationName,
+		Prune:         prune,
+		RetryStrategy: argoApplication.Spec.SyncPolicy.Retry,
+	}
+	if selectiveSync {
+		resourceStatuses := make([]v1alpha1.SyncOperationResource, 0)
+		for _, resource := range argoApplication.Status.Resources {
+			requiresSyncingHealthList := []health.HealthStatusCode{
+				health.HealthStatusMissing, health.HealthStatusUnknown, health.HealthStatusDegraded, health.HealthStatusSuspended,
+			}
+			requiresSyncingSyncList := []v1alpha1.SyncStatusCode{
+				v1alpha1.SyncStatusCodeUnknown, v1alpha1.SyncStatusCodeOutOfSync,
+			}
+			if containsHealth(requiresSyncingHealthList, resource.Health.Status) || containsSync(requiresSyncingSyncList, resource.Status) {
+				resourceStatuses = append(resourceStatuses, v1alpha1.SyncOperationResource{
+					Group:     resource.Group,
+					Kind:      resource.Kind,
+					Name:      resource.Name,
+					Namespace: resource.Namespace,
+				})
+			}
+		}
+		applicationSyncRequest.Resources = resourceStatuses
+	}
+	switch strategy {
+	case "apply":
+		applicationSyncRequest.Strategy = &v1alpha1.SyncStrategy{Apply: &v1alpha1.SyncStrategyApply{}}
+		applicationSyncRequest.Strategy.Apply.Force = syncStrategyForce
+	case "", "hook":
+		applicationSyncRequest.Strategy = &v1alpha1.SyncStrategy{Hook: &v1alpha1.SyncStrategyHook{}}
+		applicationSyncRequest.Strategy.Hook.Force = syncStrategyForce
+	default:
+		log.Printf("Unknown sync strategy: '%s'. Using default...", strategy)
+	}
+	argoApplication, err = applicationClient.Sync(context.TODO(), &applicationSyncRequest)
 	if err != nil {
 		log.Printf("Syncing threw an error. Error was %s\n", err)
 		return false, "", "", ""
@@ -228,6 +302,18 @@ func (a ArgoClientDriver) SelectiveSync(applicationName string, revisionHash str
 	}
 	defer ioCloser.Close()
 
+	var argoApplication *v1alpha1.Application
+	argoApplication, err = applicationClient.Get(context.TODO(), &application.ApplicationQuery{Name: &applicationName})
+	if err != nil {
+		log.Printf("Getting the application threw an error. Error was %s\n", err)
+		return false, "", "", ""
+	}
+	prune := ArgoSyncPruneDefault
+	if val, ok := argoApplication.Annotations[AnnotationAtlasSyncPrune]; ok {
+		if val == "true" {
+			prune = true
+		}
+	}
 	resources := make([]string, 0)
 	for _, value := range gvkGroup.ResourceList {
 		resources = append(resources, fmt.Sprintf("%s:%s:%s:%s", value.Group, value.Kind, value.ResourceName, value.ResourceNamespace))
@@ -238,14 +324,14 @@ func (a ArgoClientDriver) SelectiveSync(applicationName string, revisionHash str
 		return false, "", "", ""
 	}
 	syncReq := application.ApplicationSyncRequest{
-		Name:      &applicationName,
-		Revision:  revisionHash,
-		Prune:     true,
+		Name:     &applicationName,
+		Revision: revisionHash,
+		Prune:    prune,
 	}
 	if len(selectedResources) > 0 {
 		syncReq.Resources = selectedResources
 	}
-	argoApplication, err := applicationClient.Sync(context.TODO(), &syncReq)
+	argoApplication, err = applicationClient.Sync(context.TODO(), &syncReq)
 	if err != nil {
 		log.Printf("Syncing threw an error. Error was %s\n", err)
 		return false, "", "", ""

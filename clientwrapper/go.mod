@@ -4,13 +4,13 @@ go 1.14
 
 require (
 	github.com/argoproj/argo-cd v1.8.7
-	github.com/argoproj/gitops-engine v0.2.2 // indirect
-	github.com/gorilla/mux v1.8.0 // indirect
+	github.com/argoproj/gitops-engine v0.2.2
+	github.com/gorilla/mux v1.8.0
 	k8s.io/api v0.19.6
 	k8s.io/apimachinery v0.19.6
 	k8s.io/client-go v11.0.1-0.20190816222228-6d55c1b1f1ca+incompatible
 	k8s.io/kubernetes v1.19.6 // indirect
-	k8s.io/utils v0.0.0-20200729134348-d5654de09c73 // indirect
+	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
 )
 
 replace (
