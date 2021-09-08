@@ -4,14 +4,17 @@ theme:
 
 nav:
   - 'index.md'
+  - 'argo-comparisons.md'
   - 'core-concepts.md'
   - 'getting-started.md'
   - 'Build Book':
     - 'buildbook/step.md'
     - 'buildbook/pipeline.md'
+    - 'buildbook/argocd.md'
     - 'buildbook/sync-configs.md'
   - 'Task/Test Registry':
     - 'tasktestregistry/overview.md'
     - 'tasktestregistry/contributing.md'
     - 'tasktestregistry/scriptinjection.md'
     - 'tasktestregistry/k8sjob.md'
+  - 'roadmap.md'

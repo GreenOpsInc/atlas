@@ -31,21 +31,3 @@ Atlas keeps rich audit logs for all deployments, steps, pipelines, and every oth
 Atlas will check if the deployments and tests/tasks ran successfully, and roll back the application in case of failure. Rollbacks can be configured at the step or pipeline level.
 
 Atlas also watches applications and environments past a pipeline run, and fixes the state in case of unhealthy or degrading resources.
-
-## How does Atlas supplement ArgoCD?
-
-### Pipelines
-
-Atlas allows users to link ArgoCD applications into a continuous pipeline, making it easier to manage a large number of applications at scale.
-
-### Automated Rollbacks
-
-Atlas will automatically rollback applications to previous stable versions in case of deployment failures or test failures.
-
-### Audit Logs
-
-Atlas provides rich audit logs that provide great visibility into both pipelines and steps/applications. Atlas logs provide insights into current pipeline runs (what steps are in progress, or what steps have failed, rolled back, or been remediated). Audit logs will also show selective syncs, what applications are unhealthy, and broken task/test logs.
-
-### Reduced Complexity
-
-Atlas can help provide simple transitions to ArgoCD for new users, and also help automate and simplify large-scale ArgoCD deployments.
