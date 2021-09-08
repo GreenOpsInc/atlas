@@ -27,7 +27,7 @@ A step schema would be as follows (all values are left blank):
 
 ### ArgoCD Application
 
-The ArgoCD application file is expected to be added to the repo. The `application_path` variable is where the manifest file can be found. The default is empty. If nothing is entered, no application will be deployed.
+The ArgoCD application file is expected to be added to the repo. The `application_path` variable is where the manifest file can be found. The default is empty. If nothing is entered, no application will be deployed. You can read more about setting up the ArgoCD Application [here](argocd.md).
 
 ### Application Infrastructure
 
