@@ -13,6 +13,7 @@ const (
 
 type RequestEvent interface {
 	GetEvent() string
+	GetClientMetadata() ClientEventMetadata
 }
 type ClientEventMetadata struct {
 	OrgName      string `json:"orgName"`
@@ -34,6 +35,10 @@ func (r ClientDeployRequest) GetEvent() string {
 	return ClientDeployRequestType
 }
 
+func (r ClientDeployRequest) GetClientMetadata() ClientEventMetadata {
+	return r.ClientEventMetadata
+}
+
 // ClientDeleteByConfigRequest -----
 type ClientDeleteByConfigRequest struct {
 	ClientEventMetadata
@@ -43,6 +48,10 @@ type ClientDeleteByConfigRequest struct {
 
 func (r ClientDeleteByConfigRequest) GetEvent() string {
 	return ClientDeleteByConfigRequestType
+}
+
+func (r ClientDeleteByConfigRequest) GetClientMetadata() ClientEventMetadata {
+	return r.ClientEventMetadata
 }
 
 // ClientDeleteByGvkRequest -----
@@ -60,6 +69,10 @@ func (r ClientDeleteByGvkRequest) GetEvent() string {
 	return ClientDeleteByGvkRequestType
 }
 
+func (r ClientDeleteByGvkRequest) GetClientMetadata() ClientEventMetadata {
+	return r.ClientEventMetadata
+}
+
 // ClientDeployAndWatchRequest -----
 type ClientDeployAndWatchRequest struct {
 	ClientEventMetadata
@@ -74,6 +87,10 @@ func (r ClientDeployAndWatchRequest) GetEvent() string {
 	return ClientDeployAndWatchRequestType
 }
 
+func (r ClientDeployAndWatchRequest) GetClientMetadata() ClientEventMetadata {
+	return r.ClientEventMetadata
+}
+
 // ClientRollbackAndWatchRequest -----
 type ClientRollbackAndWatchRequest struct {
 	ClientEventMetadata
@@ -86,6 +103,10 @@ func (r ClientRollbackAndWatchRequest) GetEvent() string {
 	return ClientRollbackAndWatchRequestType
 }
 
+func (r ClientRollbackAndWatchRequest) GetClientMetadata() ClientEventMetadata {
+	return r.ClientEventMetadata
+}
+
 // ClientSelectiveSyncRequest -----
 type ClientSelectiveSyncRequest struct {
 	ClientEventMetadata
@@ -96,4 +117,8 @@ type ClientSelectiveSyncRequest struct {
 
 func (r ClientSelectiveSyncRequest) GetEvent() string {
 	return ClientSelectiveSyncRequestType
+}
+
+func (r ClientSelectiveSyncRequest) GetClientMetadata() ClientEventMetadata {
+	return r.ClientEventMetadata
 }

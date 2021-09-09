@@ -12,7 +12,17 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 )
 public interface Log {
 
+    public enum LogStatus {
+        SUCCESS,
+        PROGRESSING,
+        FAILURE
+    }
+
     public String getPipelineUniqueVersionNumber();
 
     public int getUniqueVersionInstance();
+
+    public String getStatus();
+
+    public void setStatus(String status);
 }

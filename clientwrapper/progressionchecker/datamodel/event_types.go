@@ -48,6 +48,7 @@ type TestEventInfo struct {
 
 type FailureEventInfo struct {
 	EventInfoMetaData
+	requestdatatypes.DeployResponse
 	StatusCode string `json:"statusCode"`
 	Error      string `json:"error"`
 }
@@ -117,16 +118,17 @@ func (eventInfo FailureEventInfo) GetEventType() EventInfoType {
 	return eventInfo.Type
 }
 
-func MakeFailureEventEvent(clientMetadata requestdatatypes.ClientEventMetadata, statusCode string, error string) EventInfo {
+func MakeFailureEventEvent(clientMetadata requestdatatypes.ClientEventMetadata, deployResponse requestdatatypes.DeployResponse, statusCode string, error string) EventInfo {
 	return FailureEventInfo{
 		EventInfoMetaData: EventInfoMetaData{
-			Type:         TestCompletionEvent,
+			Type:         FailureEvent,
 			OrgName:      clientMetadata.OrgName,
 			TeamName:     clientMetadata.TeamName,
 			PipelineName: clientMetadata.PipelineName,
 			StepName:     clientMetadata.StepName,
 		},
-		StatusCode: statusCode,
-		Error:      error,
+		DeployResponse: deployResponse,
+		StatusCode:     statusCode,
+		Error:          error,
 	}
 }

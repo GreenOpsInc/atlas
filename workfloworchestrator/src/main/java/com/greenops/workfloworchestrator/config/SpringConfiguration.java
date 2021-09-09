@@ -7,6 +7,7 @@ import com.greenops.util.datamodel.auditlog.RemediationLog;
 import com.greenops.util.datamodel.clientmessages.*;
 import com.greenops.util.datamodel.event.*;
 import com.greenops.util.datamodel.git.*;
+import com.greenops.util.datamodel.request.DeployResponse;
 import com.greenops.util.datamodel.metadata.StepMetadata;
 import com.greenops.util.datamodel.mixin.auditlog.DeploymentLogMixin;
 import com.greenops.util.datamodel.mixin.auditlog.RemediationLogMixin;
@@ -58,6 +59,7 @@ public class SpringConfiguration {
                 .addMixIn(ClientCompletionEvent.class, ClientCompletionEventMixin.class)
                 .addMixIn(ResourceStatus.class, ResourceStatusMixin.class)
                 .addMixIn(TestCompletionEvent.class, TestCompletionEventMixin.class)
+                .addMixIn(FailureEvent.class, FailureEventMixin.class)
                 .addMixIn(ApplicationInfraTriggerEvent.class, ApplicationInfraTriggerEventMixin.class)
                 .addMixIn(ApplicationInfraCompletionEvent.class, ApplicationInfraCompletionEventMixin.class)
                 .addMixIn(ClientDeleteByConfigRequest.class, ClientDeleteByConfigRequestMixin.class)

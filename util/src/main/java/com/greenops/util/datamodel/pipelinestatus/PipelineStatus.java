@@ -35,12 +35,12 @@ public class PipelineStatus {
             var deploymentLog = (DeploymentLog) log;
 
             // deployment failed
-            if (deploymentLog.getStatus().equals(DeploymentLog.DeploymentStatus.FAILURE.name())) {
+            if (deploymentLog.getStatus().equals(Log.LogStatus.FAILURE.name())) {
                 this.stable = false;
             }
         } else {
             //Was instance of a RemediationLog
-            if (!((RemediationLog) log).getRemediationStatus().equals(RemediationLog.RemediationStatus.FAILURE.name())) {
+            if (!((RemediationLog) log).getStatus().equals(Log.LogStatus.FAILURE.name())) {
                 this.stable = false;
             }
             //TODO: Needs to be added to failed step
@@ -48,7 +48,7 @@ public class PipelineStatus {
     }
 
     public void addLatestDeploymentLog(DeploymentLog log, String step) {
-        if (log.getStatus().equals(DeploymentLog.DeploymentStatus.FAILURE.name())) {
+        if (log.getStatus().equals(Log.LogStatus.FAILURE.name())) {
             this.complete = false;
             addFailedDeploymentLog(log, step);
         }

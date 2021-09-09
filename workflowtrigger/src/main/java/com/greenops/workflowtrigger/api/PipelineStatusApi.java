@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.greenops.util.datamodel.auditlog.DeploymentLog.DeploymentStatus.PROGRESSING;
 import static com.greenops.util.dbclient.DbClient.LOG_INCREMENT;
 
 @Slf4j
@@ -101,7 +100,7 @@ public class PipelineStatusApi {
                     status.markIncomplete();
                     continue;
                 }
-                if (log instanceof DeploymentLog && ((DeploymentLog) log).getStatus().equals(PROGRESSING.name())) {
+                if (log instanceof DeploymentLog && ((DeploymentLog) log).getStatus().equals(Log.LogStatus.PROGRESSING.name())) {
                     status.addProgressingStep(step);
                     continue;
                 }
