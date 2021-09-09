@@ -6,6 +6,12 @@ plugins {
 	id 'application'
 }
 
+jib {
+	configurations {
+		from.image = 'docker.io/1mihirpandya/misc:repobase' // or ":java8"
+	}
+}
+
 group = 'com.greenops'
 version = '0.0.1-SNAPSHOT'
 sourceCompatibility = '11'
