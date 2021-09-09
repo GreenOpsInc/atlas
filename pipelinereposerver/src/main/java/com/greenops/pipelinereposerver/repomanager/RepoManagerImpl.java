@@ -32,9 +32,6 @@ public class RepoManagerImpl implements RepoManager {
     @Autowired
     public RepoManagerImpl(DbClient dbClient, KubernetesClient kubernetesClient) {
         this.gitRepos = new HashSet<>();
-        if (!setupGitCli()) {
-            throw new RuntimeException("Git could not be installed. Something may be wrong with the configuration.");
-        }
         if (!setupRepoCache(dbClient, kubernetesClient)) {
             throw new RuntimeException("The org's repos could not be cloned correctly. Please restart to try again.");
         }
@@ -78,7 +75,7 @@ public class RepoManagerImpl implements RepoManager {
                 return false;
             }
         } catch (IOException | InterruptedException e) {
-            log.error("An error was thrown when attempting to clone the repo {}", gitRepoSchema.getGitRepo(), e);
+            log.info("An error was thrown when attempting to clone the repo {}", gitRepoSchema.getGitRepo(), e);
             delete(gitRepoSchema);
             return false;
         }
@@ -297,31 +294,25 @@ public class RepoManagerImpl implements RepoManager {
         }
     }
 
-    private boolean setupGitCli() {
-        //TODO: This method is absolutely temporary. In no way should this be the de-facto way of installing tools going forward.
-        //Jib is a little weird in the sense that it doesn't allow traditional docker builds and doesn't allow RUN commands.
-        //Jib can take a custom base image, which we will have to configure going forwards.
-        //This temporality also applies for doing mkdir directory & cd directory. We should be adding the creation of the directory
-        //to the container itself, and also using the .directory(...) ProcessBuilder command that is commented out for future usage.
+    private boolean setupRepoCache(DbClient dbClient, KubernetesClient kubernetesClient) {
+        var command = new CommandBuilder()
+                .mkdir(orgName)
+                .cd(orgName)
+                .mkdir(directory)
+                .cd(directory)
+                .build();
         try {
-            var command = new CommandBuilder()
-                    .mkdir(orgName)
-                    .cd(orgName)
-                    .mkdir(directory)
-                    .cd(directory)
-                    .build();
             var process = new ProcessBuilder()
-                    .command("/bin/bash", "-c", "apt-get update && apt-get install -y git; ls tmp;" + command)
+                    .command("/bin/bash", "-c", command)
                     .start();
             int exitCode = process.waitFor();
-            log.info("Errors: {}", new String(process.getErrorStream().readAllBytes()));
-            return exitCode == 0;
+            if (exitCode != 0) {
+                log.info("Errors: {}", new String(process.getErrorStream().readAllBytes()));
+                return false;
+            }
         } catch (IOException | InterruptedException e) {
             return false;
         }
-    }
-
-    private boolean setupRepoCache(DbClient dbClient, KubernetesClient kubernetesClient) {
         var listOfTeams = dbClient.fetchStringList(DbKey.makeDbListOfTeamsKey(orgName));
         if (listOfTeams == null) {
             log.info("No teams in org {}", orgName);
@@ -331,7 +322,7 @@ public class RepoManagerImpl implements RepoManager {
         for (var teamName : listOfTeams) {
             var teamSchema = dbClient.fetchTeamSchema(DbKey.makeDbTeamKey(orgName, teamName));
             if (teamSchema == null) {
-                log.error("The team {} doesn't exist, so cloning will be skipped", teamName);
+                log.info("The team {} doesn't exist, so cloning will be skipped", teamName);
                 continue;
             }
             for (var pipelineSchema : teamSchema.getPipelineSchemas()) {
