@@ -1,6 +1,7 @@
 package com.greenops.workfloworchestrator.ingest.handling;
 
 import com.greenops.util.datamodel.auditlog.DeploymentLog;
+import com.greenops.util.datamodel.auditlog.Log;
 import com.greenops.util.datamodel.auditlog.RemediationLog;
 import com.greenops.util.datamodel.event.Event;
 import com.greenops.util.dbclient.DbClient;
@@ -39,7 +40,7 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
     @Override
     public void initializeNewStepLog(Event event, String stepName, String pipelineUvn, String gitCommitVersion) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
-        var newLog = new DeploymentLog(pipelineUvn, DeploymentLog.DeploymentStatus.PROGRESSING.name(), false, null, gitCommitVersion);
+        var newLog = new DeploymentLog(pipelineUvn, Log.LogStatus.PROGRESSING.name(), false, null, gitCommitVersion);
         dbClient.insertValueInList(logKey, newLog);
     }
 
@@ -79,7 +80,7 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
         if (deploymentLog.getBrokenTest() != null) {
             throw new AtlasNonRetryableError("This step has test failures. Should not be marked successful");
         }
-        deploymentLog.setStatus(DeploymentLog.DeploymentStatus.SUCCESS.name());
+        deploymentLog.setStatus(Log.LogStatus.SUCCESS.name());
         dbClient.updateHeadInList(logKey, deploymentLog);
     }
 
@@ -93,7 +94,7 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
             log.info("No remediation log present");
             return;
         }
-        remediationLog.setStateRemediated(RemediationLog.RemediationStatus.SUCCESS.name());
+        remediationLog.setStatus(Log.LogStatus.SUCCESS.name());
         dbClient.updateHeadInList(logKey, remediationLog);
     }
 
@@ -107,7 +108,7 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
             log.info("No remediation log present");
             return;
         }
-        remediationLog.setStateRemediated(RemediationLog.RemediationStatus.FAILURE.name());
+        remediationLog.setStatus(Log.LogStatus.FAILURE.name());
         dbClient.updateHeadInList(logKey, remediationLog);
     }
 
@@ -116,7 +117,7 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
         var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
         deploymentLog.setDeploymentComplete(false);
-        deploymentLog.setStatus(DeploymentLog.DeploymentStatus.FAILURE.name());
+        deploymentLog.setStatus(Log.LogStatus.FAILURE.name());
         dbClient.updateHeadInList(logKey, deploymentLog);
     }
 
@@ -126,8 +127,20 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
         var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
         deploymentLog.setBrokenTest(testName);
         deploymentLog.setBrokenTestLog(testLog);
-        deploymentLog.setStatus(DeploymentLog.DeploymentStatus.FAILURE.name());
+        deploymentLog.setStatus(Log.LogStatus.FAILURE.name());
         dbClient.updateHeadInList(logKey, deploymentLog);
+    }
+
+    @Override
+    public void markStepFailedWithProcessingError(Event event, String stepName, String error) {
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
+        var log = dbClient.fetchLatestLog(logKey);
+        if (log instanceof DeploymentLog) {
+            ((DeploymentLog) log).setBrokenTest("Processing Error");
+            ((DeploymentLog) log).setBrokenTestLog(error);
+        }
+        log.setStatus(Log.LogStatus.FAILURE.name());
+        dbClient.updateHeadInList(logKey, log);
     }
 
     @Override
@@ -136,7 +149,7 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
             if (parentStepName.equals(ROOT_STEP_NAME)) continue;
             var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), parentStepName);
             var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
-            if (deploymentLog.getUniqueVersionInstance() != 0 || !deploymentLog.getStatus().equals(DeploymentLog.DeploymentStatus.SUCCESS.name())) {
+            if (deploymentLog.getUniqueVersionInstance() != 0 || !deploymentLog.getStatus().equals(Log.LogStatus.SUCCESS.name())) {
                 return false;
             }
         }
@@ -159,7 +172,7 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
         if (logList == null || logList.size() == 0) return "";
         var currentLog = dbClient.fetchLatestDeploymentLog(logKey);
         //This means that there was probably an error during the execution of the step, and that the log was added but the re-triggering process was not completed
-        if (currentLog.getStatus().equals(DeploymentLog.DeploymentStatus.PROGRESSING.name()) && currentLog.getUniqueVersionInstance() > 0) {
+        if (currentLog.getStatus().equals(Log.LogStatus.PROGRESSING.name()) && currentLog.getUniqueVersionInstance() > 0) {
             return currentLog.getGitCommitVersion();
         }
         int idx = 0;
@@ -178,7 +191,7 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
                     idx = 0;
                 }
             }
-        } else if (currentLog.getStatus().equals(DeploymentLog.DeploymentStatus.SUCCESS.name())) {
+        } else if (currentLog.getStatus().equals(Log.LogStatus.SUCCESS.name())) {
             while (idx < logList.size()) {
                 if (!(logList.get(idx) instanceof DeploymentLog)) {
                     idx++;
@@ -201,7 +214,7 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
                 continue;
             }
             var deploymentLog = (DeploymentLog) logList.get(idx);
-            if (deploymentLog.getStatus().equals(DeploymentLog.DeploymentStatus.SUCCESS.name())) {
+            if (deploymentLog.getStatus().equals(Log.LogStatus.SUCCESS.name())) {
                 var gitCommitVersion = deploymentLog.getGitCommitVersion();
 
                 logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName());
@@ -209,7 +222,7 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
                         currentLog.getPipelineUniqueVersionNumber(),
                         logList.get(idx).getPipelineUniqueVersionNumber(),
                         logList.get(idx).getUniqueVersionInstance() + 1,
-                        DeploymentLog.DeploymentStatus.PROGRESSING.name(),
+                        Log.LogStatus.PROGRESSING.name(),
                         false,
                         deploymentLog.getArgoApplicationName(),
                         deploymentLog.getArgoRevisionHash(),
@@ -270,7 +283,7 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
                 continue;
             }
             var deploymentLog = (DeploymentLog) logList.get(idx);
-            if (deploymentLog.getStatus().equals(DeploymentLog.DeploymentStatus.SUCCESS.name())) {
+            if (deploymentLog.getStatus().equals(Log.LogStatus.SUCCESS.name())) {
                 return deploymentLog.getGitCommitVersion();
             }
             idx++;

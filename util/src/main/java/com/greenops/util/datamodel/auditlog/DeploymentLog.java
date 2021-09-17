@@ -4,12 +4,6 @@ import java.util.UUID;
 
 public class DeploymentLog implements Log {
 
-    public enum DeploymentStatus {
-        SUCCESS,
-        PROGRESSING,
-        FAILURE
-    }
-
     private final String pipelineUniqueVersionNumber;
     private final String rollbackUniqueVersionNumber;
     private final int uniqueVersionInstance;
@@ -52,10 +46,12 @@ public class DeploymentLog implements Log {
         return uniqueVersionInstance;
     }
 
+    @Override
     public String getStatus() {
         return status;
     }
 
+    @Override
     public void setStatus(String status) {
         this.status = status;
     }

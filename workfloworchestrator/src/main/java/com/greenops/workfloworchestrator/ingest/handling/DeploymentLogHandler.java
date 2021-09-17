@@ -26,6 +26,8 @@ public interface DeploymentLogHandler {
 
     void markStepFailedWithBrokenTest(Event event, String stepName, String testName, String testLog);
 
+    void markStepFailedWithProcessingError(Event event, String stepName, String error);
+
     boolean areParentStepsComplete(Event event, List<String> parentSteps);
 
     String getStepStatus(Event event);
