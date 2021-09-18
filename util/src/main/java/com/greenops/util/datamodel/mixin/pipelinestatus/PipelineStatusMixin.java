@@ -19,6 +19,9 @@ public abstract class PipelineStatusMixin {
     @JsonProperty("complete")
     boolean complete;
 
+    @JsonProperty("cancelled")
+    boolean cancelled;
+
     @JsonProperty("failedSteps")
     List<FailedStep> failedSteps;
 
@@ -26,8 +29,12 @@ public abstract class PipelineStatusMixin {
     public PipelineStatusMixin(@JsonProperty("progressingSteps") List<String> progressingSteps,
                                @JsonProperty("stable") boolean stable,
                                @JsonProperty("complete") boolean complete,
+                               @JsonProperty("cancelled") boolean cancelled,
                                @JsonProperty("failedSteps") List<FailedStep> failedSteps) {
     }
+
+    @JsonIgnore
+    abstract void markCancelled();
 
     @JsonIgnore
     abstract void markIncomplete();

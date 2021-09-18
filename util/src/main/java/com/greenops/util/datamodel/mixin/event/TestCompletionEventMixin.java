@@ -1,6 +1,7 @@
 package com.greenops.util.datamodel.mixin.event;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public abstract class TestCompletionEventMixin {
@@ -13,6 +14,8 @@ public abstract class TestCompletionEventMixin {
     String teamName;
     @JsonProperty(value = "pipelineName")
     String pipelineName;
+    @JsonProperty(value = "pipelineUvn")
+    String uvn;
     @JsonProperty(value = "stepName")
     String stepName;
     @JsonProperty(value = "log")
@@ -27,9 +30,13 @@ public abstract class TestCompletionEventMixin {
                                     @JsonProperty(value = "orgName") String orgName,
                                     @JsonProperty(value = "teamName") String teamName,
                                     @JsonProperty(value = "pipelineName") String pipelineName,
+                                    @JsonProperty(value = "pipelineUvn") String uvn,
                                     @JsonProperty(value = "stepName") String stepName,
                                     @JsonProperty(value = "log") String log,
                                     @JsonProperty(value = "testName") String testName,
                                     @JsonProperty(value = "testNumber") int testNumber) {
     }
+
+    @JsonIgnore
+    abstract String getPipelineUvn();
 }

@@ -253,7 +253,9 @@ func (a ArgoClientDriver) Sync(applicationName string) (bool, string, string, st
 	applicationSyncRequest = application.ApplicationSyncRequest{
 		Name:          &applicationName,
 		Prune:         prune,
-		RetryStrategy: argoApplication.Spec.SyncPolicy.Retry,
+	}
+	if argoApplication.Spec.SyncPolicy != nil && argoApplication.Spec.SyncPolicy.Retry != nil {
+		applicationSyncRequest.RetryStrategy = argoApplication.Spec.SyncPolicy.Retry
 	}
 	if selectiveSync {
 		resourceStatuses := make([]v1alpha1.SyncOperationResource, 0)

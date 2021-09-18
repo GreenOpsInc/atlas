@@ -24,10 +24,6 @@ public class ClusterApi {
     public ClusterApi(DbClient dbClient, ObjectMapper objectMapper) {
         this.dbClient = dbClient;
         this.objectMapper = objectMapper;
-        //Make local cluster
-        //TODO: Can't be done as part of a initialization
-        var localK8sCluster = new ClusterSchema("kubernetes.default.svc.cluster.local", 443, "kubernetes_local");
-        if (createCluster("org", localK8sCluster).getStatusCodeValue() != 200) throw new AtlasNonRetryableError();
     }
 
     @PostMapping(value = "/{orgName}")

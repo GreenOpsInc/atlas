@@ -36,6 +36,7 @@ type ApplicationInfraCompletionEvent struct {
 	OrgName      string `json:"orgName"`
 	TeamName     string `json:"teamName"`
 	PipelineName string `json:"pipelineName"`
+	PipelineUvn  string `json:"pipelineUvn"`
 	StepName     string `json:"stepName"`
 	Success      bool   `json:"success"`
 }
@@ -44,6 +45,7 @@ func (event ApplicationInfraCompletionEvent) GetEvent(deployResponse *DeployResp
 	event.OrgName = deployRequest.OrgName
 	event.TeamName = deployRequest.TeamName
 	event.PipelineName = deployRequest.PipelineName
+	event.PipelineUvn = deployRequest.PipelineUvn
 	event.StepName = deployRequest.StepName
 	event.Success = deployResponse.Success
 	event.Type = "appinfracompletion"

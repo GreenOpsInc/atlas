@@ -3,6 +3,7 @@ package com.greenops.util.datamodel.clientmessages;
 public class ClientSelectiveSyncAndWatchRequest implements ClientRequest {
 
     private String orgName;
+    private String uvn;
     private String teamName;
     private String pipelineName;
     private String stepName;
@@ -10,8 +11,9 @@ public class ClientSelectiveSyncAndWatchRequest implements ClientRequest {
     private String revisionHash;
     private ResourcesGvkRequest resourcesGvkRequest;
 
-    public ClientSelectiveSyncAndWatchRequest(String orgName, String teamName, String pipelineName, String stepName, String appName, String revisionHash, ResourcesGvkRequest resourcesGvkRequest) {
+    public ClientSelectiveSyncAndWatchRequest(String orgName, String teamName, String pipelineName, String uvn, String stepName, String appName, String revisionHash, ResourcesGvkRequest resourcesGvkRequest) {
         this.orgName = orgName;
+        this.uvn = uvn;
         this.revisionHash = revisionHash;
         this.resourcesGvkRequest = resourcesGvkRequest;
         this.teamName = teamName;

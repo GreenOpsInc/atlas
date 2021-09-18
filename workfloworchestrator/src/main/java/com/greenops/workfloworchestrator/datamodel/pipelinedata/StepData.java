@@ -1,12 +1,13 @@
 package com.greenops.workfloworchestrator.datamodel.pipelinedata;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.greenops.util.datamodel.event.PipelineTriggerEvent;
 
 import java.util.List;
 
 @JsonDeserialize(as = StepDataImpl.class)
 public interface StepData {
-    static final String ROOT_STEP_NAME = "ATLAS_ROOT_DATA";
+    static final String ROOT_STEP_NAME = PipelineTriggerEvent.ROOT_STEP_NAME;
 
     String getName();
 

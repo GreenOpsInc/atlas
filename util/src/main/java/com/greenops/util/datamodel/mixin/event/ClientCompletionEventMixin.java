@@ -21,6 +21,8 @@ public abstract class ClientCompletionEventMixin {
     String teamName;
     @JsonProperty(value = "pipelineName")
     String pipelineName;
+    @JsonProperty(value = "pipelineUvn")
+    String uvn;
     @JsonProperty(value = "stepName")
     String stepName;
     @JsonProperty(value = "argoName")
@@ -42,6 +44,7 @@ public abstract class ClientCompletionEventMixin {
                                       @JsonProperty(value = "orgName") String orgName,
                                       @JsonProperty(value = "teamName") String teamName,
                                       @JsonProperty(value = "pipelineName") String pipelineName,
+                                      @JsonProperty(value = "pipelineUvn") String uvn,
                                       @JsonProperty(value = "stepName") String stepName,
                                       @JsonProperty(value = "argoName") String argoName,
                                       @JsonProperty(value = "argoNamespace") String argoNamespace,
@@ -54,4 +57,7 @@ public abstract class ClientCompletionEventMixin {
 
     @JsonIgnore
     abstract String getRepoUrl();
+
+    @JsonIgnore
+    abstract String getPipelineUvn();
 }

@@ -11,6 +11,8 @@ public abstract class ClientDeleteByGvkRequestMixin {
     String teamName;
     @JsonProperty("pipelineName")
     String pipelineName;
+    @JsonProperty("pipelineUvn")
+    String uvn;
     @JsonProperty("stepName")
     String stepName;
     @JsonProperty("type")
@@ -30,6 +32,7 @@ public abstract class ClientDeleteByGvkRequestMixin {
     public ClientDeleteByGvkRequestMixin(@JsonProperty("orgName") String orgName,
                                          @JsonProperty("teamName") String teamName,
                                          @JsonProperty("pipelineName") String pipelineName,
+                                         @JsonProperty("pipelineUvn") String uvn,
                                          @JsonProperty("stepName") String stepName,
                                          @JsonProperty("type") String type,
                                          @JsonProperty("resourceName") String resourceName,

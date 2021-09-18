@@ -83,6 +83,31 @@ public class PipelineDataImpl implements PipelineData {
     }
 
     @Override
+    public List<String> getAllStepsOrdered() {
+        var orderedSteps = new ArrayList<>(getChildrenSteps(ROOT_STEP_NAME));
+        var stepsMap = getAllSteps().stream().collect(Collectors.toMap(step -> step, orderedSteps::contains));
+        var idx = 0;
+        while (idx < orderedSteps.size()) {
+            var childrenList = getChildrenSteps(orderedSteps.get(idx));
+            for (var childStep : childrenList) {
+                var parentsSeen = true;
+                for (var parentOfChildStep : getParentSteps(childStep)) {
+                    if (!stepsMap.get(parentOfChildStep)) {
+                        parentsSeen = false;
+                        break;
+                    }
+                }
+                if (parentsSeen && !stepsMap.get(childStep)) {
+                    orderedSteps.add(childStep);
+                    stepsMap.put(childStep, true);
+                }
+            }
+            idx++;
+        }
+        return orderedSteps;
+    }
+
+    @Override
     public boolean isArgoVersionLock() {
         return argoVersionLock;
     }

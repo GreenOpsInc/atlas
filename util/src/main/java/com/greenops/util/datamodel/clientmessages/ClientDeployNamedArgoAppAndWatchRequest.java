@@ -8,13 +8,15 @@ public class ClientDeployNamedArgoAppAndWatchRequest implements ClientRequest {
     private String appName;
     //For watching
     private String watchType;
+    private String uvn;
     private String teamName;
     private String pipelineName;
     private String stepName;
 
 
-    public ClientDeployNamedArgoAppAndWatchRequest(String orgName, String deployType, String appName, String watchType, String teamName, String pipelineName, String stepName) {
+    public ClientDeployNamedArgoAppAndWatchRequest(String orgName, String uvn, String deployType, String appName, String watchType, String teamName, String pipelineName, String stepName) {
         this.orgName = orgName;
+        this.uvn = uvn;
         this.deployType = deployType;
         this.appName = appName;
         this.watchType = watchType;

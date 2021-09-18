@@ -7,6 +7,7 @@ import com.greenops.util.dbclient.DbClient;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
@@ -24,14 +25,15 @@ import static com.greenops.pipelinereposerver.repomanager.CommandBuilder.getFold
 @Component
 public class RepoManagerImpl implements RepoManager {
 
-    private final String orgName = "org"; //TODO: Needs to be updated when we decide how to configure organization
     private final String directory = "tmp";
 
+    private final String orgName;
     private Set<GitRepoCache> gitRepos;
 
     @Autowired
-    public RepoManagerImpl(DbClient dbClient, KubernetesClient kubernetesClient) {
+    public RepoManagerImpl(DbClient dbClient, KubernetesClient kubernetesClient, @Value("${application.org-name}") String orgName) {
         this.gitRepos = new HashSet<>();
+        this.orgName = orgName;
         if (!setupRepoCache(dbClient, kubernetesClient)) {
             throw new RuntimeException("The org's repos could not be cloned correctly. Please restart to try again.");
         }

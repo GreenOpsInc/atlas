@@ -16,6 +16,8 @@ import java.util.List;
 @RequestMapping("/")
 public class CommandDelegatorApi {
 
+    private static final String LOCAL_CLUSTER_NAME = "kubernetes_local";
+
     private final DbClient dbClient;
     private final ObjectMapper objectMapper;
 
@@ -28,7 +30,7 @@ public class CommandDelegatorApi {
     @GetMapping(value = "/requests/{orgName}/{clusterName}")
     public ResponseEntity<List<ClientRequest>> getCommands(@PathVariable("orgName") String orgName, @PathVariable("clusterName") String clusterName) {
         var clusterKey = DbKey.makeDbClusterKey(orgName, clusterName);
-        if (dbClient.fetchClusterSchemaTransactionless(clusterKey) == null) {
+        if (!clusterName.equals(LOCAL_CLUSTER_NAME) && dbClient.fetchClusterSchemaTransactionless(clusterKey) == null) {
             return ResponseEntity.badRequest().build();
         }
         var key = DbKey.makeClientRequestQueueKey(orgName, clusterName);
@@ -47,7 +49,7 @@ public class CommandDelegatorApi {
     public ResponseEntity<Void> ackHeadOfRequestList(@PathVariable("orgName") String orgName,
                                            @PathVariable("clusterName") String clusterName) {
         var clusterKey = DbKey.makeDbClusterKey(orgName, clusterName);
-        if (dbClient.fetchClusterSchemaTransactionless(clusterKey) == null) {
+        if (!clusterName.equals(LOCAL_CLUSTER_NAME) && dbClient.fetchClusterSchemaTransactionless(clusterKey) == null) {
             return ResponseEntity.badRequest().build();
         }
         var key = DbKey.makeClientRequestQueueKey(orgName, clusterName);

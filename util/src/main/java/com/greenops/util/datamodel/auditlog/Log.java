@@ -15,7 +15,8 @@ public interface Log {
     public enum LogStatus {
         SUCCESS,
         PROGRESSING,
-        FAILURE
+        FAILURE,
+        CANCELLED
     }
 
     public String getPipelineUniqueVersionNumber();

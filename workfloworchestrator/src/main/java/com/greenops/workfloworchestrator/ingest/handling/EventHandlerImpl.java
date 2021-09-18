@@ -3,6 +3,7 @@ package com.greenops.workfloworchestrator.ingest.handling;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.auditlog.Log;
+import com.greenops.util.datamodel.auditlog.RemediationLog;
 import com.greenops.util.datamodel.event.*;
 import com.greenops.util.datamodel.pipeline.TeamSchema;
 import com.greenops.util.datamodel.request.GetFileRequest;
@@ -21,7 +22,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static com.greenops.util.datamodel.event.ClientCompletionEvent.*;
@@ -70,13 +70,21 @@ public class EventHandlerImpl implements EventHandler {
     public void handleEvent(Event event) {
         var teamSchema = fetchTeamSchema(event);
         if (teamSchema == null) throw new AtlasNonRetryableError("The team doesn't exist");
-        var gitCommit = event.getStepName().equals(ROOT_STEP_NAME) || event instanceof TriggerStepEvent
+        var gitCommit = event.getStepName().equals(ROOT_STEP_NAME) || event instanceof TriggerStepEvent || event instanceof PipelineTriggerEvent
                 ? ROOT_COMMIT
                 : deploymentLogHandler.getCurrentGitCommitHash(event, event.getStepName());
         var gitRepoUrl = teamSchema.getPipelineSchema(event.getPipelineName()).getGitRepoSchema().getGitRepo();
         var pipelineData = fetchPipelineData(event, gitRepoUrl, gitCommit);
         if (pipelineData == null) throw new AtlasNonRetryableError("The pipeline doesn't exist");
-        if (event instanceof ClientCompletionEvent) {
+
+        //This checks whether the event was from a previous pipeline run. If it is, it will be ignored.
+        if (isStaleEvent(event)) {
+            log.info("Event from pipeline {} is stale, ignoring...", event.getPipelineUvn());
+            return;
+        }
+        if (event instanceof PipelineTriggerEvent) {
+            handlePipelineTriggerEvent(pipelineData, gitRepoUrl, (PipelineTriggerEvent) event);
+        } else if (event instanceof ClientCompletionEvent) {
             handleClientCompletionEvent(pipelineData, gitRepoUrl, (ClientCompletionEvent) event);
         } else if (event instanceof TestCompletionEvent) {
             handleTestCompletion(pipelineData, gitRepoUrl, (TestCompletionEvent) event);
@@ -91,22 +99,73 @@ public class EventHandlerImpl implements EventHandler {
         }
     }
 
+    private boolean isStaleEvent(Event event) {
+        if (event instanceof PipelineTriggerEvent) return false;
+        var deploymentLog = deploymentLogHandler.getLatestDeploymentLog(event, event.getStepName());
+        if (deploymentLog != null
+                && (deploymentLog.getStatus().equals(Log.LogStatus.SUCCESS.name()) || deploymentLog.getStatus().equals(Log.LogStatus.FAILURE.name()) || deploymentLog.getStatus().equals(Log.LogStatus.CANCELLED.name()))
+                && (event instanceof TestCompletionEvent || event instanceof ApplicationInfraTriggerEvent || event instanceof ApplicationInfraCompletionEvent || event instanceof FailureEvent)) {
+            return true;
+        } else if (deploymentLog != null && deploymentLog.getStatus().equals(Log.LogStatus.PROGRESSING.name()) && event instanceof TriggerStepEvent) {
+            return true;
+        }
+        var currentUvn = deploymentLogHandler.getCurrentPipelineUvn(event, event.getStepName());
+        if (!event.getPipelineUvn().equals(currentUvn) && event instanceof TriggerStepEvent) {
+            return false;
+        }
+        return currentUvn != null && !event.getPipelineUvn().equals(currentUvn);
+    }
+
+    private void handlePipelineTriggerEvent(PipelineData pipelineData, String pipelineRepoUrl, PipelineTriggerEvent event) {
+        var listOfSteps = dbClient.fetchStringList(DbKey.makeDbListOfStepsKey(event.getOrgName(), event.getTeamName(), event.getPipelineName()));
+        if (listOfSteps != null) {
+            var latestUvn = "";
+            var hasNonZeroUvi = false;
+            var incomplete = false;
+            var progressing = false;
+            for (var step : listOfSteps) {
+                var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), step);
+                var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
+                if (deploymentLog == null) {
+                    incomplete = true;
+                    continue;
+                }
+                if (latestUvn.isEmpty()) {
+                    latestUvn = deploymentLog.getPipelineUniqueVersionNumber();
+                }
+                if (deploymentLog.getPipelineUniqueVersionNumber().equals(latestUvn) && deploymentLog.getStatus().equals(Log.LogStatus.PROGRESSING.name())) {
+                    progressing = true;
+                    break;
+                } else if (deploymentLog.getPipelineUniqueVersionNumber().equals(latestUvn) && deploymentLog.getUniqueVersionInstance() > 0) {
+                    hasNonZeroUvi = true;
+                } else if (!deploymentLog.getPipelineUniqueVersionNumber().equals(latestUvn)) {
+                    incomplete = true;
+                }
+            }
+            if ((!hasNonZeroUvi && incomplete) || progressing) {
+                kafkaClient.sendMessage(event);
+                log.info("Pipeline {} in progress, queueing up pipeline {}.", latestUvn, event.getPipelineUvn());
+                return;
+            }
+        }
+        dbClient.storeValue(DbKey.makeDbListOfStepsKey(event.getOrgName(), event.getTeamName(), event.getPipelineName()), pipelineData.getAllStepsOrdered());
+        log.info("Starting new run for pipeline {}", event.getPipelineName());
+        triggerNextSteps(pipelineData, createRootStep(), pipelineRepoUrl, event);
+    }
+
     private void handleClientCompletionEvent(PipelineData pipelineData, String pipelineRepoUrl, ClientCompletionEvent event) {
         if (event.getHealthStatus().equals(PROGRESSING)) {
             return;
         }
 
-        if (event.getStepName().equals(ROOT_STEP_NAME)) {
-            dbClient.storeValue(DbKey.makeDbListOfStepsKey(event.getOrgName(), event.getTeamName(), event.getPipelineName()), pipelineData.getAllSteps());
-            triggerNextSteps(pipelineData, createRootStep(), pipelineRepoUrl, event);
-            return;
-        }
-
         var step = pipelineData.getStep(event.getStepName());
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName());
+        var latestLog = dbClient.fetchLatestLog(logKey);
+        if (latestLog != null && latestLog.getStatus().equals(Log.LogStatus.CANCELLED.name())) return;
         var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
         if (deploymentLog == null) return;
-        if (deploymentLog.getStatus().equals(Log.LogStatus.FAILURE.name())) return;
+        if (deploymentLog.getStatus().equals(Log.LogStatus.FAILURE.name()) || deploymentLog.getStatus().equals(Log.LogStatus.CANCELLED.name()))
+            return;
         else if (deploymentLog.getStatus().equals(Log.LogStatus.SUCCESS.name())) {
             //If the deployment was successful (rollback or otherwise), these client completion events are for state remediation
             if (step.getRemediationLimit() == 0) {
@@ -119,11 +178,13 @@ public class EventHandlerImpl implements EventHandler {
                 }
             }
 
+            var remediationLog = dbClient.fetchLatestRemediationLog(logKey);
+            if (remediationLog != null && remediationLog.getStatus().equals(Log.LogStatus.CANCELLED.name())) return;
+
             //TODO: Right now, remediation is only based on health. We should be adding in pruning based on OutOfSync statuses as well.
             //TODO: Right now the events are being sent but are just being ignored.
             if (event.getHealthStatus().equals(DEGRADED) || event.getHealthStatus().equals(UNKNOWN)) {
 //                    || event.getHealthStatus().equals(MISSING)) {
-                var remediationLog = dbClient.fetchLatestRemediationLog(logKey);
                 if (remediationLog != null) {
                     if (remediationLog.getStatus().equals(Log.LogStatus.PROGRESSING.name())) {
                         deploymentLogHandler.markStateRemediationFailed(event, step.getName());
@@ -233,6 +294,14 @@ public class EventHandlerImpl implements EventHandler {
     private void handleTriggerStep(PipelineData pipelineData, String pipelineRepoUrl, TriggerStepEvent event) {
         var gitCommit = ROOT_COMMIT;
 
+        //First cancel any pending remediation steps
+        var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName());
+        var latestLog = dbClient.fetchLatestLog(logKey);
+        if (latestLog instanceof RemediationLog && latestLog.getStatus().equals(Log.LogStatus.PROGRESSING.name())) {
+            latestLog.setStatus(Log.LogStatus.CANCELLED.name());
+            dbClient.updateHeadInList(logKey, latestLog);
+        }
+
         if (event.isRollback()) {
             gitCommit = deploymentLogHandler.makeRollbackDeploymentLog(event, event.getStepName());
             if (gitCommit.isEmpty()) {
@@ -275,8 +344,10 @@ public class EventHandlerImpl implements EventHandler {
     }
 
     private void triggerNextSteps(PipelineData pipelineData, StepData step, String pipelineRepoUrl, Event event) {
-        deploymentLogHandler.markStepSuccessful(event, event.getStepName());
-        var currentPipelineUvn = step.getName().equals(ROOT_STEP_NAME) ? UUID.randomUUID().toString() : deploymentLogHandler.getCurrentPipelineUvn(event, step.getName());
+        if (!step.getName().equals(ROOT_STEP_NAME)) {
+            deploymentLogHandler.markStepSuccessful(event, event.getStepName());
+        }
+        var currentPipelineUvn = event.getPipelineUvn();
 
         var childrenSteps = pipelineData.getChildrenSteps(step.getName());
         var triggerStepEvents = new ArrayList<Event>();
@@ -293,7 +364,7 @@ public class EventHandlerImpl implements EventHandler {
     }
 
     private void triggerAppInfraDeploy(String stepName, Event event) {
-        kafkaClient.sendMessage(new ApplicationInfraTriggerEvent(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName));
+        kafkaClient.sendMessage(new ApplicationInfraTriggerEvent(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getPipelineUvn(), stepName));
     }
 
     private void rollback(Event event) {
@@ -303,7 +374,7 @@ public class EventHandlerImpl implements EventHandler {
                         event.getTeamName(),
                         event.getPipelineName(),
                         event.getStepName(),
-                        deploymentLogHandler.getCurrentPipelineUvn(event, event.getStepName()),
+                        event.getPipelineUvn(),
                         true
                 )
         );

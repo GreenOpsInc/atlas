@@ -8,6 +8,8 @@ public abstract class ClientDeployNamedArgoAppAndWatchRequestMixin {
     //For deploying
     @JsonProperty("orgName")
     String orgName;
+    @JsonProperty("pipelineUvn")
+    String uvn;
     @JsonProperty("type")
     String type;
     @JsonProperty("appName")
@@ -25,6 +27,7 @@ public abstract class ClientDeployNamedArgoAppAndWatchRequestMixin {
 
     @JsonCreator
     public ClientDeployNamedArgoAppAndWatchRequestMixin(@JsonProperty("orgName") String orgName,
+                                                        @JsonProperty("pipelineUvn") String uvn,
                                                         @JsonProperty("type") String type,
                                                         @JsonProperty("appName") String appName,
                                                         @JsonProperty("watchType") String watchType,

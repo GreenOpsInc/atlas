@@ -6,17 +6,19 @@ public class TestCompletionEvent implements Event {
     private String orgName;
     private String teamName;
     private String pipelineName;
+    private String uvn;
     private String stepName;
     private String log;
     private String testName;
     private int testNumber;
 
-    public TestCompletionEvent(boolean successful, String orgName, String teamName, String pipelineName, String stepName,
+    public TestCompletionEvent(boolean successful, String orgName, String teamName, String pipelineName, String uvn, String stepName,
                                  String log, String testName, int testNumber) {
         this.successful = successful;
         this.orgName = orgName;
         this.teamName = teamName;
         this.pipelineName = pipelineName;
+        this.uvn = uvn;
         this.stepName = stepName;
         this.log = log;
         this.testName = testName;
@@ -36,6 +38,11 @@ public class TestCompletionEvent implements Event {
     @Override
     public String getPipelineName() {
         return pipelineName;
+    }
+
+    @Override
+    public String getPipelineUvn() {
+        return uvn;
     }
 
     @Override

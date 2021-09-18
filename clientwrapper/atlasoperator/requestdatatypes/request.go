@@ -18,10 +18,11 @@ type RollbackRequest struct {
 
 type WatchRequest struct {
 	ClientEventMetadata
-	Type       string `json:"type"`
-	Name       string `json:"name"`
-	Namespace  string `json:"namespace"`
-	TestNumber int    `json:"testNumber"`
+	Type        string `json:"type"`
+	Name        string `json:"name"`
+	Namespace   string `json:"namespace"`
+	PipelineUvn string `json:"pipelineUvn"`
+	TestNumber  int    `json:"testNumber"`
 }
 
 type KubernetesCreationRequest struct {

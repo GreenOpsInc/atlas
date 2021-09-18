@@ -15,6 +15,8 @@ public abstract class ClientRollbackAndWatchRequestMixin {
     //For watching
     @JsonProperty("watchType")
     String watchType;
+    @JsonProperty("pipelineUvn")
+    String uvn;
     @JsonProperty("teamName")
     String teamName;
     @JsonProperty("pipelineName")
@@ -24,6 +26,7 @@ public abstract class ClientRollbackAndWatchRequestMixin {
 
     @JsonCreator
     public ClientRollbackAndWatchRequestMixin(@JsonProperty("orgName") String orgName,
+                                              @JsonProperty("pipelineUvn") String uvn,
                                               @JsonProperty("appName") String appName,
                                               @JsonProperty("revisionHash") String revisionHash,
                                               @JsonProperty("watchType") String watchType,

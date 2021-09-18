@@ -342,6 +342,8 @@ spec:
         - env:
             - name: REDIS_ENDPOINT
               value: redisserver.default.svc.cluster.local:6379
+            - name: ORG_NAME
+              value: org
           image: atlasreposerver
           imagePullPolicy: Never
           name: reposerver

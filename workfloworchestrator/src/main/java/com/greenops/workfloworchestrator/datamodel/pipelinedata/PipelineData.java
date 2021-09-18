@@ -13,6 +13,7 @@ public interface PipelineData {
     public List<String> getChildrenSteps(String stepName);
     public List<String> getParentSteps(String stepName);
     public List<String> getAllSteps();
+    public List<String> getAllStepsOrdered();
     public String getClusterName();
     public boolean isArgoVersionLock();
 }
