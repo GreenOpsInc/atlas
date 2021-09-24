@@ -1,21 +1,27 @@
 package com.greenops.util.datamodel.event;
 
-public class ApplicationInfraCompletionEvent implements Event {
+import java.util.UUID;
+
+public class PipelineTriggerEvent implements Event {
+
+    public static final String ROOT_STEP_NAME = "ATLAS_ROOT_DATA";
 
     private String orgName;
     private String teamName;
     private String pipelineName;
     private String uvn;
     private String stepName;
-    private boolean success;
 
-    public ApplicationInfraCompletionEvent(String orgName, String teamName, String pipelineName, String uvn, String stepName, boolean success) {
+    public PipelineTriggerEvent(String orgName, String teamName, String pipelineName, String pipelineUvn) {
         this.orgName = orgName;
         this.teamName = teamName;
         this.pipelineName = pipelineName;
-        this.uvn = uvn;
-        this.stepName = stepName;
-        this.success = success;
+        this.uvn = pipelineUvn;
+        this.stepName = ROOT_STEP_NAME;
+    }
+
+    public PipelineTriggerEvent(String orgName, String teamName, String pipelineName) {
+        this(orgName, teamName, pipelineName, UUID.randomUUID().toString());
     }
 
     @Override
@@ -41,9 +47,5 @@ public class ApplicationInfraCompletionEvent implements Event {
     @Override
     public String getStepName() {
         return stepName;
-    }
-
-    public boolean isSuccess() {
-        return success;
     }
 }

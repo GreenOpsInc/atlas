@@ -134,6 +134,7 @@ func selectiveSyncArgoApp(request *requestdatatypes.ClientSelectiveSyncRequest) 
 			-1,
 			resourceName,
 			appNamespace,
+			request.PipelineUvn,
 		)
 		byteKey, _ := json.Marshal(key)
 		channel <- string(byteKey)
@@ -252,6 +253,7 @@ func watch(request *requestdatatypes.WatchRequest) {
 			OrgName:      request.OrgName,
 			TeamName:     request.TeamName,
 			PipelineName: request.PipelineName,
+			PipelineUvn:  request.PipelineUvn,
 			StepName:     request.StepName,
 			TestNumber:   request.TestNumber,
 		},
@@ -266,13 +268,14 @@ func watch(request *requestdatatypes.WatchRequest) {
 	channel <- progressionchecker.EndTransactionMarker
 }
 
-func makeWatchKeyFromRequest(watchKeyType datamodel.WatchKeyType, orgName string, teamName string, pipelineName string, stepName string, testNumber int, name string, namespace string) *datamodel.WatchKey {
+func makeWatchKeyFromRequest(watchKeyType datamodel.WatchKeyType, orgName string, teamName string, pipelineName string, stepName string, testNumber int, name string, namespace string, pipelineUvn string) *datamodel.WatchKey {
 	return &datamodel.WatchKey{
 		WatchKeyMetaData: datamodel.WatchKeyMetaData{
 			Type:         watchKeyType,
 			OrgName:      orgName,
 			TeamName:     teamName,
 			PipelineName: pipelineName,
+			PipelineUvn:  pipelineUvn,
 			StepName:     stepName,
 			TestNumber:   testNumber,
 		},
@@ -303,6 +306,7 @@ func deployAndWatch(request *requestdatatypes.ClientDeployAndWatchRequest) error
 		Type:                request.WatchType,
 		Name:                deployResponse.ResourceName,
 		Namespace:           deployResponse.AppNamespace,
+		PipelineUvn:         request.PipelineUvn,
 		TestNumber:          request.TestNumber,
 	}
 	watch(&watchRequest)
@@ -326,6 +330,7 @@ func rollbackAndWatch(request *requestdatatypes.ClientRollbackAndWatchRequest) e
 		Type:                request.WatchType,
 		Name:                deployResponse.ResourceName,
 		Namespace:           deployResponse.AppNamespace,
+		PipelineUvn:         request.PipelineUvn,
 		TestNumber:          -1,
 	}
 	watch(&watchRequest)

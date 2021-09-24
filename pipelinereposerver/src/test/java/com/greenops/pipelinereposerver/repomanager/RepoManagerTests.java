@@ -50,7 +50,7 @@ public class RepoManagerTests {
     public void beforeEach() throws IOException {
         dbClient = Mockito.mock(DbClient.class);
         kubernetesClient = Mockito.mock(KubernetesClient.class);
-        repoManager = new RepoManagerImpl(dbClient, kubernetesClient);
+        repoManager = new RepoManagerImpl(dbClient, kubernetesClient, "org");
         testFolderPath = Paths.get(System.getProperty("user.dir"), repoManager.getOrgName(), "tmp");
     }
 

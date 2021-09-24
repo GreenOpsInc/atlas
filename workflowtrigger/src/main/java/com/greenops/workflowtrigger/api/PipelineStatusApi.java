@@ -12,10 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,10 +35,10 @@ public class PipelineStatusApi {
 
     @GetMapping(value = "{orgName}/{teamName}/pipeline/{pipelineName}/step/{stepName}/{count}")
     public ResponseEntity<List<Log>> getStepLogs(@PathVariable("orgName") String orgName,
-                                                           @PathVariable("teamName") String teamName,
-                                                           @PathVariable("pipelineName") String pipelineName,
-                                                           @PathVariable("stepName") String stepName,
-                                                           @PathVariable("count") int count) {
+                                                 @PathVariable("teamName") String teamName,
+                                                 @PathVariable("pipelineName") String pipelineName,
+                                                 @PathVariable("stepName") String stepName,
+                                                 @PathVariable("count") int count) {
         var key = DbKey.makeDbStepKey(orgName, teamName, pipelineName, stepName);
         var increments = (int) Math.ceil(LOG_INCREMENT / (double) count);
         var logList = new ArrayList<Log>();
@@ -65,6 +62,7 @@ public class PipelineStatusApi {
                                                     @PathVariable("pipelineUvn") String pipelineUvn) {
         var status = new PipelineStatus();
         var steps = dbClient.fetchStringList(DbKey.makeDbListOfStepsKey(orgName, teamName, pipelineName));
+        if (steps == null) return ResponseEntity.ok("");
         for (var step : steps) {
             try {
                 //Get pipeline UVN if not specified
@@ -102,6 +100,10 @@ public class PipelineStatusApi {
                 }
                 if (log instanceof DeploymentLog && ((DeploymentLog) log).getStatus().equals(Log.LogStatus.PROGRESSING.name())) {
                     status.addProgressingStep(step);
+                    continue;
+                }
+                if (log instanceof DeploymentLog && ((DeploymentLog) log).getStatus().equals(Log.LogStatus.CANCELLED.name())) {
+                    status.markCancelled();
                     continue;
                 }
                 //Determines if the step is stable
@@ -155,6 +157,33 @@ public class PipelineStatusApi {
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(schemaToResponsePayload(status));
+    }
+
+    @DeleteMapping(value = "{orgName}/{teamName}/pipelineRun/{pipelineName}")
+    public ResponseEntity<Void> cancelLatestPipeline(@PathVariable("orgName") String orgName,
+                                                     @PathVariable("teamName") String teamName,
+                                                     @PathVariable("pipelineName") String pipelineName) {
+        var latestUvn = "";
+        var steps = dbClient.fetchStringList(DbKey.makeDbListOfStepsKey(orgName, teamName, pipelineName));
+        for (var stepName : steps) {
+            var key = DbKey.makeDbStepKey(orgName, teamName, pipelineName, stepName);
+            var latestLog = dbClient.fetchLatestLog(key);
+            if (latestUvn.isEmpty()) {
+                //Step list is ordered, so if the very first log is nonexistant, it can't have deployed anywhere else
+                if (latestLog == null) {
+                    return ResponseEntity.ok().build();
+                }
+                latestUvn = latestLog.getPipelineUniqueVersionNumber();
+            }
+            if (latestLog == null || !latestLog.getPipelineUniqueVersionNumber().equals(latestUvn)) {
+                var newCancelledLog = new DeploymentLog(latestUvn, Log.LogStatus.CANCELLED.name(), false, null, null);
+                dbClient.insertValueInList(key, newCancelledLog);
+            } else {
+                latestLog.setStatus(Log.LogStatus.CANCELLED.name());
+                dbClient.updateHeadInList(key, latestLog);
+            }
+        }
+        return ResponseEntity.ok().build();
     }
 
     private String schemaToResponsePayload(Object schema) {

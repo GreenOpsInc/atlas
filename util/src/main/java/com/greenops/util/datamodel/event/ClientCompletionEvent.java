@@ -24,6 +24,7 @@ public class ClientCompletionEvent implements Event {
     private String orgName;
     private String teamName;
     private String pipelineName;
+    private String uvn;
     private String stepName;
     private String argoName;
     private String argoNamespace;
@@ -32,13 +33,14 @@ public class ClientCompletionEvent implements Event {
     private String repo;
     private String revisionHash;
 
-    public ClientCompletionEvent(String healthStatus, String syncStatus, String orgName, String teamName, String pipelineName, String stepName,
+    public ClientCompletionEvent(String healthStatus, String syncStatus, String orgName, String teamName, String pipelineName, String uvn, String stepName,
                                  String argoName, String argoNamespace, String operation, String project, String repo, String revisionHash, List<ResourceStatus> resourceStatuses) {
         this.healthStatus = healthStatus;
         this.syncStatus = syncStatus;
         this.orgName = orgName;
         this.teamName = teamName;
         this.pipelineName = pipelineName;
+        this.uvn = uvn;
         this.stepName = stepName;
         this.argoName = argoName;
         this.argoNamespace = argoNamespace;
@@ -49,9 +51,9 @@ public class ClientCompletionEvent implements Event {
         this.resourceStatuses = resourceStatuses;
     }
 
-    public ClientCompletionEvent(String healthStatus, String syncStatus, String orgName, String teamName, String pipelineName, String stepName,
+    public ClientCompletionEvent(String healthStatus, String syncStatus, String orgName, String teamName, String pipelineName, String uvn, String stepName,
                                  String argoName, String operation, String project, String repo, String revisionHash, String argoNamespace) {
-        this(healthStatus, syncStatus, orgName, teamName, pipelineName, stepName, argoName, argoNamespace, operation, project, repo, revisionHash, new ArrayList<>());
+        this(healthStatus, syncStatus, orgName, teamName, pipelineName, uvn, stepName, argoName, argoNamespace, operation, project, repo, revisionHash, new ArrayList<>());
     }
 
     @Override
@@ -67,6 +69,11 @@ public class ClientCompletionEvent implements Event {
     @Override
     public String getPipelineName() {
         return pipelineName;
+    }
+
+    @Override
+    public String getPipelineUvn() {
+        return uvn;
     }
 
     @Override

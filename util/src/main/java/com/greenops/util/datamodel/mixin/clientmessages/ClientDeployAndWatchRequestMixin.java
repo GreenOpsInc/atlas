@@ -17,6 +17,8 @@ public abstract class ClientDeployAndWatchRequestMixin {
     //For watching
     @JsonProperty("watchType")
     String watchType;
+    @JsonProperty("pipelineUvn")
+    String uvn;
     @JsonProperty("teamName")
     String teamName;
     @JsonProperty("pipelineName")
@@ -28,6 +30,7 @@ public abstract class ClientDeployAndWatchRequestMixin {
 
     @JsonCreator
     public ClientDeployAndWatchRequestMixin(@JsonProperty("orgName") String orgName,
+                                            @JsonProperty("pipelineUvn") String uvn,
                                             @JsonProperty("deployType") String deployType,
                                             @JsonProperty("revisionHash") String revisionHash,
                                             @JsonProperty("payload") String payload,

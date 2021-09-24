@@ -1,7 +1,5 @@
 package com.greenops.util.datamodel.auditlog;
 
-import java.util.UUID;
-
 public class DeploymentLog implements Log {
 
     private final String pipelineUniqueVersionNumber;
@@ -16,7 +14,7 @@ public class DeploymentLog implements Log {
     private String brokenTestLog;
 
     public DeploymentLog(String pipelineUniqueVersionNumber, String rollbackUniqueVersionNumber, int uniqueVersionInstance, String status, boolean deploymentComplete, String argoApplicationName, String argoRevisionHash, String gitCommitVersion, String brokenTest, String brokenTestLog) {
-        this.pipelineUniqueVersionNumber = pipelineUniqueVersionNumber == null ? UUID.randomUUID().toString() : pipelineUniqueVersionNumber;
+        this.pipelineUniqueVersionNumber = pipelineUniqueVersionNumber;
         this.rollbackUniqueVersionNumber = rollbackUniqueVersionNumber;
         this.uniqueVersionInstance = uniqueVersionInstance;
         this.status = status;

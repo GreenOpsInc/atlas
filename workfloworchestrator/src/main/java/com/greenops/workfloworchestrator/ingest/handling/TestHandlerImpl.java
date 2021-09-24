@@ -45,6 +45,7 @@ public class TestHandlerImpl implements TestHandler {
                 event.getOrgName(),
                 event.getTeamName(),
                 event.getPipelineName(),
+                event.getPipelineUvn(),
                 stepName,
                 ClientRequestQueue.DEPLOY_TEST_REQUEST,
                 ClientRequestQueue.LATEST_REVISION,

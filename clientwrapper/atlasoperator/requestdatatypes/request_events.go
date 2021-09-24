@@ -14,11 +14,13 @@ const (
 type RequestEvent interface {
 	GetEvent() string
 	GetClientMetadata() ClientEventMetadata
+	GetPipelineUvn() string
 }
 type ClientEventMetadata struct {
 	OrgName      string `json:"orgName"`
 	TeamName     string `json:"teamName"`
 	PipelineName string `json:"pipelineName"`
+	PipelineUvn  string `json:"pipelineUvn"`
 	StepName     string `json:"stepName"`
 }
 
@@ -39,6 +41,10 @@ func (r ClientDeployRequest) GetClientMetadata() ClientEventMetadata {
 	return r.ClientEventMetadata
 }
 
+func (r ClientDeployRequest) GetPipelineUvn() string {
+	return r.PipelineUvn
+}
+
 // ClientDeleteByConfigRequest -----
 type ClientDeleteByConfigRequest struct {
 	ClientEventMetadata
@@ -52,6 +58,10 @@ func (r ClientDeleteByConfigRequest) GetEvent() string {
 
 func (r ClientDeleteByConfigRequest) GetClientMetadata() ClientEventMetadata {
 	return r.ClientEventMetadata
+}
+
+func (r ClientDeleteByConfigRequest) GetPipelineUvn() string {
+	return r.PipelineUvn
 }
 
 // ClientDeleteByGvkRequest -----
@@ -73,6 +83,10 @@ func (r ClientDeleteByGvkRequest) GetClientMetadata() ClientEventMetadata {
 	return r.ClientEventMetadata
 }
 
+func (r ClientDeleteByGvkRequest) GetPipelineUvn() string {
+	return r.PipelineUvn
+}
+
 // ClientDeployAndWatchRequest -----
 type ClientDeployAndWatchRequest struct {
 	ClientEventMetadata
@@ -91,6 +105,10 @@ func (r ClientDeployAndWatchRequest) GetClientMetadata() ClientEventMetadata {
 	return r.ClientEventMetadata
 }
 
+func (r ClientDeployAndWatchRequest) GetPipelineUvn() string {
+	return r.PipelineUvn
+}
+
 // ClientRollbackAndWatchRequest -----
 type ClientRollbackAndWatchRequest struct {
 	ClientEventMetadata
@@ -107,6 +125,10 @@ func (r ClientRollbackAndWatchRequest) GetClientMetadata() ClientEventMetadata {
 	return r.ClientEventMetadata
 }
 
+func (r ClientRollbackAndWatchRequest) GetPipelineUvn() string {
+	return r.PipelineUvn
+}
+
 // ClientSelectiveSyncRequest -----
 type ClientSelectiveSyncRequest struct {
 	ClientEventMetadata
@@ -121,4 +143,8 @@ func (r ClientSelectiveSyncRequest) GetEvent() string {
 
 func (r ClientSelectiveSyncRequest) GetClientMetadata() ClientEventMetadata {
 	return r.ClientEventMetadata
+}
+
+func (r ClientSelectiveSyncRequest) GetPipelineUvn() string {
+	return r.PipelineUvn
 }

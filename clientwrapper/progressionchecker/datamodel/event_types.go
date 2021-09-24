@@ -22,6 +22,7 @@ type EventInfoMetaData struct {
 	OrgName      string        `json:"orgName"`
 	TeamName     string        `json:"teamName"`
 	PipelineName string        `json:"pipelineName"`
+	PipelineUvn  string        `json:"pipelineUvn"`
 	StepName     string        `json:"stepName"`
 }
 
@@ -75,6 +76,7 @@ func MakeApplicationEvent(key WatchKey, appInfo ArgoAppMetricInfo, healthStatus 
 			OrgName:      key.OrgName,
 			TeamName:     key.TeamName,
 			PipelineName: key.PipelineName,
+			PipelineUvn:  key.PipelineUvn,
 			StepName:     key.StepName,
 		},
 		HealthStatus:     healthStatus,
@@ -102,6 +104,7 @@ func MakeTestEvent(key WatchKey, successful bool, logs string) EventInfo {
 			OrgName:      key.OrgName,
 			TeamName:     key.TeamName,
 			PipelineName: key.PipelineName,
+			PipelineUvn:  key.PipelineUvn,
 			StepName:     key.StepName,
 		},
 		Successful: successful,
@@ -125,6 +128,7 @@ func MakeFailureEventEvent(clientMetadata requestdatatypes.ClientEventMetadata, 
 			OrgName:      clientMetadata.OrgName,
 			TeamName:     clientMetadata.TeamName,
 			PipelineName: clientMetadata.PipelineName,
+			PipelineUvn:  clientMetadata.PipelineUvn,
 			StepName:     clientMetadata.StepName,
 		},
 		DeployResponse: deployResponse,

@@ -30,4 +30,7 @@ public abstract class TriggerStepEventMixin {
 
     @JsonIgnore
     abstract boolean isRollback();
+
+    @JsonIgnore
+    abstract String getPipelineUvn();
 }

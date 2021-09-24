@@ -12,13 +12,20 @@ public class PipelineStatus {
     private List<String> progressingSteps;
     private boolean stable;
     private boolean complete;
+    private boolean cancelled;
     private List<FailedStep> failedSteps;
 
     public PipelineStatus() {
         this.progressingSteps = new ArrayList<>();
         this.stable = true;
         this.complete = true;
+        this.cancelled = false;
         this.failedSteps = new ArrayList<>();
+    }
+    
+    public void markCancelled() {
+        this.cancelled = true;
+        this.complete = false;
     }
 
     public void markIncomplete() {

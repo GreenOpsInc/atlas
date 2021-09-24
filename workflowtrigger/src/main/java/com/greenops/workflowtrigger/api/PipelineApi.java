@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.event.ClientCompletionEvent;
+import com.greenops.util.datamodel.event.PipelineTriggerEvent;
 import com.greenops.util.datamodel.git.GitCredOpen;
 import com.greenops.util.datamodel.git.GitRepoSchema;
 import com.greenops.util.datamodel.pipeline.PipelineSchema;
@@ -145,8 +146,7 @@ public class PipelineApi {
 
         dbClient.storeValue(key, teamSchema);
 
-        //TODO: TriggerEvents don't need all of this information. This should be replaced with a special type called a "TriggerEvent"
-        var triggerEvent = new ClientCompletionEvent("Healthy", "Synced", orgName, teamName, pipelineName, "ATLAS_ROOT_DATA", "", "", "", gitRepo.getGitRepo(), "","");
+        var triggerEvent = new PipelineTriggerEvent(orgName, teamName, pipelineName);
         try {
             generateEvent(objectMapper.writeValueAsString(triggerEvent));
         } catch (JsonProcessingException e) {
@@ -234,8 +234,7 @@ public class PipelineApi {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
 
-        //TODO: TriggerEvents don't need all of this information. This should be replaced with a special type called a "TriggerEvent"
-        var triggerEvent = new ClientCompletionEvent("Healthy", "Synced", orgName, teamName, pipelineName, "ATLAS_ROOT_DATA", "", "", "", gitRepo.getGitRepo(), "", "");
+        var triggerEvent = new PipelineTriggerEvent(orgName, teamName, pipelineName);
         try {
             generateEvent(objectMapper.writeValueAsString(triggerEvent));
         } catch (JsonProcessingException e) {

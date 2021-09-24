@@ -12,6 +12,8 @@ public abstract class ClientSelectiveSyncAndWatchRequestMixin {
     String teamName;
     @JsonProperty("pipelineName")
     String pipelineName;
+    @JsonProperty("pipelineUvn")
+    String uvn;
     @JsonProperty("stepName")
     String stepName;
     @JsonProperty("appName")
@@ -25,6 +27,7 @@ public abstract class ClientSelectiveSyncAndWatchRequestMixin {
     public ClientSelectiveSyncAndWatchRequestMixin(@JsonProperty("orgName") String orgName,
                                                    @JsonProperty("teamName") String teamName,
                                                    @JsonProperty("pipelineName") String pipelineName,
+                                                   @JsonProperty("pipelineUvn") String uvn,
                                                    @JsonProperty("stepName") String stepName,
                                                    @JsonProperty("appName") String appName,
                                                    @JsonProperty("revisionHash") String revisionHash,

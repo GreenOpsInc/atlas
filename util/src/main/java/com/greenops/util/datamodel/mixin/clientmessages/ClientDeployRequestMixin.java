@@ -11,6 +11,8 @@ public abstract class ClientDeployRequestMixin {
     String teamName;
     @JsonProperty("pipelineName")
     String pipelineName;
+    @JsonProperty("pipelineUvn")
+    String uvn;
     @JsonProperty("stepName")
     String stepName;
     @JsonProperty("responseEventType")
@@ -26,6 +28,7 @@ public abstract class ClientDeployRequestMixin {
     public ClientDeployRequestMixin(@JsonProperty("orgName") String orgName,
                                     @JsonProperty("teamName") String teamName,
                                     @JsonProperty("pipelineName") String pipelineName,
+                                    @JsonProperty("pipelineUvn") String uvn,
                                     @JsonProperty("stepName") String stepName,
                                     @JsonProperty("responseEventType") String responseEventType,
                                     @JsonProperty("deployType") String deployType,

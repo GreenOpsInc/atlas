@@ -7,15 +7,17 @@ public class FailureEvent implements Event {
     private String orgName;
     private String teamName;
     private String pipelineName;
+    private String uvn;
     private String stepName;
     private DeployResponse deployResponse;
     private String statusCode;
     private String error;
 
-    public FailureEvent(String orgName, String teamName, String pipelineName, String stepName, DeployResponse deployResponse, String statusCode, String error) {
+    public FailureEvent(String orgName, String teamName, String pipelineName, String uvn, String stepName, DeployResponse deployResponse, String statusCode, String error) {
         this.orgName = orgName;
         this.teamName = teamName;
         this.pipelineName = pipelineName;
+        this.uvn = uvn;
         this.stepName = stepName;
         this.deployResponse = deployResponse;
         this.statusCode = statusCode;
@@ -35,6 +37,11 @@ public class FailureEvent implements Event {
     @Override
     public String getPipelineName() {
         return pipelineName;
+    }
+
+    @Override
+    public String getPipelineUvn() {
+        return uvn;
     }
 
     @Override

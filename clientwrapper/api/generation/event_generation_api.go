@@ -13,7 +13,7 @@ import (
 
 const (
 	WorkflowTriggerEnvVar         string = "WORKFLOW_TRIGGER_SERVER_ADDR"
-	DefaultWorkflowTriggerAddress string = "http://workflowtrigger.default.svc.cluster.local:8080"
+	DefaultWorkflowTriggerAddress string = "http://workflowtrigger.atlas.svc.cluster.local:8080"
 )
 
 type EventGenerationApi interface {

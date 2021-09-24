@@ -13,7 +13,7 @@ import (
 
 const (
 	EnvCommandDelegatorUrl     string = "COMMAND_DELEGATOR_URL"
-	DefaultCommandDelegatorUrl string = "http://commanddelegator.default.svc.cluster.local:8080"
+	DefaultCommandDelegatorUrl string = "http://commanddelegator.atlas.svc.cluster.local:8080"
 	EnvClusterName             string = "CLUSTER_NAME"
 	DefaultClusterName         string = "kubernetes_local"
 	EnvOrgName                 string = "ORG_NAME"

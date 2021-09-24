@@ -37,6 +37,7 @@ type WatchKeyMetaData struct {
 	OrgName      string
 	TeamName     string
 	PipelineName string
+	PipelineUvn  string
 	StepName     string
 	TestNumber   int
 }

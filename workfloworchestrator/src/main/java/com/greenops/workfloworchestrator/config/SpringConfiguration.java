@@ -75,7 +75,8 @@ public class SpringConfiguration {
                 .addMixIn(ResourcesGvkRequest.class, ResourcesGvkRequestMixin.class)
                 .addMixIn(ResourceGvk.class, ResourceGvkMixin.class)
                 .addMixIn(DeployResponse.class, DeployResponseMixin.class)
-                .addMixIn(TriggerStepEvent.class, TriggerStepEventMixin.class);
+                .addMixIn(TriggerStepEvent.class, TriggerStepEventMixin.class)
+                .addMixIn(PipelineTriggerEvent.class, PipelineTriggerEventMixin.class);
     }
 
     @Bean
