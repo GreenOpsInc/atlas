@@ -14,11 +14,18 @@ Atlas gets schemas and informations from an upstream Git repo, and expects neces
 A pipeline schema would be as follows (all values are left blank):
 
       argo_version_lock:
+      cluster_name:
       steps:
 
 ### Version Locking
 
 ArgoCD applications link to upstream manifests containing the specific resources that need to be deployed. If multiple applications link to the same manifest, and an update is made to the manifest in the middle of a pipeline run, state-related complications can arise. If users want to avoid this, they can set `argo_version_lock` to `true`, which will ensure that the steps with ArgoCD applications linked to the same manifests will use the same version. The default value is `false`.
+
+### Destination Cluster
+
+Each step needs to be associated with a cluster where steps' commands will be delegated to. If all the steps in the pipeline need to interact with the same cluster, the `cluster_name` can be set at the pipeline level instead of the step level. Even if `cluster_name` is set at the pipeline level, setting it at the step level will override the value for that specific step. With the exception of the local Kubernetes cluster (named `kubernetes_local`), clusters need to be registered with Atlas before being added as destinations in pipelines and steps--see the [cluster API documentation](../userguide/cluster.md) for more on registering new clusters.
+
+There is no default value, `cluster_name` has to be set at either the pipeline or step level.
 
 ### Steps
 
