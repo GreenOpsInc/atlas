@@ -108,4 +108,5 @@ Step-specific logs contain information like the application name, Argo revision,
     ]
 
 The Argo visualization tools are also still active. The Argo UI can be used to see the state of the application/deployment.
+
 ![Placeholder](https://argoproj.github.io/argo-cd/assets/guestbook-tree.png)

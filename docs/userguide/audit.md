@@ -38,6 +38,7 @@ Or this in case of failures:
     }
 
 The pipeline level status update shows a few key components:
+
 - Which steps are currently running.
 - Whether the deployments are stable or not. This applies for deployments made as a part of an pipeline run, but also for rollbacks and state remediations. If a state remediation takes place and the application is not able to stabilize, the `stable` variable will be false. If it is able to stabilize, it will be true.
 - If the pipeline run was able to complete. Completion refers to whether the pipeline was able to finish all the steps successfully. If there was a failure at a specific step, or a rollback (even if the rollback is successful and the deployment is stable), `complete` will still be marked as false. State remediations generally happen past the scope of a pipeline run, and aren't factored into evaluating the completeness of a pipeline run.
@@ -65,6 +66,7 @@ Step-level logs provide a much lower level view of a pipeline run, offering many
     }
 
 There are a few key components here:
+
 - The pipeline unique version number.
 - The rollback unique version number represents which pipeline UVN the step rolled back to. If no rollback occurs, the `rollbackUniqueVersionNumber` will be null.
 - The unique version instance of the deployment. It essentially represents how many times the step has to be run before a stable configuration is reached.
