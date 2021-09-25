@@ -70,8 +70,7 @@ There are a few key components here:
 - The pipeline unique version number.
 - The rollback unique version number represents which pipeline UVN the step rolled back to. If no rollback occurs, the `rollbackUniqueVersionNumber` will be null.
 - The unique version instance of the deployment. It essentially represents how many times the step has to be run before a stable configuration is reached.
-
-If the step was successful and did not have to rollback, the `uniqueVersionInstance` would be 0. If the step does have a failure and is configured to rollback, the value would be an integer greater than or equal to 1 (1, 2, 3, etc.). The number represents how many times a step had to rollback (for the first rollback, the value would be 1; for the second rollback, the value of the second rollback log would be 2).
+    * If the step was successful and did not have to rollback, the `uniqueVersionInstance` would be 0. If the step does have a failure and is configured to rollback, the value would be an integer greater than or equal to 1 (1, 2, 3, etc.). The number represents how many times a step had to rollback (for the first rollback, the value would be 1; for the second rollback, the value of the second rollback log would be 2).
 - The status of the deployment; the only possibilities are `SUCCESS`, `FAILURE`, `PROGRESSING`, and `CANCELLED`.
 - The `deploymentComplete` represents whether the ArgoCD application specified in `argoApplicationName` was able to be deployed successfully or not.
 - The `argoRevisionHash` represents what revision of the Kubernetes manifest linked in the ArgoCD Application was deployed.
