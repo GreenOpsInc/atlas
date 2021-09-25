@@ -1,0 +1,14 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: atlastestapp-int
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/GreenOpsInc/atlasexamples.git
+    targetRevision: main
+    path: basic/argo_manifest
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: int

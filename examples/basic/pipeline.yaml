@@ -1,0 +1,27 @@
+name: demo_pipeline
+argo_version_lock: true
+#cluster_name at the pipeline level means that every step in the pipeline will deploy to cluster_local.
+#If cluster_name is also defined at a particular step, it will override the cluster_name set at the pipeline
+#(only for that step).
+cluster_name: kubernetes_local
+steps:
+- name: deploy_to_dev
+  #This is the path of the ArgoCD Application file
+  application_path: testapp_dev.yml
+  tests:
+  - path: verifyendpoints.sh
+    type: inject
+    before: false
+    variables:
+      SERVICE_INTERNAL_URL: testapp.dev.svc.cluster.local
+- name: deploy_to_int
+  application_path: testapp_int.yml
+  tests:
+  - path: verifyendpoints.sh
+    type: inject
+    before: false
+    variables:
+      SERVICE_INTERNAL_URL: testapp.int.svc.cluster.local
+  #The schema is DAG based, allowing both linear and complex pipelines
+  dependencies:
+  - deploy_to_dev

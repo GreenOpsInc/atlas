@@ -12,6 +12,12 @@ nav:
     - 'buildbook/pipeline.md'
     - 'buildbook/argocd.md'
     - 'buildbook/sync-configs.md'
+  - 'User/Management Guide':
+    - 'userguide/cluster.md'
+    - 'userguide/team.md'
+    - 'userguide/pipeline.md'
+    - 'userguide/stability.md'
+    - 'userguide/audit.md'
   - 'Task/Test Registry':
     - 'tasktestregistry/overview.md'
     - 'tasktestregistry/contributing.md'
