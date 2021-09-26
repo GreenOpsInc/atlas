@@ -37,10 +37,10 @@ public class RepoManagerApiImpl implements RepoManagerApi {
     }
 
     @Override
-    public boolean cloneRepo(GitRepoSchema gitRepoSchema) {
+    public boolean cloneRepo(String orgName, GitRepoSchema gitRepoSchema) {
         try {
             var requestBody = objectMapper.writeValueAsString(gitRepoSchema);
-            var request = new HttpPost(serverEndpoint);
+            var request = new HttpPost(serverEndpoint + "/clone/" + orgName);
             request.setEntity(new StringEntity(requestBody, ContentType.APPLICATION_JSON));
             var response = httpClient.execute(request);
             log.info("Clone request for repo {} returned with status code {}", gitRepoSchema.getGitRepo(), response.getStatusLine().getStatusCode());

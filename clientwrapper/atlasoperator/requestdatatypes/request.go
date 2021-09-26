@@ -26,14 +26,16 @@ type WatchRequest struct {
 }
 
 type KubernetesCreationRequest struct {
-	Kind       string            `json:"kind"`
-	ObjectName string            `json:"objectName"`
-	Namespace  string            `json:"namespace"`
-	ImageName  string            `json:"imageName"`
-	Command    []string          `json:"command"`
-	Args       []string          `json:"args"`
-	Config     string            `json:"configPayload"`
-	Variables  map[string]string `json:"variables"`
+	Kind           string            `json:"kind"`
+	ObjectName     string            `json:"objectName"`
+	Namespace      string            `json:"namespace"`
+	ImageName      string            `json:"imageName"`
+	Command        []string          `json:"command"`
+	Args           []string          `json:"args"`
+	Config         string            `json:"configPayload"`
+	VolumeFilename string            `json:"volumeFilename"`
+	VolumeConfig   string            `json:"volumePayload"`
+	Variables      map[string]string `json:"variables"`
 }
 
 type GvkGroupRequest struct {

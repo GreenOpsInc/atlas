@@ -29,6 +29,7 @@ import (
 const (
 	DefaultContainer string = "alpine:3.14"
 	JobType          string = "Job"
+	ConfigMapType    string = "ConfigMap"
 	CronJobType      string = "CronJob"
 	PodType          string = "Pod"
 	ServiceType      string = "Service"
@@ -48,7 +49,7 @@ type KubernetesClientNamespaceRestricted interface {
 type KubernetesClient interface {
 	//TODO: Add parameters for Deploy
 	Deploy(configPayload *string) (bool, string, string)
-	CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, existingConfig string, variables map[string]string) (bool, string, string)
+	CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, existingConfig string, volumeFilename string, volumeConfig string, variables map[string]string) (bool, string, string)
 	//TODO: Add parameters for Delete
 	Delete(resourceName string, resourceNamespace string, gvk schema.GroupVersionKind) bool
 	DeleteBasedOnConfig(configPayload *string) bool
@@ -149,7 +150,11 @@ func (k KubernetesClientDriver) Deploy(configPayload *string) (bool, string, str
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
 			return false, "", ""
 		}
-	case *unstructured.Unstructured:
+	default:
+		obj, groupVersionKind, err = getUnstructuredResourceObjectFromYAML(configPayload)
+		if err != nil {
+			return false, "", ""
+		}
 		strongTypeObject := obj.(*unstructured.Unstructured)
 		log.Printf("YAML file matched Unstructured of kind %s. Deploying...\n", groupVersionKind.Kind)
 		resourceName = strongTypeObject.GetName()
@@ -170,16 +175,13 @@ func (k KubernetesClientDriver) Deploy(configPayload *string) (bool, string, str
 			log.Printf("The deploy step threw an error. Error was %s\n", err)
 			return false, "", ""
 		}
-	default:
-		log.Printf("There was no matching type for the input.\n")
-		return false, "", ""
 	}
 	return true, resourceName, namespace
 }
 
 //CreateAndDeploy should only be used for ephemeral runs ONLY. "Kind" should just be discerning between a chron job or a job.
 //They are both of type "batch/v1".
-func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, existingConfig string, variables map[string]string) (bool, string, string) {
+func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, existingConfig string, volumeFilename string, volumeConfig string, variables map[string]string) (bool, string, string) {
 	if imageName == "" {
 		imageName = DefaultContainer
 	}
@@ -200,7 +202,6 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 		switch obj.(type) {
 		case *batchv1.Job:
 			strongTypeObject := obj.(*batchv1.Job)
-			//TODO: Should be a way to make this variable injection process simpler
 			for idx, val := range strongTypeObject.Spec.Template.Spec.Containers {
 				for envidx, _ := range envVars {
 					strongTypeObject.Spec.Template.Spec.Containers[idx].Env = append(val.Env, envVars[envidx])
@@ -218,16 +219,53 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 			return false, "", ""
 		}
 	} else {
+		volumeName := objName + "volume"
+		configMapName := objName + "config-map"
+		filename := volumeFilename
+
+		if volumeConfig != "" {
+			configMapSpec := k.createConfigMap(configMapName, namespace, map[string]string{filename: volumeConfig})
+			configMapData, err := json.Marshal(configMapSpec)
+			if err != nil {
+				log.Printf("Error marshalling ConfigMap: %s", err)
+				return false, "", ""
+			}
+			configMapDataString := string(configMapData)
+			success, resourceName, resourceNamespace := k.Deploy(&configMapDataString)
+			if !success {
+				log.Printf("Error deploying ConfigMap")
+				return success, resourceName, resourceNamespace
+			}
+		}
 		var containerSpec = corev1.Container{
-			Name:       objName,
-			Image:      imageName,
-			Command:    command,
-			Args:       args,
-			WorkingDir: "",
-			Ports:      nil,
-			EnvFrom:    nil,
-			Env:        envVars,
-			//There are a lot more parameters, probably won't need them in the near future
+			Name:    objName,
+			Image:   imageName,
+			Command: command,
+			Args:    args,
+			//WorkingDir: "",
+			Ports:   nil,
+			EnvFrom: nil,
+			Env:     envVars,
+		}
+		if volumeConfig != "" {
+			containerSpec.VolumeMounts = []corev1.VolumeMount{
+				{
+					Name:      volumeName,
+					ReadOnly:  false,
+					MountPath: filename,
+					SubPath:   filename,
+				},
+			}
+		}
+		volumeSpec := corev1.Volume{
+			Name: volumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: configMapName},
+					//This pre-configures the file as executable
+					DefaultMode:          utilpointer.Int32Ptr(0777),
+				},
+			},
 		}
 		if kind == JobType {
 			jobSpec := batchv1.Job{
@@ -243,6 +281,9 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 					},
 				},
 				Status: batchv1.JobStatus{},
+			}
+			if volumeConfig != "" {
+				jobSpec.Spec.Template.Spec.Volumes = []corev1.Volume{volumeSpec}
 			}
 			data, err := json.Marshal(jobSpec)
 			if err != nil {

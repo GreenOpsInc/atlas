@@ -28,7 +28,7 @@ public class PipelineRepoApiTests {
     public void testCloneWorksWhenGitRepoDoesNotExist() {
         when(repoManager.clone(schema)).thenReturn(true);
         when(repoManager.containsGitRepoSchema(schema)).thenReturn(false);
-        var response = pipelineApi.cloneRepo(schema);
+        var response = pipelineApi.cloneRepo("org", schema);
 
         assertEquals(ResponseEntity.ok().build(), response);
     }
@@ -37,7 +37,7 @@ public class PipelineRepoApiTests {
     public void testCloneFailsWhenGitRepoDoesNotExist() {
         when(repoManager.clone(schema)).thenReturn(false);
         when(repoManager.containsGitRepoSchema(schema)).thenReturn(false);
-        var response = pipelineApi.cloneRepo(schema);
+        var response = pipelineApi.cloneRepo("org", schema);
 
         assertEquals(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build(), response);
     }
@@ -46,7 +46,7 @@ public class PipelineRepoApiTests {
     public void testCloneWorksWhenGitRepoExists() {
         when(repoManager.update(schema)).thenReturn(true);
         when(repoManager.containsGitRepoSchema(schema)).thenReturn(true);
-        var response = pipelineApi.cloneRepo(schema);
+        var response = pipelineApi.cloneRepo("org", schema);
 
         assertEquals(ResponseEntity.ok().build(), response);
     }
@@ -55,7 +55,7 @@ public class PipelineRepoApiTests {
     public void testCloneFailsWhenGitRepoExists() {
         when(repoManager.update(schema)).thenReturn(false);
         when(repoManager.containsGitRepoSchema(schema)).thenReturn(true);
-        var response = pipelineApi.cloneRepo(schema);
+        var response = pipelineApi.cloneRepo("org", schema);
 
         assertEquals(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build(), response);
     }

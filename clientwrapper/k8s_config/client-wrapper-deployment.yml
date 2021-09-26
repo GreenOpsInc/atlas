@@ -53,7 +53,12 @@ spec:
         app: atlasclientwrapper
     spec:
       containers:
-        - name: atlasclientwrapper
+        - env:
+          - name: WORKFLOW_TRIGGER_SERVER_ADDR
+            value: http://workflowtrigger.default.svc.cluster.local:8080
+          - name: COMMAND_DELEGATOR_URL
+            value: http://commanddelegator.default.svc.cluster.local:8080
+          name: atlasclientwrapper
           image: atlasclientwrapper
           imagePullPolicy: Never
           resources:

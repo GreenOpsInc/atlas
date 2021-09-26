@@ -7,14 +7,16 @@ public class TriggerStepEvent implements Event {
     private String pipelineName;
     private String stepName;
     private String pipelineUvn;
+    private String gitCommitHash;
     private boolean rollback;
 
-    public TriggerStepEvent(String orgName, String teamName, String pipelineName, String stepName, String pipelineUvn, boolean rollback) {
+    public TriggerStepEvent(String orgName, String teamName, String pipelineName, String stepName, String pipelineUvn, String gitCommitHash, boolean rollback) {
         this.orgName = orgName;
         this.teamName = teamName;
         this.pipelineName = pipelineName;
         this.stepName = stepName;
         this.pipelineUvn = pipelineUvn;
+        this.gitCommitHash = gitCommitHash;
         this.rollback = rollback;
     }
 
@@ -45,5 +47,9 @@ public class TriggerStepEvent implements Event {
 
     public boolean isRollback() {
         return rollback;
+    }
+
+    public String getGitCommitHash() {
+        return gitCommitHash;
     }
 }

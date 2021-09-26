@@ -136,7 +136,7 @@ public class PipelineApi {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
 
-        if (!repoManagerApi.cloneRepo(gitRepo)) {
+        if (!repoManagerApi.cloneRepo(orgName, gitRepo)) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
 

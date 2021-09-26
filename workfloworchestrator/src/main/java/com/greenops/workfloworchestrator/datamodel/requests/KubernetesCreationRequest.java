@@ -12,18 +12,20 @@ public class KubernetesCreationRequest {
     private final List<String> command;
     private final List<String> args;
     private final String configPayload;
+    private final String volumeFilename;
+    private final String volumePayload;
     private final Map<String, String> variables;
 
     public KubernetesCreationRequest(String configPayload, Map<String, String> variables) {
-        this(null, null, null, null, null, null, configPayload, variables);
+        this(null, null, null, null, null, null, configPayload, null, null, variables);
     }
 
-    public KubernetesCreationRequest(String kind, String objectName, String namespace, String imageName, List<String> command, List<String> args, Map<String, String> variables) {
-        this(kind, objectName, namespace, imageName, command, args, null, variables);
+    public KubernetesCreationRequest(String kind, String objectName, String namespace, String imageName, List<String> command, List<String> args, String volumeFilename, String volumePayload, Map<String, String> variables) {
+        this(kind, objectName, namespace, imageName, command, args, null, volumeFilename, volumePayload, variables);
     }
 
     //Mainly for the Mixin
-    public KubernetesCreationRequest(String kind, String objectName, String namespace, String imageName, List<String> command, List<String> args, String configPayload, Map<String, String> variables) {
+    public KubernetesCreationRequest(String kind, String objectName, String namespace, String imageName, List<String> command, List<String> args, String configPayload, String volumeFilename, String volumePayload, Map<String, String> variables) {
         this.kind = kind;
         this.objectName = objectName;
         this.namespace = namespace;
@@ -31,6 +33,8 @@ public class KubernetesCreationRequest {
         this.command = command;
         this.args = args;
         this.configPayload = configPayload;
+        this.volumeFilename = volumeFilename;
+        this.volumePayload = volumePayload;
         this.variables = variables;
     }
 }

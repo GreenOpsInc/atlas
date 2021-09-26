@@ -68,7 +68,7 @@ public class PipelineApiTest {
         Mockito.when(kubernetesClient.fetchGitCred(any())).thenReturn(null);
 
         repoManagerApi = Mockito.mock(RepoManagerApi.class);
-        Mockito.when(repoManagerApi.cloneRepo(any())).thenReturn(true);
+        Mockito.when(repoManagerApi.cloneRepo(any(), any())).thenReturn(true);
         Mockito.when(repoManagerApi.deleteRepo(any())).thenReturn(true);
 
         objectMapper = new ObjectMapper()
@@ -87,7 +87,7 @@ public class PipelineApiTest {
     @Test
     public void createPipelineReturnsOk() {
         when(dbClient.fetchTeamSchema(DbKey.makeDbTeamKey("org name", "team1"))).thenReturn(teamSchemaNew);
-        when(repoManagerApi.cloneRepo(any())).thenReturn(true);
+        when(repoManagerApi.cloneRepo(any(), any())).thenReturn(true);
         assertEquals(pipelineApi.createPipeline("org name", "team1", "pipeline1", gitRepoSchema), ResponseEntity.ok().build());
     }
 
@@ -102,7 +102,7 @@ public class PipelineApiTest {
     @Test
     public void updatePipelineReturnsOk() {
         when(dbClient.fetchTeamSchema(DbKey.makeDbTeamKey("org name", "team2"))).thenReturn(teamSchemaOld);
-        when(repoManagerApi.cloneRepo(any())).thenReturn(true);
+        when(repoManagerApi.cloneRepo(any(), any())).thenReturn(true);
         assertEquals(pipelineApi.updatePipeline("org name", "team2", "pipeline1", gitRepoSchema), ResponseEntity.ok().build());
     }
 
@@ -129,7 +129,7 @@ public class PipelineApiTest {
     @Test
     public void createPipelineFailsWhenRepoManagerFails() {
         when(dbClient.fetchTeamSchema(DbKey.makeDbTeamKey("org name", "team1"))).thenReturn(teamSchemaNew);
-        when(repoManagerApi.cloneRepo(gitRepoSchema)).thenReturn(false);
+        when(repoManagerApi.cloneRepo(any(), gitRepoSchema)).thenReturn(false);
         assertEquals(pipelineApi.createPipeline("org name", "team1", "pipeline1", gitRepoSchema), ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build());
     }
 

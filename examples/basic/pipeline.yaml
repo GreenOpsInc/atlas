@@ -11,6 +11,8 @@ steps:
   tests:
   - path: verifyendpoints.sh
     type: inject
+    image: alpine:latest
+    commands: [sh, -c, ./verifyendpoints.sh]
     before: false
     variables:
       SERVICE_INTERNAL_URL: testapp.dev.svc.cluster.local
@@ -19,6 +21,8 @@ steps:
   tests:
   - path: verifyendpoints.sh
     type: inject
+    image: alpine:latest
+    commands: [sh, -c, ./verifyendpoints.sh]
     before: false
     variables:
       SERVICE_INTERNAL_URL: testapp.int.svc.cluster.local
