@@ -1,7 +1,10 @@
 site_name: Atlas
+repo_url: https://github.com/GreenOpsInc/atlas
 theme:
   name: material
-
+markdown_extensions:
+  - pymdownx.superfences
+  - pymdownx.tabbed
 nav:
   - 'index.md'
   - 'argo-comparisons.md'
