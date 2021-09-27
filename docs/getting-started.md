@@ -32,21 +32,21 @@ During deployment, the Atlas Client Wrapper (which acts as the delegate in clust
 === "Linux"
 
     ```linux
-    curl -sSL -o /usr/local/bin/atlas https://github.com/GreenOpsInc/atlas/releases/download/latest/atlas-linux-amd64
+    curl -sSL -o /usr/local/bin/atlas https://github.com/GreenOpsInc/atlas/releases/latest/download/atlas-linux-amd64
     chmod +x /usr/local/bin/atlas
     ```
 
 === "MacOS"
 
     ```macos
-    curl -sSL -o /usr/local/bin/atlas https://github.com/GreenOpsInc/atlas/releases/download/latest/atlas-darwin-amd64
+    curl -sSL -o /usr/local/bin/atlas https://github.com/GreenOpsInc/atlas/releases/latest/download/atlas-darwin-amd64
     chmod +x /usr/local/bin/atlas
     ```
 
 === "Windows"
 
     ```windows
-    curl -sSL -o /usr/local/bin/atlas https://github.com/GreenOpsInc/atlas/releases/download/latest/atlas-windows-amd64.exe
+    curl -sSL -o /usr/local/bin/atlas https://github.com/GreenOpsInc/atlas/releases/latest/download/atlas-windows-amd64.exe
     # You will need to move the file into your PATH.
     ```
 
