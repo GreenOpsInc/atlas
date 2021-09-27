@@ -16,6 +16,8 @@ public abstract class TriggerStepEventMixin {
     String stepName;
     @JsonProperty(value = "pipelineUvn")
     String pipelineUvn;
+    @JsonProperty(value = "gitCommitHash")
+    String gitCommitHash;
     @JsonProperty(value = "rollback")
     boolean rollback;
 
@@ -25,6 +27,7 @@ public abstract class TriggerStepEventMixin {
                                  @JsonProperty(value = "pipelineName") String pipelineName,
                                  @JsonProperty(value = "stepName") String stepName,
                                  @JsonProperty(value = "pipelineUvn") String pipelineUvn,
+                                 @JsonProperty(value = "gitCommitHash") String gitCommitHash,
                                  @JsonProperty(value = "rollback") boolean rollback) {
     }
 

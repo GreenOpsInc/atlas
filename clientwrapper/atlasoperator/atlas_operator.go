@@ -72,6 +72,8 @@ func deploy(request *requestdatatypes.ClientDeployRequest) (requestdatatypes.Dep
 				kubernetesCreationRequest.Command,
 				kubernetesCreationRequest.Args,
 				kubernetesCreationRequest.Config,
+				kubernetesCreationRequest.VolumeFilename,
+				kubernetesCreationRequest.VolumeConfig,
 				kubernetesCreationRequest.Variables,
 			)
 			revisionHash = NotApplicable

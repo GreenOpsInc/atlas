@@ -14,6 +14,10 @@ When adding new clusters, there a few steps to follow:
 
 First, the cluster should be registered using the Atlas API.
 
-Next, a Client Wrapper instance should be deployed to said cluster. While only one Atlas control plane is required across all clusters, each cluster needs a delegate to receive and carry out commands. When deploying the Client Wrapper instance in the cluster, remember to update any parameters as necessary. For example, Atlas needs to communicate with Argo, but if the Argo operator is not local to the cluster the Client Wrapper is being deployed to, the `ARGOCD_SERVER` environment variable needs to be set to the correct destination, along with the `ARGOCD_USER_ACCOUNT` and `ARGOCD_USER_PASSWORD` variables.
+Next, a Client Wrapper instance should be deployed to said cluster. While only one Atlas control plane is required across all clusters, each cluster needs a delegate to receive and carry out commands. When deploying the Client Wrapper instance in the cluster, remember to update any parameters as necessary. For example, Atlas needs to communicate with Argo, but if the Argo operator is not local to the cluster the Client Wrapper is being deployed to, the `ARGOCD_SERVER` environment variable needs to be set to the correct destination, along with the `ARGOCD_USER_ACCOUNT` and `ARGOCD_USER_PASSWORD` variables. The `WORKFLOW_TRIGGER_SERVER_ADDR` and `COMMAND_DELEGATOR_URL` may also need to be updated.
 
 It is also assumed that whatever cluster destination is listed in the Argo manifests have been pre-registered with the Argo APIs.
+
+The delegate-specific manifest can be found [here](https://github.com/GreenOpsInc/atlas/blob/main/manifest/cluster/install_delegate.yaml). The delegate can be installed using:
+
+    kubectl apply -f https://raw.githubusercontent.com/GreenOpsInc/atlas/main/manifest/cluster/install_delegate.yaml -n atlas

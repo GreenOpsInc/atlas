@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/component: clientwrapper
+    app.kubernetes.io/name: clientwrapper
+    app.kubernetes.io/part-of: atlas
+  name: clientwrapper
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: atlas
+rules:
+  # Small scope, feel free to change it
+  - apiGroups: ["*"]
+    resources: ["*"] #"pods", "nodes"
+    verbs: ["*"] #"get", "watch", "list"
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: atlas-clusterrolebinding
+subjects:
+  - kind: ServiceAccount
+    name: clientwrapper
+    namespace: atlas
+roleRef:
+  kind: ClusterRole
+  name: atlas
+  apiGroup: rbac.authorization.k8s.io
+---
+#ClientWrapper Service & Deployment
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: clientwrapper
+    app.kubernetes.io/part-of: atlas
+  name: clientwrapper
+spec:
+  ports:
+    - port: 9091
+      targetPort: 9091
+  selector:
+    app.kubernetes.io/name: clientwrapper
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: clientwrapper
+    app.kubernetes.io/part-of: atlas
+  name: clientwrapper
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: clientwrapper
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: clientwrapper
+    spec:
+      containers:
+        - name: clientwrapper
+          env:
+          - name: WORKFLOW_TRIGGER_SERVER_ADDR
+            value: http://workflowtrigger.atlas.svc.cluster.local:8080
+          - name: COMMAND_DELEGATOR_URL
+            value: http://commanddelegator.atlas.svc.cluster.local:8080
+          image: docker.io/greenopsinc/clientwrapper:v0.10.0-b
+          imagePullPolicy: Always
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
+          ports:
+            - containerPort: 8080
+      restartPolicy: Always
+      serviceAccountName: clientwrapper

@@ -1,8 +1,11 @@
 package com.greenops.workfloworchestrator.datamodel.pipelinedata;
 
+import com.greenops.util.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.datamodel.requests.KubernetesCreationRequest;
 import com.greenops.workfloworchestrator.ingest.handling.testautomation.CommandBuilder;
+import lombok.NonNull;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -17,15 +20,19 @@ public class InjectScriptTest implements Test {
     private String path;
     private String image;
     private String namespace;
+    private List<String> commands;
+    private List<String> arguments;
     private boolean executeInApplicationPod;
     private boolean executeBeforeDeployment;
     private Map<String, String> variables;
 
 
-    InjectScriptTest(String path, String image, String namespace, boolean executeInApplicationPod, boolean executeBeforeDeployment, Map<String, String> variables) {
+    InjectScriptTest(String path, String image, String namespace, List<String> commands, List<String> arguments, boolean executeInApplicationPod, boolean executeBeforeDeployment, Map<String, String> variables) {
         this.path = path;
         this.image = image;
         this.namespace = namespace;
+        this.commands = commands;
+        this.arguments = arguments;
         this.executeInApplicationPod = executeInApplicationPod;
         this.executeBeforeDeployment = executeBeforeDeployment;
         this.variables = variables;
@@ -62,8 +69,7 @@ public class InjectScriptTest implements Test {
         if (specifiedImage != null && !specifiedImage.isEmpty()) {
             imageName = specifiedImage;
         } else {
-            // TODO Add logic for image auto detection based on shebang here
-            imageName = "";
+            throw new AtlasNonRetryableError("Image name for InjectScriptTest should not be empty.");
         }
         var specifiedNamespace = getNamespace();
         var jobNamespace = DEFAULT_NAMESPACE;
@@ -75,13 +81,23 @@ public class InjectScriptTest implements Test {
                 makeTestKey(testNumber),
                 jobNamespace,
                 imageName,
-                List.of("/bin/sh", "-c"),
-                new CommandBuilder().createFile(filename, escapeFile(testConfig)).compile(filename).executeExistingFile(filename).build(),
+                getCommands(),
+                getArguments(),
+                filename,
+                testConfig,
                 getVariables()
         );
     }
 
     private boolean shouldExecuteInPod() {
         return executeInApplicationPod;
+    }
+
+    public List<String> getCommands() {
+        return commands;
+    }
+
+    public List<String> getArguments() {
+        return arguments;
     }
 }

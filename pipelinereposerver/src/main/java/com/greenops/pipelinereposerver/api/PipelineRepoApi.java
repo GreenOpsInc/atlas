@@ -20,8 +20,11 @@ public class PipelineRepoApi {
         this.repoManager = repoManager;
     }
 
-    @PostMapping()
-    ResponseEntity<Void> cloneRepo(@RequestBody GitRepoSchema gitRepoSchema) {
+    @PostMapping(value = "clone/{org}")
+    ResponseEntity<Void> cloneRepo(@PathVariable("org") String org, @RequestBody GitRepoSchema gitRepoSchema) {
+        if (!repoManager.getOrgName().equals(org)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
         if (repoManager.containsGitRepoSchema(gitRepoSchema)) {
             if (repoManager.update(gitRepoSchema)) {
                 return ResponseEntity.ok().build();

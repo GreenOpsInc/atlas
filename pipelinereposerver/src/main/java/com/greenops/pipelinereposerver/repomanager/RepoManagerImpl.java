@@ -158,7 +158,13 @@ public class RepoManagerImpl implements RepoManager {
     public boolean sync(GitRepoSchema gitRepoSchema) {
         var listOfGitRepos = gitRepos.stream().filter(gitRepoCache ->
                 gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toList());
-        if (listOfGitRepos.size() != 1) {
+        if (listOfGitRepos.size() == 0) {
+            log.info("No copies of {} exists", gitRepoSchema.getGitRepo());
+            //The size should never be greater than 1
+            return false;
+        }
+        else if (listOfGitRepos.size() > 1) {
+            log.info("More than one copy of {} exists", gitRepoSchema.getGitRepo());
             //The size should never be greater than 1
             return false;
         }

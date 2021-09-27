@@ -13,7 +13,7 @@ Set up Strimzi using:
 
     kubectl create namespace kafka
     kubectl create -f 'https://strimzi.io/install/latest?namespace=kafka' -n kafka
-    kubectl apply -f https://raw.githubusercontent.com/GreenOpsInc/atlas/main/manifest/kafka.yaml -n kafka
+    kubectl apply -f https://raw.githubusercontent.com/GreenOpsInc/atlas/main/manifest/install/kafka.yaml -n kafka
     kubectl wait kafka/atlas --for=condition=Ready --timeout=300s -n kafka
 
 These commands will set up the Strimzi Kafka operator in the Kafka namespace, create a single-broker Kafka cluster, and wait for the cluster to be set up correctly.
@@ -21,7 +21,7 @@ These commands will set up the Strimzi Kafka operator in the Kafka namespace, cr
 ## 2. Set up Atlas
 
     kubectl create namespace atlas
-    kubectl apply -f https://raw.githubusercontent.com/GreenOpsInc/atlas/main/manifest/atlas.yaml -n atlas
+    kubectl apply -f https://raw.githubusercontent.com/GreenOpsInc/atlas/main/manifest/install/atlas.yaml -n atlas
 
 This will create the atlas namespace and provision the atlas control plane in said namespace.
 
@@ -39,11 +39,15 @@ Patch the Workflow Trigger's Service spec to use a LoadBalancer:
 
     kubectl patch svc workflowtrigger -n atlas -p '{"spec": {"type": "LoadBalancer"}}'
 
+Set the Atlas CLI to use the new <IP address\>:8080 address as the default URL.
+
+    atlas config --atlas.url <IP address>:8080
+
 ### Port Forwarding
 
     kubectl port-forward svc/workflowtrigger -n atlas 8081:8080
 
-Running the command above will allow the Atlas API to be accessible at localhost:8081.
+Running the command above will allow the Atlas API to be accessible at localhost:8081. By default the Atlas CLI will point to that URL.
 
 ## 5. Set Up and Run Your First Pipeline
 
@@ -61,7 +65,7 @@ The pipeline has two steps, one of which will deploy an application to the `dev`
 
 Create the pipeline:
 
-    atlas pipeline create examplePipeline --gitRepo https://github.com/GreenOpsInc/atlasexamples.git --teamName exampleTeam --pathToRoot basic/
+    atlas pipeline create examplePipeline --repo https://github.com/GreenOpsInc/atlasexamples.git --team exampleTeam --path basic/
 
 Creating a new pipeline will automatically trigger the pipeline run.
 
@@ -69,7 +73,7 @@ Creating a new pipeline will automatically trigger the pipeline run.
 
 You can view the status of the pipeline run by running:
 
-    atlas logs get examplePipeline
+    atlas status pipeline examplePipeline --team exampleTeam
 
 You will now be able to see the pipeline status, which will share what steps are currently in progress, whether the deployed steps are stable or not, if the pipeline run is complete, if the pipeline run was cancelled, and if a step failed (and if it did, the specific issue it had). A sample response is as follows:
 
@@ -87,7 +91,7 @@ You can also get step-specific logs for a pipeline, which contain much more gran
 
 You can view the step-specific logs with:
 
-    atlas logs get examplePipeline --step deploy_to_dev
+    atlas status pipeline examplePipeline --team exampleTeam --step deploy_to_dev
 
 Step-specific logs contain information like the application name, Argo revision, Git revision, whether the application was rolled back, whether a test broke (and what the logs were if one did), etc. A sample response is as follows:
 
