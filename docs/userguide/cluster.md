@@ -21,3 +21,9 @@ It is also assumed that whatever cluster destination is listed in the Argo manif
 The delegate-specific manifest can be found [here](https://github.com/GreenOpsInc/atlas/blob/main/manifest/cluster/install_delegate.yaml). The delegate can be installed using:
 
     kubectl apply -f https://raw.githubusercontent.com/GreenOpsInc/atlas/main/manifest/cluster/install_delegate.yaml -n atlas
+
+Create the cluster in Atlas:
+     
+```
+atlas cluster create cluster_name --ip 192.0.2.42 --port 9376
+```

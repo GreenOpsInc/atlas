@@ -22,9 +22,9 @@ For fetching the status of a pipeline step, specify the name of the step with th
 The step count can optionally be set with the -c flag, otherwise it will be set to 15 by default.
  
 Example usage:
-	atlas status pipeline pipeline_name --team team_name (No -u flag specified means uvn is LATEST)
-	atlas status pipeline pipeline_name --team team_name -u LATEST
-	atlas status pipeline pipeline_name --team team_name --step step_name --c 20`, 
+	atlas status pipeline_name --team team_name (No -u flag specified means uvn is LATEST)
+	atlas status pipeline_name --team team_name -u LATEST
+	atlas status pipeline_name --team team_name --step step_name --c 20`, 
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args)!=1 {
 			fmt.Println("Invalid number of arguments. Run 'atlas status -h' to see usage details")

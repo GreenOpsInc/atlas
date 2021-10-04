@@ -21,6 +21,12 @@ nav:
     - 'userguide/pipeline.md'
     - 'userguide/stability.md'
     - 'userguide/audit.md'
+    - 'Command Reference':
+      - 'userguide/commandreference/atlas.md'
+      - 'userguide/commandreference/team.md'
+      - 'userguide/commandreference/pipeline.md'
+      - 'userguide/commandreference/status.md'
+      - 'userguide/commandreference/cluster.md'
   - 'Task/Test Registry':
     - 'tasktestregistry/overview.md'
     - 'tasktestregistry/contributing.md'
