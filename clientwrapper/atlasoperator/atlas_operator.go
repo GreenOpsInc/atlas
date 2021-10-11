@@ -52,19 +52,19 @@ func deploy(request *requestdatatypes.ClientDeployRequest) (requestdatatypes.Dep
 	deployType := request.DeployType
 	revision := request.RevisionHash
 	stringReqBody := request.Payload
-	var success bool
 	var resourceName string
 	var appNamespace string
 	var revisionHash string
+	var err error
 	if deployType == requestdatatypes.DeployArgoRequest {
-		success, resourceName, appNamespace, revisionHash = drivers.argoDriver.Deploy(&stringReqBody, revision)
+		resourceName, appNamespace, revisionHash, err = drivers.argoDriver.Deploy(&stringReqBody, revision)
 	} else if deployType == requestdatatypes.DeployTestRequest {
 		var kubernetesCreationRequest requestdatatypes.KubernetesCreationRequest
-		err := json.NewDecoder(strings.NewReader(stringReqBody)).Decode(&kubernetesCreationRequest)
+		err = json.NewDecoder(strings.NewReader(stringReqBody)).Decode(&kubernetesCreationRequest)
 		if err != nil {
-			success, resourceName, appNamespace, revisionHash = false, "", "", NotApplicable
+			resourceName, appNamespace, revisionHash = "", "", NotApplicable
 		} else {
-			success, resourceName, appNamespace = drivers.k8sDriver.CreateAndDeploy(
+			resourceName, appNamespace, err = drivers.k8sDriver.CreateAndDeploy(
 				kubernetesCreationRequest.Kind,
 				kubernetesCreationRequest.ObjectName,
 				kubernetesCreationRequest.Namespace,
@@ -81,52 +81,51 @@ func deploy(request *requestdatatypes.ClientDeployRequest) (requestdatatypes.Dep
 	} else {
 		resources := strings.Split(stringReqBody, "---")
 		for _, resource := range resources {
-			success, resourceName, appNamespace = drivers.k8sDriver.Deploy(&resource)
+			resourceName, appNamespace, err = drivers.k8sDriver.Deploy(&resource)
 			revisionHash = NotApplicable
-			if !success {
+			if err != nil {
 				break
 			}
 		}
 	}
 
-	if success {
+	if err != nil {
+		return requestdatatypes.DeployResponse{}, AtlasError{
+			AtlasErrorType: AtlasRetryableError,
+			Err:            err,
+		}
+	} else {
 		return requestdatatypes.DeployResponse{
-			Success:      success,
+			Success:      true,
 			ResourceName: resourceName,
 			AppNamespace: appNamespace,
 			RevisionHash: revisionHash,
 		}, nil
-	} else {
-		return requestdatatypes.DeployResponse{}, AtlasError{
-			AtlasErrorType: AtlasRetryableError,
-			Err:            nil,
-		}
 	}
 }
 
-func deployArgoAppByName(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	//requestType := vars["type"]
-	argoAppName := vars["argoAppName"]
-	var success bool
-	var resourceName string
-	var appNamespace string
-	var revisionHash string
-	success, resourceName, appNamespace, revisionHash = drivers.argoDriver.Sync(argoAppName)
-
-	json.NewEncoder(w).Encode(
-		requestdatatypes.DeployResponse{
-			Success:      success,
-			ResourceName: resourceName,
-			AppNamespace: appNamespace,
-			RevisionHash: revisionHash,
-		},
-	)
-}
+//func deployArgoAppByName(w http.ResponseWriter, r *http.Request) {
+//	vars := mux.Vars(r)
+//	//requestType := vars["type"]
+//	argoAppName := vars["argoAppName"]
+//	var resourceName string
+//	var appNamespace string
+//	var revisionHash string
+//	resourceName, appNamespace, revisionHash, _ = drivers.argoDriver.Sync(argoAppName)
+//
+//	json.NewEncoder(w).Encode(
+//		requestdatatypes.DeployResponse{
+//			Success:      true,
+//			ResourceName: resourceName,
+//			AppNamespace: appNamespace,
+//			RevisionHash: revisionHash,
+//		},
+//	)
+//}
 
 func selectiveSyncArgoApp(request *requestdatatypes.ClientSelectiveSyncRequest) error {
-	success, resourceName, appNamespace, _ := drivers.argoDriver.SelectiveSync(request.AppName, request.RevisionHash, request.GvkResourceList)
-	if success {
+	resourceName, appNamespace, _, err := drivers.argoDriver.SelectiveSync(request.AppName, request.RevisionHash, request.GvkResourceList)
+	if err == nil {
 		key := makeWatchKeyFromRequest(
 			datamodel.WatchArgoApplicationKey,
 			request.OrgName,
@@ -145,23 +144,23 @@ func selectiveSyncArgoApp(request *requestdatatypes.ClientSelectiveSyncRequest) 
 	} else {
 		return AtlasError{
 			AtlasErrorType: AtlasRetryableError,
-			Err:            nil,
+			Err:            err,
 		}
 	}
 }
 
 func rollbackArgoApp(request *requestdatatypes.RollbackRequest) (requestdatatypes.DeployResponse, error) {
 	var revisionHash string
-	success, resourceName, appNamespace, revisionHash := drivers.argoDriver.Rollback(request.AppName, request.RevisionId)
+	resourceName, appNamespace, revisionHash, err := drivers.argoDriver.Rollback(request.AppName, request.RevisionId)
 
-	if !success {
+	if err != nil {
 		return requestdatatypes.DeployResponse{}, AtlasError{
 			AtlasErrorType: AtlasRetryableError,
-			Err:            nil,
+			Err:            err,
 		}
 	}
 	return requestdatatypes.DeployResponse{
-		Success:      success,
+		Success:      true,
 		ResourceName: resourceName,
 		AppNamespace: appNamespace,
 		RevisionHash: revisionHash,
@@ -187,13 +186,13 @@ func deleteResource(w http.ResponseWriter, r *http.Request) {
 
 func deleteResourceFromConfig(request *requestdatatypes.ClientDeleteByConfigRequest) error {
 	resources := strings.Split(request.ConfigPayload, "---")
-	var success bool
+	var err error
 	for _, resource := range resources {
-		success = drivers.k8sDriver.DeleteBasedOnConfig(&resource)
-		if !success {
+		err = drivers.k8sDriver.DeleteBasedOnConfig(&resource)
+		if err != nil {
 			return AtlasError{
 				AtlasErrorType: AtlasRetryableError,
-				Err:            nil,
+				Err:            err,
 			}
 		}
 	}
@@ -207,17 +206,17 @@ func deleteApplicationByGvk(request *requestdatatypes.ClientDeleteByGvkRequest) 
 		Kind:    request.Kind,
 	}
 	applicationName := request.ResourceName
-	var success bool
+	var err error
 	if strings.Contains(groupVersionKind.Group, "argo") {
-		success = drivers.argoDriver.Delete(applicationName)
+		err = drivers.argoDriver.Delete(applicationName)
 	} else {
-		success = drivers.k8sDriver.Delete(request.ResourceName, request.ResourceNamespace, groupVersionKind)
+		err = drivers.k8sDriver.Delete(request.ResourceName, request.ResourceNamespace, groupVersionKind)
 	}
 
-	if !success {
+	if err != nil {
 		return AtlasError{
 			AtlasErrorType: AtlasRetryableError,
-			Err:            nil,
+			Err:            err,
 		}
 	}
 	return nil
@@ -382,9 +381,11 @@ func handleRequests(commandDelegatorApi ingest.CommandDelegatorApi, eventGenerat
 			if err != nil {
 				atlasError := err.(AtlasError)
 				if atlasError.AtlasErrorType == AtlasRetryableError {
+					log.Printf("Caught retryable error with message %s", atlasError)
 					//TODO: The command should be "postponed". Essentially acked and then re-inserted at the end of the list
 					continue
 				} else {
+					log.Printf("Caught non-retryable error with message %s", atlasError)
 					failureEvent := datamodel.MakeFailureEventEvent(command.GetClientMetadata(), requestdatatypes.DeployResponse{}, "", atlasError.Error())
 					generationSuccess := false
 					for i := 0; i < progressionchecker.HttpRequestRetryLimit; i++ {

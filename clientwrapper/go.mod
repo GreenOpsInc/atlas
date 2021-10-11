@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/argoproj/argo-cd v1.8.7
 	github.com/argoproj/gitops-engine v0.2.2
+	github.com/dgrijalva/jwt-go/v4 v4.0.0-preview1 // indirect
 	github.com/gorilla/mux v1.8.0
 	k8s.io/api v0.19.6
 	k8s.io/apimachinery v0.19.6
