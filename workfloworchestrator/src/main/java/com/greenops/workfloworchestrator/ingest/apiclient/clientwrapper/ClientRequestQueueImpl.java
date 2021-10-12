@@ -55,7 +55,7 @@ public class ClientRequestQueueImpl implements ClientRequestQueue {
 
     @Override
     public void selectiveSyncArgoApplication(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String revisionHash, ResourcesGvkRequest resourcesGvkRequest, String appName) {
-        var deployRequest = new ClientSelectiveSyncAndWatchRequest(orgName, teamName, pipelineName, uvn, stepName, revisionHash, appName, resourcesGvkRequest);
+        var deployRequest = new ClientSelectiveSyncAndWatchRequest(orgName, teamName, pipelineName, uvn, stepName, appName, revisionHash, resourcesGvkRequest);
         var dbKey = DbKey.makeClientRequestQueueKey(orgName, clusterName);
         dbClient.insertValueInTransactionlessList(dbKey, deployRequest);
     }
