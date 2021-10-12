@@ -105,12 +105,12 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 						log.Printf("Generated Test Completion event for %s", watchKey.Name)
 						watchKey.GeneratedCompletionEvent = true
 						watchedApplications[mapKey] = watchKey
-						if !kubernetesClient.Delete(watchKey.Name, watchKey.Namespace, schema.GroupVersionKind{Kind: k8sdriver.JobType}) {
+						if kubernetesClient.Delete(watchKey.Name, watchKey.Namespace, schema.GroupVersionKind{Kind: k8sdriver.JobType}) != nil {
 							continue
 						}
 						deleteKeys = append(deleteKeys, mapKey)
 						break
-					} else if kubernetesClient.Delete(watchKey.Name, watchKey.Namespace, schema.GroupVersionKind{Kind: k8sdriver.JobType}) {
+					} else if kubernetesClient.Delete(watchKey.Name, watchKey.Namespace, schema.GroupVersionKind{Kind: k8sdriver.JobType}) == nil {
 						deleteKeys = append(deleteKeys, mapKey)
 						break
 					}
