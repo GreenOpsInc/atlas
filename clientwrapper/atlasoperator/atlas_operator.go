@@ -354,7 +354,7 @@ func handleRequests(commandDelegatorApi ingest.CommandDelegatorApi, eventGenerat
 				request = command.(requestdatatypes.ClientDeployRequest)
 				var deployResponse requestdatatypes.DeployResponse
 				deployResponse, err = deploy(&request)
-				if deployResponse.Success {
+				if err == nil && deployResponse.Success {
 					eventGenerationApi.GenerateResponseEvent(request.ResponseEventType.MakeResponseEvent(&deployResponse, &request))
 				}
 			} else if command.GetEvent() == requestdatatypes.ClientDeployAndWatchRequestType {

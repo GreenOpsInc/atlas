@@ -302,7 +302,7 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 
 func (k KubernetesClientDriver) deleteAndDeploy(configPayload *string) (string, string, error) {
 	err := k.DeleteBasedOnConfig(configPayload)
-	if err != nil {
+	if err == nil {
 		return k.Deploy(configPayload)
 	}
 	log.Printf("Failed to delete the existing resource successfully. Aborting deploy.")
