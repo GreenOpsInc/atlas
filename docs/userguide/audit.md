@@ -8,7 +8,10 @@ Pipelines are organized and ordered using unique version numbers (UVNs). Each pi
 
 ## Pipeline-Level Logs
 
+
+
 Pipeline-level statuses can be fetched using the CLI or API, which return payloads similar to this:
+
 
     {
         "progressingSteps": [
@@ -37,6 +40,7 @@ Or this in case of failures:
         ]
     }
 
+
 The pipeline level status update shows a few key components:
 
 - Which steps are currently running.
@@ -44,6 +48,12 @@ The pipeline level status update shows a few key components:
 - If the pipeline run was able to complete. Completion refers to whether the pipeline was able to finish all the steps successfully. If there was a failure at a specific step, or a rollback (even if the rollback is successful and the deployment is stable), `complete` will still be marked as false. State remediations generally happen past the scope of a pipeline run, and aren't factored into evaluating the completeness of a pipeline run.
 - Whether the pipeline run was cancelled or not. If the pipeline run is cancelled, it is marked as incomplete as well.
 - Failed steps/tests/tasks, if any. If any step(s) fail, they will be added to the `failedSteps` list. This list gives insight into the step that failed, whether the deployment of the application failed or not, and if any tasks or tests failed. If a task/test failed, the logs from the pod or pods will be collected and displayed in the `brokenTestLog`.
+
+Use the atlas pipeline status command to fetch a pipeline level status update:
+
+```
+atlas status pipeline_name --team team_name (No -u flag specified means uvn is LATEST)
+```
 
 ## Step-Level Logs
 
@@ -76,6 +86,13 @@ There are a few key components here:
 - The `argoRevisionHash` represents what revision of the Kubernetes manifest linked in the ArgoCD Application was deployed.
 - The `gitCommitVersion` represents what revision of the pipeline repository registered with Atlas was run.
 - Failed tests/tasks, if any. If a test/task fails, the name will be listed in `brokenTest` and the logs from the pod(s) will be collected and displayed in the `brokenTestLog`.
+
+Use the atlas pipeline status command with the step_name flag set to fetch a pipeline step level status update:
+
+```
+atlas status pipeline_name --team team_name --step step_name --c 15`
+```
+
 
 ### Remediation Log
 

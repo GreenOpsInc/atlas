@@ -46,7 +46,7 @@ Example usage:
 }
 
 func init() {
-	rootCmd.AddCommand(pipelineCancelCmd)
+	pipelineCmd.AddCommand(pipelineCancelCmd)
 
 	// Here you will define your flags and configuration settings.
 
