@@ -129,7 +129,7 @@ func getArgoClient(apiServerAddress string, userAccount string, userPassword str
 	return argoClient, nil
 }
 
-func (a ArgoClientDriver) CheckForRefresh() error {
+func (a *ArgoClientDriver) CheckForRefresh() error {
 	parser := &jwt.Parser{
 		ValidationHelper: jwt.NewValidationHelper(jwt.WithoutClaimsValidation(), jwt.WithoutAudienceValidation()),
 	}
@@ -141,6 +141,7 @@ func (a ArgoClientDriver) CheckForRefresh() error {
 	}
 	now := jwt.At(time.Now().UTC())
 	if now.After(claims.ExpiresAt.Time) {
+		log.Printf("Getting new token")
 		apiServerAddress, userAccount, userPassword, _ := getClientCreationData(&a.kubernetesClient)
 		argoClient, err := getArgoClient(apiServerAddress, userAccount, userPassword)
 		if err != nil {

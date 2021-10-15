@@ -317,8 +317,10 @@ public class EventHandlerImpl implements EventHandler {
         }
 
         if (event.isRollback()) {
+            log.info("Handling rollback trigger");
             gitCommit = deploymentLogHandler.makeRollbackDeploymentLog(event, event.getStepName());
             if (gitCommit.isEmpty()) {
+                log.info("Could not find stable deployment to rollback to");
                 //Means there is no stable version that can be found.
                 return;
             }
