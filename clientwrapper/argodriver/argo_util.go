@@ -14,7 +14,7 @@ const (
 	resourceFieldCount     = 4
 )
 
-func (a ArgoClientDriver) SpecMatches(app1 *v1alpha1.Application, app2 *v1alpha1.Application) bool {
+func (a *ArgoClientDriver) SpecMatches(app1 *v1alpha1.Application, app2 *v1alpha1.Application) bool {
 	if app1 == nil || app2 == nil {
 		return false
 	}
@@ -27,7 +27,7 @@ func (a ArgoClientDriver) SpecMatches(app1 *v1alpha1.Application, app2 *v1alpha1
 		app1.Spec.String() == app2.Spec.String()
 }
 
-func (a ArgoClientDriver) ParseSelectedResources(resources []string) ([]v1alpha1.SyncOperationResource, error) {
+func (a *ArgoClientDriver) ParseSelectedResources(resources []string) ([]v1alpha1.SyncOperationResource, error) {
 	var selectedResources []v1alpha1.SyncOperationResource
 	if resources != nil {
 		selectedResources = []v1alpha1.SyncOperationResource{}

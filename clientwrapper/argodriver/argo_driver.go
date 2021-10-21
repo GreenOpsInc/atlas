@@ -81,7 +81,7 @@ func New(kubernetesDriver *k8sdriver.KubernetesClient) ArgoClient {
 	util.CheckFatalError(err)
 
 	var client ArgoClient
-	client = ArgoClientDriver{argoClient, kubernetesClient}
+	client = &ArgoClientDriver{argoClient, kubernetesClient}
 	return client
 }
 
@@ -140,7 +140,7 @@ func (a *ArgoClientDriver) CheckForRefresh() error {
 		return err
 	}
 	now := jwt.At(time.Now().UTC())
-	if now.After(claims.ExpiresAt.Time) {
+	if now.Time.After(claims.ExpiresAt.Time) {
 		log.Printf("Getting new token")
 		apiServerAddress, userAccount, userPassword, _ := getClientCreationData(&a.kubernetesClient)
 		argoClient, err := getArgoClient(apiServerAddress, userAccount, userPassword)
@@ -152,7 +152,7 @@ func (a *ArgoClientDriver) CheckForRefresh() error {
 	return nil
 }
 
-func (a ArgoClientDriver) Deploy(configPayload *string, revisionHash string) (string, string, string, error) {
+func (a *ArgoClientDriver) Deploy(configPayload *string, revisionHash string) (string, string, string, error) {
 	err := a.CheckForRefresh()
 	if err != nil {
 		return "", "", "", err
@@ -200,7 +200,7 @@ func (a ArgoClientDriver) Deploy(configPayload *string, revisionHash string) (st
 	return a.Sync(argoApplication.Name)
 }
 
-func (a ArgoClientDriver) Update(configPayload *string) (string, string, string, error) {
+func (a *ArgoClientDriver) Update(configPayload *string) (string, string, string, error) {
 	err := a.CheckForRefresh()
 	if err != nil {
 		return "", "", "", err
@@ -233,7 +233,7 @@ func (a ArgoClientDriver) Update(configPayload *string) (string, string, string,
 	return a.Sync(argoApplication.Name)
 }
 
-func (a ArgoClientDriver) updateApplicationSourceHash(applicationName string, revisionHash string) (string, string, string, error) {
+func (a *ArgoClientDriver) updateApplicationSourceHash(applicationName string, revisionHash string) (string, string, string, error) {
 	err := a.CheckForRefresh()
 	if err != nil {
 		return "", "", "", err
@@ -270,7 +270,7 @@ func (a ArgoClientDriver) updateApplicationSourceHash(applicationName string, re
 	return a.Sync(argoApplication.Name)
 }
 
-func (a ArgoClientDriver) Sync(applicationName string) (string, string, string, error) {
+func (a *ArgoClientDriver) Sync(applicationName string) (string, string, string, error) {
 	err := a.CheckForRefresh()
 	if err != nil {
 		return "", "", "", err
@@ -358,7 +358,7 @@ func (a ArgoClientDriver) Sync(applicationName string) (string, string, string, 
 	return argoApplication.Name, argoApplication.Namespace, argoApplication.Operation.Sync.Revision, nil
 }
 
-func (a ArgoClientDriver) SelectiveSync(applicationName string, revisionHash string, gvkGroup requestdatatypes.GvkGroupRequest) (string, string, string, error) {
+func (a *ArgoClientDriver) SelectiveSync(applicationName string, revisionHash string, gvkGroup requestdatatypes.GvkGroupRequest) (string, string, string, error) {
 	err := a.CheckForRefresh()
 	if err != nil {
 		return "", "", "", err
@@ -408,7 +408,7 @@ func (a ArgoClientDriver) SelectiveSync(applicationName string, revisionHash str
 	return argoApplication.Name, argoApplication.Namespace, revisionHash, nil
 }
 
-func (a ArgoClientDriver) GetAppResourcesStatus(applicationName string) ([]datamodel.ResourceStatus, error) {
+func (a *ArgoClientDriver) GetAppResourcesStatus(applicationName string) ([]datamodel.ResourceStatus, error) {
 	err := a.CheckForRefresh()
 	if err != nil {
 		return nil, err
@@ -445,7 +445,7 @@ func (a ArgoClientDriver) GetAppResourcesStatus(applicationName string) ([]datam
 	return resourceStatuses, nil
 }
 
-func (a ArgoClientDriver) GetOperationSuccess(applicationName string) (bool, bool, string, error) {
+func (a *ArgoClientDriver) GetOperationSuccess(applicationName string) (bool, bool, string, error) {
 	err := a.CheckForRefresh()
 	if err != nil {
 		return false, false, "", err
@@ -475,7 +475,7 @@ func (a ArgoClientDriver) GetOperationSuccess(applicationName string) (bool, boo
 		nil
 }
 
-func (a ArgoClientDriver) GetCurrentRevisionHash(applicationName string) (string, error) {
+func (a *ArgoClientDriver) GetCurrentRevisionHash(applicationName string) (string, error) {
 	err := a.CheckForRefresh()
 	if err != nil {
 		return "", err
@@ -499,7 +499,7 @@ func (a ArgoClientDriver) GetCurrentRevisionHash(applicationName string) (string
 	return app.Status.Sync.Revision, nil
 }
 
-func (a ArgoClientDriver) GetLatestRevision(applicationName string) (int64, error) {
+func (a *ArgoClientDriver) GetLatestRevision(applicationName string) (int64, error) {
 	err := a.CheckForRefresh()
 	if err != nil {
 		return 0, err
@@ -521,7 +521,7 @@ func (a ArgoClientDriver) GetLatestRevision(applicationName string) (int64, erro
 	return app.Status.History.LastRevisionHistory().ID, nil
 }
 
-func (a ArgoClientDriver) Delete(applicationName string) error {
+func (a *ArgoClientDriver) Delete(applicationName string) error {
 	err := a.CheckForRefresh()
 	if err != nil {
 		return err
@@ -541,7 +541,7 @@ func (a ArgoClientDriver) Delete(applicationName string) error {
 	return nil
 }
 
-func (a ArgoClientDriver) Rollback(appName string, appRevisionHash string) (string, string, string, error) {
+func (a *ArgoClientDriver) Rollback(appName string, appRevisionHash string) (string, string, string, error) {
 	err := a.CheckForRefresh()
 	if err != nil {
 		return "", "", "", err
@@ -592,7 +592,7 @@ func (a ArgoClientDriver) Rollback(appName string, appRevisionHash string) (stri
 	return argoApplication.Name, argoApplication.Namespace, argoApplication.Operation.Sync.Revision, nil
 }
 
-func (a ArgoClientDriver) CheckHealthy(argoApplicationName string) bool {
+func (a *ArgoClientDriver) CheckHealthy(argoApplicationName string) bool {
 	err := a.CheckForRefresh()
 	if err != nil {
 		return false

@@ -206,14 +206,14 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
                 continue;
             }
             var deploymentLog = (DeploymentLog) logList.get(idx);
-            if (deploymentLog.getStatus().equals(Log.LogStatus.SUCCESS.name())) {
+            if (deploymentLog.getStatus().equals(Log.LogStatus.SUCCESS.name()) && deploymentLog.getUniqueVersionInstance() == 0) {
                 var gitCommitVersion = deploymentLog.getGitCommitVersion();
 
                 logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName());
                 var newLog = new DeploymentLog(
                         currentLog.getPipelineUniqueVersionNumber(),
                         logList.get(idx).getPipelineUniqueVersionNumber(),
-                        logList.get(idx).getUniqueVersionInstance() + 1,
+                        currentLog.getUniqueVersionInstance() + 1,
                         Log.LogStatus.PROGRESSING.name(),
                         false,
                         deploymentLog.getArgoApplicationName(),
