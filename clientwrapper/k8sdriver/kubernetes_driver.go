@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	goerrors "errors"
+	"github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	"io"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -208,6 +209,21 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 				for envidx, _ := range envVars {
 					strongTypeObject.Spec.Template.Spec.Containers[idx].Env = append(val.Env, envVars[envidx])
 				}
+			}
+			var data []byte
+			data, err = json.Marshal(strongTypeObject)
+			if err != nil {
+				log.Printf("Error marshalling Job: %s", err)
+				return "", "", err
+			}
+			configPayload = string(data)
+		case *v1alpha1.Workflow:
+			strongTypeObject := obj.(*v1alpha1.Workflow)
+			for key, value := range variables {
+				strongTypeObject.Spec.Arguments.Parameters = append(
+					strongTypeObject.Spec.Arguments.Parameters,
+					v1alpha1.Parameter{Name: key, Value: v1alpha1.AnyStringPtr(value)},
+				)
 			}
 			var data []byte
 			data, err = json.Marshal(strongTypeObject)

@@ -23,10 +23,7 @@ import com.greenops.util.datamodel.pipeline.TeamSchemaImpl;
 import com.greenops.util.datamodel.request.*;
 import com.greenops.util.dbclient.DbClient;
 import com.greenops.util.dbclient.redis.RedisDbClient;
-import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.CustomJobTestMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.PipelineDataMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.StepDataMixin;
-import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.InjectScriptTestMixin;
+import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.*;
 import com.greenops.workfloworchestrator.datamodel.mixin.requests.*;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.*;
 import com.greenops.workfloworchestrator.datamodel.requests.*;
@@ -87,6 +84,7 @@ public class SpringConfiguration {
                 .addMixIn(StepDataImpl.class, StepDataMixin.class)
                 .addMixIn(InjectScriptTest.class, InjectScriptTestMixin.class)
                 .addMixIn(CustomJobTest.class, CustomJobTestMixin.class)
+                .addMixIn(ArgoWorkflowTask.class, ArgoWorkflowTaskMixin.class)
                 .addMixIn(PipelineSchemaImpl.class, PipelineSchemaMixin.class)
                 .addMixIn(TeamSchemaImpl.class, TeamSchemaMixin.class)
                 .addMixIn(GitRepoSchema.class, GitRepoSchemaMixin.class)

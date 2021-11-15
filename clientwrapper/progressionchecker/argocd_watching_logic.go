@@ -12,17 +12,17 @@ const (
 	emptyWatchKeyName string = "EMPTYWATCHKEY"
 )
 
-func CheckArgoStatus(watchKey datamodel.WatchKey, appInfo datamodel.ArgoAppMetricInfo, argoClient argodriver.ArgoGetRestrictedClient) (datamodel.WatchKey, datamodel.EventInfo) {
+func CheckArgoCdStatus(watchKey datamodel.WatchKey, appInfo datamodel.ArgoAppMetricInfo, argoClient argodriver.ArgoGetRestrictedClient) (datamodel.WatchKey, datamodel.EventInfo) {
 	if appInfo.HealthStatus == health.HealthStatusProgressing {
 		return GetEmptyWatchKey(), nil
 	} else if appInfo.SyncStatus == v1alpha1.SyncStatusCodeSynced {
-		return CheckArgoSyncedStatus(watchKey, appInfo, argoClient)
+		return CheckArgoCdSyncedStatus(watchKey, appInfo, argoClient)
 	} else {
-		return CheckArgoNonSyncedStatus(watchKey, appInfo, argoClient)
+		return CheckArgoCdNonSyncedStatus(watchKey, appInfo, argoClient)
 	}
 }
 
-func CheckArgoSyncedStatus(watchKey datamodel.WatchKey, appInfo datamodel.ArgoAppMetricInfo, argoClient argodriver.ArgoGetRestrictedClient) (datamodel.WatchKey, datamodel.EventInfo) {
+func CheckArgoCdSyncedStatus(watchKey datamodel.WatchKey, appInfo datamodel.ArgoAppMetricInfo, argoClient argodriver.ArgoGetRestrictedClient) (datamodel.WatchKey, datamodel.EventInfo) {
 	var eventInfo datamodel.EventInfo
 	watchKey.SyncStatus = string(v1alpha1.SyncStatusCodeSynced)
 	//If revisionHash = "", it means the app can't be found
@@ -62,7 +62,7 @@ func CheckArgoSyncedStatus(watchKey datamodel.WatchKey, appInfo datamodel.ArgoAp
 //	}
 //}
 
-func CheckArgoNonSyncedStatus(watchKey datamodel.WatchKey, appInfo datamodel.ArgoAppMetricInfo, argoClient argodriver.ArgoGetRestrictedClient) (datamodel.WatchKey, datamodel.EventInfo) {
+func CheckArgoCdNonSyncedStatus(watchKey datamodel.WatchKey, appInfo datamodel.ArgoAppMetricInfo, argoClient argodriver.ArgoGetRestrictedClient) (datamodel.WatchKey, datamodel.EventInfo) {
 	var eventInfo datamodel.EventInfo
 	oldSyncStatus := watchKey.SyncStatus
 	oldHealthStatus := watchKey.HealthStatus

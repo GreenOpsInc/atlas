@@ -4,15 +4,12 @@ import com.greenops.workfloworchestrator.datamodel.requests.KubernetesCreationRe
 
 import java.util.Map;
 
-import static com.greenops.workfloworchestrator.ingest.handling.EventHandlerImpl.WATCH_TEST_KEY;
-
-public class CustomJobTest implements Test {
-
+public class ArgoWorkflowTask implements Test {
     private String path;
     private boolean executeBeforeDeployment;
     private Map<String, String> variables;
 
-    CustomJobTest(String path, boolean executeBeforeDeployment, Map<String, String> variables) {
+    ArgoWorkflowTask(String path, boolean executeBeforeDeployment, Map<String, String> variables) {
         this.path = path;
         this.executeBeforeDeployment = executeBeforeDeployment;
         this.variables = variables;
@@ -35,11 +32,11 @@ public class CustomJobTest implements Test {
 
     @Override
     public Object getPayload(int testNumber, String testConfig) {
-        return new KubernetesCreationRequest(CUSTOM_TASK, testConfig, getVariables());
+        return new KubernetesCreationRequest(ARGO_WORKFLOW_TASK, testConfig, getVariables());
     }
 
     @Override
     public String getWatchKey() {
-        return WATCH_TEST_KEY;
+        return ARGO_WORKFLOW_TASK;
     }
 }

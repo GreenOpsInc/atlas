@@ -26,6 +26,7 @@ type WatchRequest struct {
 }
 
 type KubernetesCreationRequest struct {
+	Type           string            `json:"type"`
 	Kind           string            `json:"kind"`
 	ObjectName     string            `json:"objectName"`
 	Namespace      string            `json:"namespace"`
