@@ -28,8 +28,11 @@ const (
 type WatchKeyType string
 
 const (
+	//Core
 	WatchArgoApplicationKey WatchKeyType = "WatchArgoApplicationKey"
 	WatchTestKey            WatchKeyType = "WatchTestKey"
+	//Plugin
+	WatchArgoWorkflowKey WatchKeyType = "ArgoWorkflowTask"
 )
 
 type WatchKeyMetaData struct {

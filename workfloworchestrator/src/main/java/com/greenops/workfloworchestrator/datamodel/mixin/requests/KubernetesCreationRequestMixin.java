@@ -8,6 +8,9 @@ import java.util.Map;
 
 public abstract class KubernetesCreationRequestMixin {
 
+    @JsonProperty(value = "type")
+    String type;
+
     @JsonProperty(value = "kind")
     String kind;
 
@@ -39,7 +42,8 @@ public abstract class KubernetesCreationRequestMixin {
     Map<String, String> variables;
 
     @JsonCreator
-    public KubernetesCreationRequestMixin(@JsonProperty(value = "kind") String kind,
+    public KubernetesCreationRequestMixin(@JsonProperty(value = "type") String type,
+                                          @JsonProperty(value = "kind") String kind,
                                           @JsonProperty(value = "objectName") String objectName,
                                           @JsonProperty(value = "namespace") String namespace,
                                           @JsonProperty(value = "imageName") String imageName,

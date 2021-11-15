@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.greenops.workfloworchestrator.ingest.handling.ClientKey.makeTestKey;
+import static com.greenops.workfloworchestrator.ingest.handling.EventHandlerImpl.WATCH_TEST_KEY;
 import static com.greenops.workfloworchestrator.ingest.handling.util.deployment.SchemaHandlingUtil.escapeFile;
 import static com.greenops.workfloworchestrator.ingest.handling.util.deployment.SchemaHandlingUtil.getFileName;
 
@@ -77,6 +78,7 @@ public class InjectScriptTest implements Test {
             jobNamespace = specifiedNamespace;
         }
         return new KubernetesCreationRequest(
+                INJECT_TASK,
                 "Job",
                 makeTestKey(testNumber),
                 jobNamespace,
@@ -87,6 +89,11 @@ public class InjectScriptTest implements Test {
                 testConfig,
                 getVariables()
         );
+    }
+
+    @Override
+    public String getWatchKey() {
+        return WATCH_TEST_KEY;
     }
 
     private boolean shouldExecuteInPod() {
