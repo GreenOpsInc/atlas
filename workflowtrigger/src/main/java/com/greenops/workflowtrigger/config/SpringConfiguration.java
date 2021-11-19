@@ -1,6 +1,7 @@
 package com.greenops.workflowtrigger.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.greenops.util.datamodel.auditlog.DeploymentLog;
 import com.greenops.util.datamodel.auditlog.RemediationLog;
 import com.greenops.util.datamodel.cluster.ClusterSchema;
@@ -17,15 +18,19 @@ import com.greenops.util.datamodel.mixin.git.GitCredTokenMixin;
 import com.greenops.util.datamodel.mixin.git.GitRepoSchemaMixin;
 import com.greenops.util.datamodel.mixin.pipeline.PipelineSchemaMixin;
 import com.greenops.util.datamodel.mixin.pipeline.TeamSchemaMixin;
-import com.greenops.util.datamodel.mixin.pipelinestatus.PipelineStatusMixin;
 import com.greenops.util.datamodel.mixin.pipelinestatus.FailedStepMixin;
+import com.greenops.util.datamodel.mixin.pipelinestatus.PipelineStatusMixin;
 import com.greenops.util.datamodel.pipeline.PipelineSchemaImpl;
 import com.greenops.util.datamodel.pipeline.TeamSchemaImpl;
-import com.greenops.util.datamodel.pipelinestatus.PipelineStatus;
 import com.greenops.util.datamodel.pipelinestatus.FailedStep;
-import com.greenops.util.datamodel.pipeline.TeamSchemaImpl;
+import com.greenops.util.datamodel.pipelinestatus.PipelineStatus;
 import com.greenops.util.dbclient.DbClient;
 import com.greenops.util.dbclient.redis.RedisDbClient;
+import com.greenops.workflowtrigger.datamodel.mixin.pipelinedata.PipelineDataMixin;
+import com.greenops.workflowtrigger.datamodel.mixin.pipelinedata.StepDataMixin;
+import com.greenops.workflowtrigger.datamodel.pipelinedata.PipelineDataImpl;
+import com.greenops.workflowtrigger.datamodel.pipelinedata.StepDataImpl;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,6 +39,12 @@ import org.springframework.kafka.core.ProducerFactory;
 
 @Configuration
 public class SpringConfiguration {
+
+    @Bean
+    @Qualifier("yamlObjectMapper")
+    ObjectMapper yamlObjectMapper() {
+        return new ObjectMapper(new YAMLFactory());
+    }
 
     @Bean
     public ObjectMapper objectMapper() {
@@ -48,7 +59,9 @@ public class SpringConfiguration {
                 .addMixIn(RemediationLog.class, RemediationLogMixin.class)
                 .addMixIn(ClusterSchema.class, ClusterSchemaMixin.class)
                 .addMixIn(FailedStep.class, FailedStepMixin.class)
-                .addMixIn(PipelineStatus.class, PipelineStatusMixin.class);
+                .addMixIn(PipelineStatus.class, PipelineStatusMixin.class)
+                .addMixIn(PipelineDataImpl.class, PipelineDataMixin.class)
+                .addMixIn(StepDataImpl.class, StepDataMixin.class);
 
     }
 

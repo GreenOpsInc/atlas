@@ -20,6 +20,7 @@ import com.greenops.workflowtrigger.api.reposerver.RepoManagerApi;
 import com.greenops.workflowtrigger.dbclient.DbKey;
 import com.greenops.workflowtrigger.kafka.KafkaClient;
 import com.greenops.workflowtrigger.kubernetesclient.KubernetesClient;
+import com.greenops.workflowtrigger.validator.RequestSchemaValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -31,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
@@ -47,6 +49,7 @@ public class PipelineApiTest {
     private PipelineSchema pipelineSchema;
     private KafkaClient kafkaClient;
     private RepoManagerApi repoManagerApi;
+    private RequestSchemaValidator requestSchemaValidator;
 
     @BeforeEach
     void beforeEach() throws JsonProcessingException {
@@ -54,6 +57,7 @@ public class PipelineApiTest {
         teamSchemaOld = new TeamSchemaImpl("team2", "root", "org name");
         gitRepoSchema = new GitRepoSchema("https://github.com/argoproj/argocd-example-apps.git", "guestbook/", new GitCredOpen());
         pipelineSchema = new PipelineSchemaImpl("pipeline1", gitRepoSchema);
+
 
         teamSchemaOld.addPipeline(pipelineSchema);
 
@@ -71,6 +75,11 @@ public class PipelineApiTest {
         Mockito.when(repoManagerApi.cloneRepo(any(), any())).thenReturn(true);
         Mockito.when(repoManagerApi.deleteRepo(any())).thenReturn(true);
 
+        requestSchemaValidator = Mockito.mock(RequestSchemaValidator.class);
+        Mockito.when(requestSchemaValidator.validateSchemaAccess(any(), any(), any(), any(), any())).thenReturn(true);
+        Mockito.when(requestSchemaValidator.verifyRbac(any(), any(), any())).thenReturn(true);
+        Mockito.when(requestSchemaValidator.checkAuthentication()).thenReturn(true);
+
         objectMapper = new ObjectMapper()
                 .addMixIn(TeamSchemaImpl.class, TeamSchemaMixin.class)
                 .addMixIn(PipelineSchemaImpl.class, PipelineSchemaMixin.class)
@@ -80,7 +89,7 @@ public class PipelineApiTest {
 
         pipelineSchemaJson = objectMapper.writeValueAsString(pipelineSchema);
 
-        pipelineApi = new PipelineApi(dbClient, kafkaClient, kubernetesClient, repoManagerApi, objectMapper);
+        pipelineApi = new PipelineApi(dbClient, kafkaClient, kubernetesClient, repoManagerApi, requestSchemaValidator, objectMapper);
 
     }
 
@@ -129,7 +138,7 @@ public class PipelineApiTest {
     @Test
     public void createPipelineFailsWhenRepoManagerFails() {
         when(dbClient.fetchTeamSchema(DbKey.makeDbTeamKey("org name", "team1"))).thenReturn(teamSchemaNew);
-        when(repoManagerApi.cloneRepo(any(), gitRepoSchema)).thenReturn(false);
+        when(repoManagerApi.cloneRepo(any(), eq(gitRepoSchema))).thenReturn(false);
         assertEquals(pipelineApi.createPipeline("org name", "team1", "pipeline1", gitRepoSchema), ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build());
     }
 

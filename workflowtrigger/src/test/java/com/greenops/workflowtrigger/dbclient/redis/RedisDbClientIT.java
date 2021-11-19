@@ -8,6 +8,7 @@ import com.greenops.util.datamodel.pipeline.TeamSchema;
 import com.greenops.util.datamodel.pipeline.TeamSchemaImpl;
 import com.greenops.util.dbclient.DbClient;
 import com.greenops.util.dbclient.redis.RedisDbClient;
+import com.greenops.workflowtrigger.api.argoauthenticator.ArgoAuthenticatorApi;
 import com.greenops.workflowtrigger.kubernetesclient.KubernetesClient;
 import org.junit.ClassRule;
 import org.junit.jupiter.api.*;
@@ -37,6 +38,9 @@ public class RedisDbClientIT {
 
     @MockBean
     KubernetesClient kubernetesClient;
+
+    @MockBean
+    ArgoAuthenticatorApi argoAuthenticatorApi;
 
     @Value("${application.redis-url}")
     String redisUrl;

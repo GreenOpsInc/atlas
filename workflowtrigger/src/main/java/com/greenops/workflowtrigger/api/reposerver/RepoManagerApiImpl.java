@@ -8,6 +8,9 @@ import com.greenops.util.datamodel.git.GitRepoSchema;
 import com.greenops.util.datamodel.mixin.git.GitCredMachineUserMixin;
 import com.greenops.util.datamodel.mixin.git.GitCredTokenMixin;
 import com.greenops.util.datamodel.mixin.git.GitRepoSchemaMixin;
+import com.greenops.util.datamodel.request.GetFileRequest;
+import com.greenops.util.error.AtlasNonRetryableError;
+import com.greenops.util.error.AtlasRetryableError;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
@@ -19,9 +22,15 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
+import static com.greenops.util.api.ApiClientUtil.checkResponseStatus;
+
 @Slf4j
 @Component
 public class RepoManagerApiImpl implements RepoManagerApi {
+
+    public static final String ROOT_COMMIT = "ROOT_COMMIT";
+    private static final String GET_FILE_EXTENSION = "file";
+    public static final String PIPELINE_FILE_NAME = "pipeline.yaml";
 
     private final String serverEndpoint;
     private final ObjectMapper objectMapper;
@@ -91,5 +100,26 @@ public class RepoManagerApiImpl implements RepoManagerApi {
             return false;
         }
         //TODO: Catch branches left separate for future processing, logic, and logging.
+    }
+
+    @Override
+    public String getFileFromRepo(GetFileRequest getFileRequest, String orgName, String teamName) {
+        var request = new HttpPost(serverEndpoint + String.format("/%s/%s/%s", GET_FILE_EXTENSION, orgName, teamName));
+        try {
+            var requestBody = objectMapper.writeValueAsString(getFileRequest);
+            request.setEntity(new StringEntity(requestBody, ContentType.APPLICATION_JSON));
+            var response = httpClient.execute(request);
+            log.info("Fetch file request for repo {} returned with status code {}", getFileRequest.getGitRepoUrl(), response.getStatusLine().getStatusCode());
+            checkResponseStatus(response);
+            return new String(response.getEntity().getContent().readAllBytes());
+        } catch (JsonProcessingException e) {
+            log.error("Object mapper could not convert GetFileRequest", e);
+            throw new AtlasNonRetryableError(e);
+        } catch (IOException e) {
+            log.error("HTTP get file request failed for repo: {}", getFileRequest.getGitRepoUrl(), e);
+            throw new AtlasRetryableError(e);
+        } finally {
+            request.releaseConnection();
+        }
     }
 }

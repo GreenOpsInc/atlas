@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
-import static com.greenops.workfloworchestrator.ingest.apiclient.util.ApiClientUtil.checkResponseStatus;
+import static com.greenops.util.api.ApiClientUtil.checkResponseStatus;
 
 @Slf4j
 @Component

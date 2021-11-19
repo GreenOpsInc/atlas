@@ -11,10 +11,12 @@ import com.greenops.util.datamodel.git.GitRepoSchema;
 import com.greenops.util.datamodel.pipeline.PipelineSchema;
 import com.greenops.util.datamodel.pipeline.TeamSchemaImpl;
 import com.greenops.util.dbclient.DbClient;
+import com.greenops.util.error.AtlasAuthenticationError;
 import com.greenops.workflowtrigger.api.reposerver.RepoManagerApi;
 import com.greenops.workflowtrigger.dbclient.DbKey;
 import com.greenops.workflowtrigger.kafka.KafkaClient;
 import com.greenops.workflowtrigger.kubernetesclient.KubernetesClient;
+import com.greenops.workflowtrigger.validator.RequestSchemaValidator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -26,6 +28,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.greenops.workflowtrigger.api.argoauthenticator.ArgoAuthenticatorApi.*;
+import static com.greenops.workflowtrigger.api.reposerver.RepoManagerApiImpl.ROOT_COMMIT;
+
 @Slf4j
 @RestController
 @RequestMapping("/")
@@ -35,14 +40,16 @@ public class PipelineApi {
     private final KafkaClient kafkaClient;
     private final KubernetesClient kubernetesClient;
     private final RepoManagerApi repoManagerApi;
+    private final RequestSchemaValidator requestSchemaValidator;
     private final ObjectMapper objectMapper;
 
     @Autowired
-    public PipelineApi(DbClient dbClient, KafkaClient kafkaClient, KubernetesClient kubernetesClient, RepoManagerApi repoManagerApi, ObjectMapper objectMapper) {
+    public PipelineApi(DbClient dbClient, KafkaClient kafkaClient, KubernetesClient kubernetesClient, RepoManagerApi repoManagerApi, RequestSchemaValidator requestSchemaValidator, ObjectMapper objectMapper) {
         this.dbClient = dbClient;
         this.kafkaClient = kafkaClient;
         this.kubernetesClient = kubernetesClient;
         this.repoManagerApi = repoManagerApi;
+        this.requestSchemaValidator = requestSchemaValidator;
         this.objectMapper = objectMapper;
     }
 
@@ -51,6 +58,9 @@ public class PipelineApi {
                                            @PathVariable("parentTeamName") String parentTeamName,
                                            @PathVariable("teamName") String teamName,
                                            @RequestBody(required = false) List<PipelineSchema> pipelineSchemas) {
+        if (!requestSchemaValidator.checkAuthentication()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         var key = DbKey.makeDbTeamKey(orgName, teamName);
         if (dbClient.fetchTeamSchema(key) == null) {
             var newTeam = new TeamSchemaImpl(teamName, parentTeamName, orgName);
@@ -74,6 +84,9 @@ public class PipelineApi {
     @GetMapping(value = "/team/{orgName}/{teamName}")
     public ResponseEntity<String> readTeam(@PathVariable("orgName") String orgName,
                                            @PathVariable("teamName") String teamName) {
+        if (!requestSchemaValidator.checkAuthentication()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         var key = DbKey.makeDbTeamKey(orgName, teamName);
         var teamSchema = dbClient.fetchTeamSchema(key);
         if (teamSchema == null) {
@@ -88,6 +101,9 @@ public class PipelineApi {
     public ResponseEntity<Void> updateTeam(@PathVariable("orgName") String orgName,
                                            @PathVariable("teamName") String teamName,
                                            @RequestBody UpdateTeamRequest updateTeamRequest) {
+        if (!requestSchemaValidator.checkAuthentication()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         var key = DbKey.makeDbTeamKey(orgName, teamName);
         var teamSchema = dbClient.fetchTeamSchema(key);
         var response = deleteTeam(orgName, teamName);
@@ -105,6 +121,9 @@ public class PipelineApi {
     @DeleteMapping(value = "/team/{orgName}/{teamName}")
     public ResponseEntity<Void> deleteTeam(@PathVariable("orgName") String orgName,
                                            @PathVariable("teamName") String teamName) {
+        if (!requestSchemaValidator.checkAuthentication()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         var key = DbKey.makeDbTeamKey(orgName, teamName);
         var teamSchema = dbClient.fetchTeamSchema(key);
         for (var pipelineSchema : teamSchema.getPipelineSchemas()) {
@@ -122,6 +141,9 @@ public class PipelineApi {
                                                @PathVariable("teamName") String teamName,
                                                @PathVariable("pipelineName") String pipelineName,
                                                @RequestBody GitRepoSchema gitRepo) {
+        if (!requestSchemaValidator.checkAuthentication()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         var key = DbKey.makeDbTeamKey(orgName, teamName);
         var teamSchema = dbClient.fetchTeamSchema(key);
 
@@ -138,6 +160,11 @@ public class PipelineApi {
 
         if (!repoManagerApi.cloneRepo(orgName, gitRepo)) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+
+        if (!requestSchemaValidator.validateSchemaAccess(orgName, teamName, gitRepo.getGitRepo(), ROOT_COMMIT, CREATE_ACTION, APPLICATION_RESOURCE)) {
+            repoManagerApi.deleteRepo(gitRepo);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
         gitRepo.getGitCred().hide();
@@ -160,6 +187,9 @@ public class PipelineApi {
     public ResponseEntity<String> getPipeline(@PathVariable("orgName") String orgName,
                                               @PathVariable("teamName") String teamName,
                                               @PathVariable("pipelineName") String pipelineName) {
+        if (!requestSchemaValidator.checkAuthentication()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         var key = DbKey.makeDbTeamKey(orgName, teamName);
         var teamSchema = dbClient.fetchTeamSchema(key);
         if (teamSchema == null) {
@@ -169,6 +199,10 @@ public class PipelineApi {
         var pipelineSchema = teamSchema.getPipelineSchema(pipelineName);
         if (pipelineSchema == null) {
             return ResponseEntity.badRequest().build();
+        }
+
+        if (!requestSchemaValidator.validateSchemaAccess(orgName, teamName, pipelineSchema.getGitRepoSchema().getGitRepo(), ROOT_COMMIT, GET_ACTION, APPLICATION_RESOURCE)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
         var currentRepoSchema = pipelineSchema.getGitRepoSchema();
@@ -185,6 +219,9 @@ public class PipelineApi {
                                                @PathVariable("teamName") String teamName,
                                                @PathVariable("pipelineName") String pipelineName,
                                                @RequestBody(required = false) GitRepoSchema gitRepo) {
+        if (!requestSchemaValidator.checkAuthentication()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         var response = deletePipeline(orgName, teamName, pipelineName);
         if (!response.getStatusCode().is2xxSuccessful()) {
             return response;
@@ -201,6 +238,9 @@ public class PipelineApi {
     public ResponseEntity<Void> deletePipeline(@PathVariable("orgName") String orgName,
                                                @PathVariable("teamName") String teamName,
                                                @PathVariable("pipelineName") String pipelineName) {
+        if (!requestSchemaValidator.checkAuthentication()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         var key = DbKey.makeDbTeamKey(orgName, teamName);
         var teamSchema = dbClient.fetchTeamSchema(key);
         if (teamSchema == null) {
@@ -209,6 +249,10 @@ public class PipelineApi {
 
         if (teamSchema.getPipelineSchema(pipelineName) == null) {
             return ResponseEntity.badRequest().build();
+        }
+
+        if (!requestSchemaValidator.validateSchemaAccess(orgName, teamName, teamSchema.getPipelineSchema(pipelineName).getGitRepoSchema().getGitRepo(), ROOT_COMMIT, DELETE_ACTION, APPLICATION_RESOURCE)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
         kubernetesClient.storeGitCred(null, DbKey.makeSecretName(orgName, teamName, pipelineName));
@@ -230,8 +274,19 @@ public class PipelineApi {
                                              @PathVariable("teamName") String teamName,
                                              @PathVariable("pipelineName") String pipelineName,
                                              @RequestBody GitRepoSchema gitRepo) {
+        if (!requestSchemaValidator.checkAuthentication()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         if (!repoManagerApi.sync(gitRepo)) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+
+        if (!requestSchemaValidator.validateSchemaAccess(
+                orgName, teamName, gitRepo.getGitRepo(), ROOT_COMMIT,
+                SYNC_ACTION, APPLICATION_RESOURCE,
+                ACTION_ACTION, CLUSTER_RESOURCE
+        )) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
         var triggerEvent = new PipelineTriggerEvent(orgName, teamName, pipelineName);
@@ -246,6 +301,9 @@ public class PipelineApi {
 
     @PostMapping(value = "/client/generateEvent")
     public ResponseEntity<Void> generateEvent(@RequestBody String event) {
+        if (!requestSchemaValidator.checkAuthentication()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         kafkaClient.sendMessage(event);
         return ResponseEntity.ok().build();
     }
