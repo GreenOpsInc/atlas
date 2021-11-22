@@ -1,12 +1,12 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
-	"os"
+	"github.com/spf13/cobra"
 	"io/ioutil"
 	"net/http"
-	"bytes"
-	"github.com/spf13/cobra"
+	"os"
 )
 
 // teamCreateCmd represents the teamCreate command

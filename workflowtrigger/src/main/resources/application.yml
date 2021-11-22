@@ -6,5 +6,6 @@ spring:
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
     topic: greenops.eventing
 application:
+  argocd-server-url: ${ARGOCD_SERVER_ENDPOINT:argocd-server.argocd.svc.cluster.local}
   repo-server-url: ${REPO_SERVER_ENDPOINT:http://localhost:8081}
   redis-url: ${REDIS_ENDPOINT:localhost:6379}

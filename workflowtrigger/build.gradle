@@ -4,7 +4,7 @@ plugins {
 	id 'java'
 	id 'com.google.cloud.tools.jib' version '3.0.0'
 	id 'application'
-	id "com.google.protobuf" version "0.8.8"
+	id "com.google.protobuf" version "0.8.17"
 }
 
 group = 'com.greenops'
@@ -27,11 +27,11 @@ sourceSets {
 
 protobuf {
 	protoc {
-		artifact = "com.google.protobuf:protoc:3.7.0"
+		artifact = "com.google.protobuf:protoc:3.17.2"
 	}
 	plugins {
 		grpc {
-			artifact = "io.grpc:protoc-gen-grpc-java:1.19.0"
+			artifact = 'io.grpc:protoc-gen-grpc-java:1.42.1'
 		}
 	}
 	generateProtoTasks {
@@ -44,15 +44,15 @@ protobuf {
 dependencies {
 	//This util line is added in via Gradle composition
 	implementation 'com.greenops:util'
-	implementation 'com.google.protobuf:protobuf-java:3.15.3'
+//	implementation 'com.google.protobuf:protobuf-java:3.15.3'
 //	implementation 'io.grpc:grpc-all:1.19.0'
-	compile group: 'io.grpc', name: 'grpc-all', version: '1.19.0'
+//	compile group: 'io.grpc', name: 'grpc-all', version: '1.19.0'
 	implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.11.1'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
-	implementation 'org.springframework.boot:spring-boot-starter-security'
-	implementation 'org.springframework.security:spring-security-test'
+//	implementation 'org.springframework.boot:spring-boot-starter-security'
+//	implementation 'org.springframework.security:spring-security-test'
 	implementation 'io.lettuce:lettuce-core:6.1.2.RELEASE'
 	// https://mvnrepository.com/artifact/org.json/json
 	//implementation 'org.json:json:20090211'
@@ -63,11 +63,19 @@ dependencies {
 	implementation 'org.apache.commons:commons-lang3:3.12.0'
 	implementation 'org.springframework.kafka:spring-kafka:2.5.8.RELEASE'
 	implementation 'io.kubernetes:client-java:5.0.0'
-	implementation 'io.jsonwebtoken:jjwt-api:0.11.2'
-	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.2',
-			// Uncomment the next line if you want to use RSASSA-PSS (PS256, PS384, PS512) algorithms:
-			//'org.bouncycastle:bcprov-jdk15on:1.60',
-			'io.jsonwebtoken:jjwt-jackson:0.11.2' // or 'io.jsonwebtoken:jjwt-gson:0.11.2' for gson
+	implementation 'io.grpc:grpc-netty-shaded:1.42.1'
+	implementation 'io.grpc:grpc-protobuf:1.42.1'
+	implementation 'io.grpc:grpc-stub:1.42.1'
+	compileOnly 'org.apache.tomcat:annotations-api:6.0.53' // necessary for Java 9+
+
+
+
+
+//	implementation 'io.jsonwebtoken:jjwt-api:0.11.2'
+//	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.2',
+//			// Uncomment the next line if you want to use RSASSA-PSS (PS256, PS384, PS512) algorithms:
+//			//'org.bouncycastle:bcprov-jdk15on:1.60',
+//			'io.jsonwebtoken:jjwt-jackson:0.11.2' // or 'io.jsonwebtoken:jjwt-gson:0.11.2' for gson
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.junit.jupiter:junit-jupiter-api:5.3.1'
 	testImplementation "org.testcontainers:testcontainers:1.15.3"

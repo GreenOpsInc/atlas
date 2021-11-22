@@ -9,19 +9,13 @@ import com.greenops.util.dbclient.DbClient;
 import com.greenops.util.error.AtlasNonRetryableError;
 import com.greenops.workflowtrigger.dbclient.DbKey;
 import com.greenops.workflowtrigger.validator.RequestSchemaValidator;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwsHeader;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SigningKeyResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.security.oauth2.resource.OAuth2ResourceServerProperties;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.Key;
 import java.util.ArrayList;
 import java.util.List;
 
