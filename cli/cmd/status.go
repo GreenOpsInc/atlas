@@ -1,13 +1,14 @@
 package cmd
 
 import (
-	"fmt"
-	"io/ioutil"
-	"net/http"
-	"github.com/spf13/cobra"
 	"bytes"
 	"encoding/json"
-	"strconv"	
+	"fmt"
+	"github.com/spf13/cobra"
+	"io/ioutil"
+	"net/http"
+	"strconv"
+	"time"
 )
 
 // statusCmd represents the status command
@@ -67,7 +68,7 @@ Example usage:
 
 
 		req, _ = http.NewRequest("GET", url, nil)		
-		client := &http.Client{}
+		client := &http.Client{Timeout: 20 * time.Second}
 		resp, err := client.Do(req)
 		if err != nil {
 			fmt.Println("Request failed with the following error:",err)

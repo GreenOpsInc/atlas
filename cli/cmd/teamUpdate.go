@@ -1,11 +1,11 @@
 package cmd
 
 import (
-	"fmt"
-	"net/http"
-	"github.com/spf13/cobra"
 	"bytes"
-	"encoding/json"
+	"fmt"
+	"github.com/spf13/cobra"
+	"net/http"
+	"time"
 )
 
 // teamUpdateCmd represents the teamUpdate command
@@ -32,18 +32,20 @@ Example usage:
 		newTeamName,_:=cmd.Flags().GetString("new-name")
 
 		url:= "http://"+atlasURL+"/team/"+orgName+"/"+teamName
-		
 
-		body := UpdateTeamRequest{
-			TeamName: newTeamName,			
-			ParentTeamName: newParentTeamName,
-		}
-		json, _:= json.Marshal(body)
-		req, _ := http.NewRequest("PUT", url, bytes.NewBuffer(json))
-		req.Header.Set("Content-Type", "application/json")		
-		
-		client := &http.Client{}
+		req, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(make([]byte, 0)))
+
+		client := &http.Client{Timeout: 20 * time.Second}
 		resp, err := client.Do(req)
+		if err != nil || resp.StatusCode != 200 {
+			fmt.Println("Request failed with the following error:",err)
+			return
+		}
+
+		url = "http://"+atlasURL+"/team/"+orgName+"/"+newParentTeamName+"/"+newTeamName
+		req, _ = http.NewRequest("POST", url, bytes.NewBuffer(make([]byte, 0)))
+
+		resp, err = client.Do(req)
 		if err != nil {
 			fmt.Println("Request failed with the following error:",err)
 			return

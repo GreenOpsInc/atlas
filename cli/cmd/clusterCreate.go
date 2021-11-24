@@ -1,12 +1,13 @@
 package cmd
 
 import (
+	"bytes"
+	"encoding/json"
 	// "strconv"
 	"fmt"
 	"github.com/spf13/cobra"
 	"net/http"
-	"encoding/json"
-	"bytes"
+	"time"
 )
 
 // clusterCreateCmd represents the clusterCreate command
@@ -44,7 +45,7 @@ Example usage:
 
 		req.Header.Set("Content-Type", "application/json")
 		
-		client := &http.Client{}
+		client := &http.Client{Timeout: 20 * time.Second}
 		resp, err := client.Do(req)
 		if err != nil {
 			fmt.Println("Request failed with the following error:",err)

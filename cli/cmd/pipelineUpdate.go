@@ -1,11 +1,12 @@
 package cmd
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/spf13/cobra"
 	"net/http"
-	"encoding/json"
-	"bytes"
+	"time"
 )
 
 // pipelineUpdateCmd represents the pipelineUpdate command
@@ -45,12 +46,19 @@ Example usage:
 		gitRepo,_:=cmd.Flags().GetString("repo")
 		pathToRoot,_:=cmd.Flags().GetString("root")
 		pipelineName:= args[0]
-		
+
 		url:= "http://"+atlasURL+"/pipeline/"+orgName+"/"+teamName+"/"+pipelineName
 
-		var req *http.Request		
-		
-		if (!tokenFlagSet && !usernameFlagSet){
+		req, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(make([]byte, 0)))
+
+		client := &http.Client{Timeout: 20 * time.Second}
+		resp, err := client.Do(req)
+		if err != nil || resp.StatusCode != 200 {
+			fmt.Println("Request failed with the following error:",err)
+			return
+		}
+
+		if !tokenFlagSet && !usernameFlagSet {
 			body := GitRepoSchemaOpen{
 				GitRepo: gitRepo,
 				PathToRoot: pathToRoot,
@@ -59,10 +67,10 @@ Example usage:
 				},
 			}
 			json, _:= json.Marshal(body)
-			req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(json))
+			req, _ = http.NewRequest("POST", url, bytes.NewBuffer(json))
 			
 
-		} else if (tokenFlagSet){
+		} else if tokenFlagSet {
 			token, _ := cmd.Flags().GetString("token")
 			
 			body := GitRepoSchemaToken{
@@ -74,7 +82,7 @@ Example usage:
 				},
 			}
 			json, _:= json.Marshal(body)
-			req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(json))
+			req, _ = http.NewRequest("POST", url, bytes.NewBuffer(json))
 		} else{
 			username, _ := cmd.Flags().GetString("username")
 			password, _ := cmd.Flags().GetString("password")
@@ -89,14 +97,13 @@ Example usage:
 			}
 			
 			json, _:= json.Marshal(body)
-			req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(json))
+			req, _ = http.NewRequest("POST", url, bytes.NewBuffer(json))
 		}
 
 	
 		req.Header.Set("Content-Type", "application/json")
 		
-		client := &http.Client{}
-		resp, err := client.Do(req)
+		resp, err = client.Do(req)
 		if err != nil {
 			fmt.Println("Request failed with the following error:",err)
 			return
