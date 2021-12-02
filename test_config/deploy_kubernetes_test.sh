@@ -9,13 +9,13 @@ localhostip="$(minikube ssh 'grep host.minikube.internal /etc/hosts | cut -f1')"
 localhostip=$(echo "$localhostip" | tr -d '\r')
 perl -p -e "s/localhost/$localhostip/g" docker-compose.yml | docker compose -f - up -d zookeeper kafka
 eval $(minikube -p minikube docker-env)
-cd ../../../
-./gradlew jibDockerBuild --image=atlasworkflowtrigger
+cd ../workflowtrigger
+docker build . -t atlasworkflowtrigger
 cd ../PipelineRepoServer/
 ./gradlew jibDockerBuild --image=atlasreposerver
 cd ../WorkflowOrchestrator/
 ./gradlew jibDockerBuild --image=atlasworkfloworchestrator
 cd ../commanddelegator/
 ./gradlew jibDockerBuild --image=atlascommanddelegator
-cd ../WorkflowTrigger/src/test/test_config
+cd ../test_config
 perl -p -e "s/LOCALHOSTDYNAMICADDRESS/$localhostip/g" atlasinfrastructure.yaml | kubectl apply -f -

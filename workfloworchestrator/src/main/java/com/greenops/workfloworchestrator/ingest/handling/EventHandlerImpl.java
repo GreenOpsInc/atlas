@@ -35,7 +35,7 @@ import static com.greenops.workfloworchestrator.ingest.handling.util.deployment.
 public class EventHandlerImpl implements EventHandler {
 
     static final String WATCH_ARGO_APPLICATION_KEY = "WatchArgoApplicationKey";
-    static final String WATCH_TEST_KEY = "WatchTestKey";
+    public static final String WATCH_TEST_KEY = "WatchTestKey";
     static final String PIPELINE_FILE_NAME = "pipeline.yaml";
 
     private RepoManagerApi repoManagerApi;
@@ -252,9 +252,12 @@ public class EventHandlerImpl implements EventHandler {
 
         if (completedTest.shouldExecuteBefore() && completedTestNumber == tests.size() - 1) {
             triggerAppInfraDeploy(step.getName(), event);
-        } else if (!completedTest.shouldExecuteBefore() && completedTestNumber == tests.size() - 1) {
+        } else if (!completedTest.shouldExecuteBefore() && completedTestNumber == step.getTests().size() - 1) {
+            //If there are before tasks, the numbering for "after" tasks won't be exact.
+            //The completed test number may go past the number of after tests.
             triggerNextSteps(pipelineData, step, pipelineRepoUrl, event);
-        } else if (completedTestNumber < tests.size()) {
+        } else if ((completedTest.shouldExecuteBefore() && completedTestNumber < tests.size())
+                || (!completedTest.shouldExecuteBefore() && completedTestNumber < step.getTests().size())) {
             testHandler.createAndRunTest(
                     step.getClusterName(),
                     step.getName(),

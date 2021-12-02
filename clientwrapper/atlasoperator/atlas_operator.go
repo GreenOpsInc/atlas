@@ -11,6 +11,7 @@ import (
 	"greenops.io/client/argodriver"
 	"greenops.io/client/atlasoperator/requestdatatypes"
 	"greenops.io/client/k8sdriver"
+	"greenops.io/client/plugins"
 	"greenops.io/client/progressionchecker"
 	"greenops.io/client/progressionchecker/datamodel"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -21,12 +22,14 @@ import (
 )
 
 const (
-	NotApplicable string = "NotApplicable"
+	ArgoWorkflowKind string = "Workflow"
+	NotApplicable    string = "NotApplicable"
 )
 
 type Drivers struct {
 	k8sDriver  k8sdriver.KubernetesClient
 	argoDriver argodriver.ArgoClient
+	pluginList plugins.Plugins
 }
 
 type AtlasErrorType string
@@ -60,10 +63,53 @@ func deploy(request *requestdatatypes.ClientDeployRequest) (requestdatatypes.Dep
 	if deployType == requestdatatypes.DeployArgoRequest {
 		resourceName, appNamespace, revisionHash, err = drivers.argoDriver.Deploy(&stringReqBody, revision)
 	} else if deployType == requestdatatypes.DeployTestRequest {
-		var kubernetesCreationRequest requestdatatypes.KubernetesCreationRequest
-		err = json.NewDecoder(strings.NewReader(stringReqBody)).Decode(&kubernetesCreationRequest)
-		if err != nil {
-			resourceName, appNamespace, revisionHash = "", "", NotApplicable
+		return deployTaskOrTest(&stringReqBody)
+	} else {
+		resources := strings.Split(stringReqBody, "---")
+		for _, resource := range resources {
+			resourceName, appNamespace, err = drivers.k8sDriver.Deploy(&resource)
+			revisionHash = NotApplicable
+			if err != nil {
+				break
+			}
+		}
+	}
+
+	if err != nil {
+		return requestdatatypes.DeployResponse{}, AtlasError{
+			AtlasErrorType: AtlasRetryableError,
+			Err:            err,
+		}
+	} else {
+		return requestdatatypes.DeployResponse{
+			Success:      true,
+			ResourceName: resourceName,
+			AppNamespace: appNamespace,
+			RevisionHash: revisionHash,
+		}, nil
+	}
+}
+
+func deployTaskOrTest(stringReqBody *string) (requestdatatypes.DeployResponse, error) {
+	var resourceName string
+	var appNamespace string
+	var revisionHash string
+	var err error
+	var kubernetesCreationRequest requestdatatypes.KubernetesCreationRequest
+	err = json.NewDecoder(strings.NewReader(*stringReqBody)).Decode(&kubernetesCreationRequest)
+	if err != nil {
+		resourceName, appNamespace, revisionHash = "", "", NotApplicable
+	} else {
+		if kubernetesCreationRequest.Type == string(plugins.ArgoWorkflow) {
+			var plugin plugins.Plugin
+			plugin, err = drivers.pluginList.GetPlugin(plugins.ArgoWorkflow)
+			if err != nil {
+				return requestdatatypes.DeployResponse{}, AtlasError{
+					AtlasErrorType: AtlasRetryableError,
+					Err:            err,
+				}
+			}
+			resourceName, appNamespace, err = plugin.PluginObject.CreateAndDeploy(&kubernetesCreationRequest.Config, kubernetesCreationRequest.Variables)
 		} else {
 			resourceName, appNamespace, err = drivers.k8sDriver.CreateAndDeploy(
 				kubernetesCreationRequest.Kind,
@@ -77,17 +123,8 @@ func deploy(request *requestdatatypes.ClientDeployRequest) (requestdatatypes.Dep
 				kubernetesCreationRequest.VolumeConfig,
 				kubernetesCreationRequest.Variables,
 			)
-			revisionHash = NotApplicable
 		}
-	} else {
-		resources := strings.Split(stringReqBody, "---")
-		for _, resource := range resources {
-			resourceName, appNamespace, err = drivers.k8sDriver.Deploy(&resource)
-			revisionHash = NotApplicable
-			if err != nil {
-				break
-			}
-		}
+		revisionHash = NotApplicable
 	}
 
 	if err != nil {
@@ -245,6 +282,8 @@ func watch(request *requestdatatypes.WatchRequest) {
 	var watchKeyType datamodel.WatchKeyType
 	if request.Type == string(datamodel.WatchTestKey) {
 		watchKeyType = datamodel.WatchTestKey
+	} else if request.Type == string(datamodel.WatchArgoWorkflowKey) {
+		watchKeyType = datamodel.WatchArgoWorkflowKey
 	} else {
 		watchKeyType = datamodel.WatchArgoApplicationKey
 	}
@@ -414,15 +453,18 @@ func main() {
 	eventGenerationApi := generation.Create()
 	kubernetesDriver := k8sdriver.New()
 	argoDriver := argodriver.New(&kubernetesDriver)
+	var pluginList plugins.Plugins
+	pluginList = make([]plugins.Plugin, 0)
 	drivers = Drivers{
 		k8sDriver:  kubernetesDriver,
 		argoDriver: argoDriver,
+		pluginList: pluginList,
 	}
 	channel = make(chan string)
 	var getRestrictedKubernetesClient k8sdriver.KubernetesClientGetRestricted
 	getRestrictedKubernetesClient = kubernetesDriver
 	var getRestrictedArgoClient argodriver.ArgoGetRestrictedClient
 	getRestrictedArgoClient = argoDriver
-	go progressionchecker.Start(getRestrictedKubernetesClient, getRestrictedArgoClient, eventGenerationApi, channel)
+	go progressionchecker.Start(getRestrictedKubernetesClient, getRestrictedArgoClient, eventGenerationApi, pluginList, channel)
 	handleRequests(commandDelegatorApi, eventGenerationApi)
 }

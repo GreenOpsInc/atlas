@@ -4,17 +4,19 @@ go 1.14
 
 require (
 	github.com/argoproj/argo-cd v1.8.7
+	github.com/argoproj/argo-workflows/v3 v3.0.4
 	github.com/argoproj/gitops-engine v0.2.2
-	github.com/dgrijalva/jwt-go/v4 v4.0.0-preview1 // indirect
+	github.com/dgrijalva/jwt-go/v4 v4.0.0-preview1
 	github.com/gorilla/mux v1.8.0
 	k8s.io/api v0.19.6
 	k8s.io/apimachinery v0.19.6
 	k8s.io/client-go v11.0.1-0.20190816222228-6d55c1b1f1ca+incompatible
 	k8s.io/kubernetes v1.19.6 // indirect
-	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
+	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
 )
 
 replace (
+	github.com/go-openapi/spec => github.com/go-openapi/spec v0.19.8
 	k8s.io/api => k8s.io/api v0.19.6
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.19.6
 	k8s.io/apimachinery => k8s.io/apimachinery v0.19.6

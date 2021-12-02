@@ -7,6 +7,7 @@ import (
 	"greenops.io/client/api/generation"
 	"greenops.io/client/argodriver"
 	"greenops.io/client/k8sdriver"
+	"greenops.io/client/plugins"
 	"greenops.io/client/progressionchecker/datamodel"
 	"io"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -44,7 +45,7 @@ func listenForApplicationsToWatch(inputChannel chan string, outputChannel chan s
 	}
 }
 
-func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGetRestricted, argoClient argodriver.ArgoGetRestrictedClient, eventGenerationApi generation.EventGenerationApi, channel chan string, metricsServerAddress string) {
+func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGetRestricted, argoClient argodriver.ArgoGetRestrictedClient, eventGenerationApi generation.EventGenerationApi, pluginList plugins.Plugins, channel chan string, metricsServerAddress string) {
 	watchedApplications := make(map[string]datamodel.WatchKey)
 	for {
 		//Update watched applications list with new entries
@@ -79,7 +80,7 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 			if watchKey.Type == datamodel.WatchArgoApplicationKey {
 				for _, appInfo := range argoAppInfo {
 					if watchKey.Name == appInfo.Name && watchKey.Namespace == appInfo.Namespace {
-						newWatchKey, eventInfo := CheckArgoStatus(watchKey, appInfo, argoClient)
+						newWatchKey, eventInfo := CheckArgoCdStatus(watchKey, appInfo, argoClient)
 						if newWatchKey == GetEmptyWatchKey() && eventInfo == nil {
 							break
 						}
@@ -108,6 +109,29 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 						if kubernetesClient.Delete(watchKey.Name, watchKey.Namespace, schema.GroupVersionKind{Kind: k8sdriver.JobType}) != nil {
 							continue
 						}
+						deleteKeys = append(deleteKeys, mapKey)
+						break
+					} else if kubernetesClient.Delete(watchKey.Name, watchKey.Namespace, schema.GroupVersionKind{Kind: k8sdriver.JobType}) == nil {
+						deleteKeys = append(deleteKeys, mapKey)
+						break
+					}
+				}
+			} else if watchKey.Type == datamodel.WatchArgoWorkflowKey {
+				for i := 0; i < HttpRequestRetryLimit; i++ {
+					plugin, err := pluginList.GetPlugin(plugins.PluginType(datamodel.WatchArgoWorkflowKey))
+					if err != nil {
+						log.Printf("Could not fetch plugin correctly: %s", err)
+						continue
+					}
+					eventInfo := plugin.PluginObject.CheckStatus(watchKey)
+					if eventInfo == nil {
+						continue
+					}
+					if !watchKey.GeneratedCompletionEvent && eventGenerationApi.GenerateEvent(eventInfo) {
+						log.Printf("Generated Test Completion event for %s", watchKey.Name)
+						watchKey.GeneratedCompletionEvent = true
+						watchedApplications[mapKey] = watchKey
+						//TODO: Add option to clean up nodes after a Workflow is complete
 						deleteKeys = append(deleteKeys, mapKey)
 						break
 					} else if kubernetesClient.Delete(watchKey.Name, watchKey.Namespace, schema.GroupVersionKind{Kind: k8sdriver.JobType}) == nil {
@@ -169,7 +193,7 @@ func getUnmarshalledMetrics(metricsServerAddress string) []datamodel.ArgoAppMetr
 	return unmarshall(&stringBody)
 }
 
-func Start(kubernetesClient k8sdriver.KubernetesClientGetRestricted, argoClient argodriver.ArgoGetRestrictedClient, eventGenerationApi generation.EventGenerationApi, channel chan string) {
+func Start(kubernetesClient k8sdriver.KubernetesClientGetRestricted, argoClient argodriver.ArgoGetRestrictedClient, eventGenerationApi generation.EventGenerationApi, pluginList plugins.Plugins, channel chan string) {
 	metricsServerAddress := os.Getenv(MetricsServerEnvVar)
 	if metricsServerAddress == "" {
 		metricsServerAddress = DefaultMetricsServerAddress
@@ -177,5 +201,5 @@ func Start(kubernetesClient k8sdriver.KubernetesClientGetRestricted, argoClient 
 	progressionCheckerChannel := make(chan string, ProgressionChannelBufferSize)
 	//TODO: Add initial cache creation
 	go listenForApplicationsToWatch(channel, progressionCheckerChannel)
-	checkForCompletedApplications(kubernetesClient, argoClient, eventGenerationApi, progressionCheckerChannel, metricsServerAddress)
+	checkForCompletedApplications(kubernetesClient, argoClient, eventGenerationApi, pluginList, progressionCheckerChannel, metricsServerAddress)
 }

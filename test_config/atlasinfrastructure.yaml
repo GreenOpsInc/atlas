@@ -279,7 +279,7 @@ spec:
         - env:
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: LOCALHOSTDYNAMICADDRESS:29092
-            - name: REDIS_ENDPOINT
+            - name: ATLAS_DB_ADDRESS
               value: redisserver.default.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
               value: http://reposerver.default.svc.cluster.local:8081

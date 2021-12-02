@@ -50,7 +50,7 @@ public class TestHandlerImpl implements TestHandler {
                 ClientRequestQueue.DEPLOY_TEST_REQUEST,
                 ClientRequestQueue.LATEST_REVISION,
                 test.getPayload(testNumber, testConfig),
-                WATCH_TEST_KEY,
+                test.getWatchKey(),
                 testNumber
         );
     }
