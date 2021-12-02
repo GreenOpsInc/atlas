@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 const (
@@ -24,6 +25,7 @@ type EventGenerationApi interface {
 
 type EventGenerationImpl struct {
 	workflowTriggerAddress string
+	client                 *http.Client
 }
 
 func Create() EventGenerationApi {
@@ -34,7 +36,10 @@ func Create() EventGenerationApi {
 	if strings.HasSuffix(workflowTriggerAddress, "/") {
 		workflowTriggerAddress = strings.TrimSuffix(workflowTriggerAddress, "/")
 	}
-	return EventGenerationImpl{workflowTriggerAddress: workflowTriggerAddress}
+	httpClient := &http.Client{
+		Timeout: time.Second * 10,
+	}
+	return EventGenerationImpl{workflowTriggerAddress: workflowTriggerAddress, client: httpClient}
 }
 
 func (c EventGenerationImpl) GenerateEvent(eventInfo datamodel.EventInfo) bool {
@@ -42,7 +47,9 @@ func (c EventGenerationImpl) GenerateEvent(eventInfo datamodel.EventInfo) bool {
 	if err != nil {
 		return false
 	}
-	resp, err := http.Post(c.workflowTriggerAddress+"/client/generateEvent", "application/json", bytes.NewBuffer(data))
+	req, _ := http.NewRequest("POST", c.workflowTriggerAddress+"/client/generateEvent", bytes.NewBuffer(data))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.client.Do(req)
 	if err != nil {
 		log.Printf("Error generating event. Error was %s\n", err)
 		return false
@@ -56,7 +63,9 @@ func (c EventGenerationImpl) GenerateResponseEvent(responseEvent requestdatatype
 	if err != nil {
 		return false
 	}
-	resp, err := http.Post(c.workflowTriggerAddress+"/client/generateEvent", "application/json", bytes.NewBuffer(data))
+	req, _ := http.NewRequest("POST", c.workflowTriggerAddress+"/client/generateEvent", bytes.NewBuffer(data))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.client.Do(req)
 	if err != nil {
 		log.Printf("Error generating event. Error was %s\n", err)
 		return false

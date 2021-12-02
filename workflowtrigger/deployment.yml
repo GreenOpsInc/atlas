@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: workflowtrigger
+  name: workflowtrigger
+spec:
+  ports:
+    - name: "8080"
+      port: 8080
+      targetPort: 8080
+  selector:
+    io.kompose.service: workflowtrigger
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: workflowtrigger
+  name: workflowtrigger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: workflowtrigger
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.23.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: workflowtrigger
+    spec:
+      containers:
+        - env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: LOCALHOSTDYNAMICADDRESS:29092
+            - name: ATLAS_DB_ADDRESS
+              value: redisserver.default.svc.cluster.local:6379
+            - name: REPO_SERVER_ENDPOINT
+              value: http://reposerver.default.svc.cluster.local:8081
+          image: atlasworkflowtrigger
+          imagePullPolicy: Never
+          name: workflowtrigger
+          ports:
+            - containerPort: 8080
+          resources: {}
+      restartPolicy: Always
+status: {}

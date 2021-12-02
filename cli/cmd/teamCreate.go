@@ -1,12 +1,13 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
-	"os"
+	"github.com/spf13/cobra"
 	"io/ioutil"
 	"net/http"
-	"bytes"
-	"github.com/spf13/cobra"
+	"os"
+	"time"
 )
 
 // teamCreateCmd represents the teamCreate command
@@ -59,7 +60,7 @@ Example usage:
 		}
 
 		
-		client := &http.Client{}
+		client := &http.Client{Timeout: 20 * time.Second}
 		resp, err := client.Do(req)
 		if err != nil {
 			fmt.Println("Request failed with the following error:", err)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/gorilla/mux"
@@ -355,7 +356,9 @@ func handleRequests(commandDelegatorApi ingest.CommandDelegatorApi, eventGenerat
 				var deployResponse requestdatatypes.DeployResponse
 				deployResponse, err = deploy(&request)
 				if err == nil && deployResponse.Success {
-					eventGenerationApi.GenerateResponseEvent(request.ResponseEventType.MakeResponseEvent(&deployResponse, &request))
+					if !eventGenerationApi.GenerateResponseEvent(request.ResponseEventType.MakeResponseEvent(&deployResponse, &request)) {
+						err = AtlasError{AtlasErrorType: AtlasRetryableError, Err: errors.New("response event not generated correctly")}
+					}
 				}
 			} else if command.GetEvent() == requestdatatypes.ClientDeployAndWatchRequestType {
 				var request requestdatatypes.ClientDeployAndWatchRequest

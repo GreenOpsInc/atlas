@@ -2,8 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"net/http"
 	"github.com/spf13/cobra"
+	"net/http"
+	"time"
 )
 
 // pipelineDeleteCmd represents the pipelineDelete command
@@ -27,7 +28,7 @@ Example usage:
 		url:= "http://"+atlasURL+"/pipeline/"+orgName+"/"+teamName+"/"+pipelineName
 		req, err:= http.NewRequest("DELETE", url, nil)
 		
-		client := &http.Client{}
+		client := &http.Client{Timeout: 20 * time.Second}
 		resp, err := client.Do(req)
 		if err != nil {
 			fmt.Println("Request failed with the following error:",err)
