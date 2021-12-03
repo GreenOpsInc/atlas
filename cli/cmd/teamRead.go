@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
+	"github.com/argoproj/argo-cd/v2/util/errors"
+	"github.com/argoproj/argo-cd/v2/util/localconfig"
 	"github.com/spf13/cobra"
 	"io/ioutil"
 	"net/http"
@@ -20,42 +23,47 @@ Command to read a team's information. Specify the name of the team.
 Example usage:
 	atlas team read example_team_name`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args)!=1 {
+		if len(args) != 1 {
 			fmt.Println("Invalid number of arguments. Run atlas team read -h for usage details.")
 			return
 		}
 
-		teamName:=args[0]
+		teamName := args[0]
 
-		url:= "http://"+atlasURL+"/team/"+orgName+"/"+teamName
-		
-		req, err:= http.NewRequest("GET", url, nil)
-		
+		defaultLocalConfigPath, err := localconfig.DefaultLocalConfigPath()
+		errors.CheckError(err)
+		config, _ := localconfig.ReadLocalConfig(defaultLocalConfigPath)
+		context, _ := config.ResolveContext(apiclient.ClientOptions{}.Context)
+
+		url := "http://" + atlasURL + "/team/" + orgName + "/" + teamName
+
+		req, _ := http.NewRequest("GET", url, nil)
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
+
 		client := &http.Client{Timeout: 20 * time.Second}
 		resp, err := client.Do(req)
 		if err != nil {
-			fmt.Println("Request failed with the following error:",err)
+			fmt.Println("Request failed with the following error:", err)
 			return
 		}
 
 		body, err := ioutil.ReadAll(resp.Body)
 
-	
 		statusCode := resp.StatusCode
-		if statusCode == 200{
-			var prettyJSON bytes.Buffer		
+		if statusCode == 200 {
+			var prettyJSON bytes.Buffer
 			error := json.Indent(&prettyJSON, body, "", "\t")
 			if error != nil {
 				fmt.Println("Request failed, please try again.")
 				return
 			}
-		
-			fmt.Println(string(prettyJSON.Bytes()))			
-		} else if statusCode == 400{
-			fmt.Println("Team cannot be read. Invalid org name or team name provided.")			
-		} else{
+
+			fmt.Println(string(prettyJSON.Bytes()))
+		} else if statusCode == 400 {
+			fmt.Println("Team cannot be read. Invalid org name or team name provided.")
+		} else {
 			fmt.Println(statusCode)
-			fmt.Println("Internal server error, please try again.")			
+			fmt.Println("Internal server error, please try again.")
 		}
 	},
 }

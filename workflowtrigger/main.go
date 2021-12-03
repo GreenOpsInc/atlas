@@ -3,10 +3,12 @@ package main
 import (
 	"github.com/gorilla/mux"
 	"greenops.io/workflowtrigger/api"
+	"greenops.io/workflowtrigger/api/argoauthenticator"
 	"greenops.io/workflowtrigger/api/reposerver"
 	"greenops.io/workflowtrigger/db"
 	"greenops.io/workflowtrigger/kafka"
 	"greenops.io/workflowtrigger/kubernetesclient"
+	"greenops.io/workflowtrigger/schemavalidation"
 	"log"
 	"net/http"
 	"os"
@@ -18,12 +20,17 @@ func main() {
 	var kafkaClient kafka.KafkaClient
 	var kubernetesClient kubernetesclient.KubernetesClient
 	var repoManagerApi reposerver.RepoManagerApi
+	var argoAuthenticatorApi argoauthenticator.ArgoAuthenticatorApi
+	var schemaValidator schemavalidation.RequestSchemaValidator
 	dbClient = db.New(GetDbClientConfig())
 	kafkaClient = kafka.New(GetKafkaClientConfig())
 	kubernetesClient = kubernetesclient.New()
 	repoManagerApi = reposerver.New(GetRepoServerClientConfig())
+	argoAuthenticatorApi = argoauthenticator.New()
+	schemaValidator = schemavalidation.New(argoAuthenticatorApi, repoManagerApi)
 	r := mux.NewRouter()
-	api.InitClients(dbClient, kafkaClient, kubernetesClient, repoManagerApi)
+	r.Use(argoAuthenticatorApi.(*argoauthenticator.ArgoAuthenticatorApiImpl).Middleware)
+	api.InitClients(dbClient, kafkaClient, kubernetesClient, repoManagerApi, schemaValidator)
 	api.InitPipelineTeamEndpoints(r)
 	api.InitStatusEndpoints(r)
 	api.InitClusterEndpoints(r)

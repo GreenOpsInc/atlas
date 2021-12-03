@@ -2,6 +2,8 @@ package reposerver
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"greenops.io/workflowtrigger/util/git"
 	"greenops.io/workflowtrigger/util/serializer"
 	"log"
@@ -10,10 +12,23 @@ import (
 	"time"
 )
 
+const (
+	RootCommit       string = "ROOT_COMMIT"
+	PipelineFileName string = "pipeline.yaml"
+	getFileExtension string = "file"
+)
+
+type GetFileRequest struct {
+	GitRepoUrl    string
+	Filename      string
+	GitCommitHash string
+}
+
 type RepoManagerApi interface {
 	CloneRepo(orgName string, gitRepoSchema git.GitRepoSchema) bool
 	DeleteRepo(gitRepoSchema git.GitRepoSchema) bool
 	SyncRepo(gitRepoSchema git.GitRepoSchema) bool
+	GetFileFromRepo(getFileRequest GetFileRequest, orgName string, teamName string) string
 }
 
 type RepoManagerApiImpl struct {
@@ -91,4 +106,28 @@ func (r *RepoManagerApiImpl) SyncRepo(gitRepoSchema git.GitRepoSchema) bool {
 	defer resp.Body.Close()
 	log.Printf("Sync repo request returned status code %d", resp.StatusCode)
 	return resp.StatusCode == 200
+}
+
+func (r *RepoManagerApiImpl) GetFileFromRepo(getFileRequest GetFileRequest, orgName string, teamName string) string {
+	var err error
+	var payload []byte
+	var request *http.Request
+	payload, _ = json.Marshal(getFileRequest)
+	request, err = http.NewRequest("POST", r.serverEndpoint+fmt.Sprintf("/%s/%s/%s", getFileExtension, orgName, teamName), bytes.NewBuffer(payload))
+	if err != nil {
+		panic(err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	resp, err := r.client.Do(request)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	log.Printf("Sync repo request returned status code %d", resp.StatusCode)
+	buf := new(bytes.Buffer)
+	_, err = buf.ReadFrom(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+	return buf.String()
 }
