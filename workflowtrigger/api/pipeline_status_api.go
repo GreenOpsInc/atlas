@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"github.com/gorilla/mux"
 	"greenops.io/workflowtrigger/db"
 	"greenops.io/workflowtrigger/pipelinestatus"
@@ -53,24 +54,38 @@ func getPipelineStatus(w http.ResponseWriter, r *http.Request) {
 	pipelineUvn := vars[pipelineUvnField]
 
 	status := pipelinestatus.New()
-	steps := dbClient.FetchStringList(db.MakeDbListOfStepsKey(orgName, teamName, pipelineName))
-	if len(steps) == 0 {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(""))
+	//Get pipeline UVN if not specified
+	pipelineInfoKey := db.MakeDbPipelineInfoKey(orgName, teamName, pipelineName)
+	var pipelineInfo auditlog.PipelineInfo
+	if pipelineUvn == "LATEST" {
+		pipelineInfo = dbClient.FetchLatestPipelineInfo(pipelineInfoKey)
+		pipelineUvn = pipelineInfo.PipelineUvn
+	} else {
+		logIncrement := 0
+		pipelineInfoList := dbClient.FetchPipelineInfoList(pipelineInfoKey, logIncrement)
+		idx := 0
+		for idx < len(pipelineInfoList) {
+			if pipelineInfoList[idx].PipelineUvn == pipelineUvn {
+				pipelineInfo = pipelineInfoList[idx]
+				break
+			}
+			idx++
+			if idx == len(pipelineInfoList) {
+				logIncrement++
+				pipelineInfoList = dbClient.FetchPipelineInfoList(pipelineInfoKey, logIncrement)
+				idx = 0
+			}
+		}
+	}
+	if pipelineInfo.PipelineUvn == "" && len(pipelineInfo.Errors) == 0 {
+		http.Error(w, "No pipeline runs exist with the requested UVN", http.StatusBadRequest)
 		return
 	}
+	steps := dbClient.FetchStringList(db.MakeDbListOfStepsKey(orgName, teamName, pipelineName))
 	for _, step := range steps {
 		//Get pipeline UVN if not specified
 		logKey := db.MakeDbStepKey(orgName, teamName, pipelineName, step)
 		var log auditlog.Log
-		if pipelineUvn == "LATEST" {
-			log = dbClient.FetchLatestLog(logKey)
-			if log == nil {
-				http.Error(w, "No deployment log exists", http.StatusBadRequest)
-				return
-			}
-			pipelineUvn = log.GetPipelineUniqueVersionNumber()
-		}
 
 		//TODO: This iteration is in enough places where it should be extracted as a dbClient method
 		//Get most recent log (deployment or remediation) with desired pipeline UVN
@@ -89,6 +104,7 @@ func getPipelineStatus(w http.ResponseWriter, r *http.Request) {
 				idx = 0
 			}
 		}
+
 		if log == nil {
 			status.MarkIncomplete()
 			continue
@@ -102,6 +118,9 @@ func getPipelineStatus(w http.ResponseWriter, r *http.Request) {
 		if tempDeploymentLog, ok := log.(*auditlog.DeploymentLog); ok {
 			if tempDeploymentLog.GetStatus() == auditlog.Cancelled {
 				status.MarkCancelled()
+				if tempDeploymentLog.BrokenTest != "" {
+					status.AddFailedDeploymentLog(*tempDeploymentLog, step)
+				}
 				continue
 			}
 		}
@@ -152,6 +171,16 @@ func getPipelineStatus(w http.ResponseWriter, r *http.Request) {
 					idx = 0
 				}
 			}
+		}
+	}
+	//Get additional "floating" errors. Largely related to processing
+	if !(pipelineInfo.PipelineUvn == "" && len(pipelineInfo.Errors) == 0) {
+		for idx, err := range pipelineInfo.Errors {
+			status.AddFailedDeploymentLog(auditlog.DeploymentLog{
+				DeploymentComplete: false,
+				BrokenTest:         fmt.Sprintf("Processing error %d", idx),
+				BrokenTestLog:      err,
+			}, "Unknown")
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")

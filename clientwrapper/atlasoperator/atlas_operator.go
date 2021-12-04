@@ -46,6 +46,9 @@ type AtlasError struct {
 }
 
 func (a AtlasError) Error() string {
+	if a.Err == nil {
+		return "No error message available"
+	}
 	return a.Err.Error()
 }
 
@@ -337,9 +340,14 @@ func deployAndWatch(request *requestdatatypes.ClientDeployAndWatchRequest) error
 	}
 	deployResponse, err := deploy(&deployRequest)
 	if err != nil {
-		return AtlasError{
-			AtlasErrorType: AtlasRetryableError,
-			Err:            nil,
+		switch err.(type) {
+		case AtlasError:
+			return err
+		default:
+			return AtlasError{
+				AtlasErrorType: AtlasRetryableError,
+				Err:            err,
+			}
 		}
 	}
 	watchRequest := requestdatatypes.WatchRequest{
@@ -361,9 +369,14 @@ func rollbackAndWatch(request *requestdatatypes.ClientRollbackAndWatchRequest) e
 	}
 	deployResponse, err := rollbackArgoApp(&rollbackRequest)
 	if err != nil {
-		return AtlasError{
-			AtlasErrorType: AtlasRetryableError,
-			Err:            nil,
+		switch err.(type) {
+		case AtlasError:
+			return err
+		default:
+			return AtlasError{
+				AtlasErrorType: AtlasRetryableError,
+				Err:            err,
+			}
 		}
 	}
 	watchRequest := requestdatatypes.WatchRequest{
@@ -420,28 +433,42 @@ func handleRequests(commandDelegatorApi ingest.CommandDelegatorApi, eventGenerat
 				request = command.(requestdatatypes.ClientSelectiveSyncRequest)
 				err = selectiveSyncArgoApp(&request)
 			}
-			if err != nil {
-				atlasError := err.(AtlasError)
-				if atlasError.AtlasErrorType == AtlasRetryableError {
-					log.Printf("Caught retryable error with message %s", atlasError)
-					//TODO: The command should be "postponed". Essentially acked and then re-inserted at the end of the list
-					continue
-				} else {
-					log.Printf("Caught non-retryable error with message %s", atlasError)
-					failureEvent := datamodel.MakeFailureEventEvent(command.GetClientMetadata(), requestdatatypes.DeployResponse{}, "", atlasError.Error())
-					generationSuccess := false
-					for i := 0; i < progressionchecker.HttpRequestRetryLimit; i++ {
+			generationSuccess := false
+			for !generationSuccess {
+				var retryError error
+				if err != nil {
+					atlasError := err.(AtlasError)
+					if atlasError.AtlasErrorType == AtlasRetryableError && !command.GetClientMetadata().FinalTry {
+						log.Printf("Caught retryable error with message %s", atlasError)
+						retryError = commandDelegatorApi.RetryRequest()
+						if retryError != nil {
+							log.Printf("Caught error trying to send request for retry: %s...looping until request can be sent correctly", retryError)
+							generationSuccess = false
+							continue
+						}
+						generationSuccess = true
+						//Retry automatically acks the head of the request list, no need to do it again
+						break
+					} else {
+						log.Printf("Caught non-retryable error with message %s", atlasError)
+						failureEvent := datamodel.MakeFailureEventEvent(command.GetClientMetadata(), requestdatatypes.DeployResponse{}, "", atlasError.Error())
+
 						generationSuccess = eventGenerationApi.GenerateEvent(failureEvent)
-						if generationSuccess {
-							break
+						if !generationSuccess {
+							log.Printf("Unable to send failure notification...looping until notification can be sent correctly")
+							continue
 						}
 					}
-					if !generationSuccess {
-						continue
-					}
 				}
+				retryError = commandDelegatorApi.AckHeadOfRequestList()
+				if retryError != nil {
+					log.Printf("Caught error trying to send ack message: %s...looping until request can be sent correctly", retryError)
+					err = nil
+					generationSuccess = false
+					continue
+				}
+				generationSuccess = true
 			}
-			commandDelegatorApi.AckHeadOfRequestList()
 		}
 		duration := 10 * time.Second
 		time.Sleep(duration)

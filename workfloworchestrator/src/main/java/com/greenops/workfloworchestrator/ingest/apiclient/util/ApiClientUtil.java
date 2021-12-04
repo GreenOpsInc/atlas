@@ -1,7 +1,7 @@
 package com.greenops.workfloworchestrator.ingest.apiclient.util;
 
-import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
-import com.greenops.workfloworchestrator.error.AtlasRetryableError;
+import com.greenops.util.error.AtlasNonRetryableError;
+import com.greenops.util.error.AtlasRetryableError;
 import org.apache.http.HttpResponse;
 
 public class ApiClientUtil {

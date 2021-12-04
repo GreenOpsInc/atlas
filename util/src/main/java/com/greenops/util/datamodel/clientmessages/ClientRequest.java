@@ -17,4 +17,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         }
 )
 public interface ClientRequest {
+    boolean isFinalTry();
+
+    void setFinalTry(boolean finalTry);
 }

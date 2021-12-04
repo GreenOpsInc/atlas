@@ -13,6 +13,10 @@ func MakeDbStepKey(orgName string, teamName string, pipelineName string, stepNam
 	return strings.Join([]string{orgName, teamName, pipelineName, stepName}, "-")
 }
 
+func MakeDbPipelineInfoKey(orgName string, teamName string, pipelineName string) string {
+	return strings.Join([]string{orgName, teamName, pipelineName, "meta"}, "-")
+}
+
 func MakeDbListOfTeamsKey(orgName string) string {
 	return orgName + "-teams"
 }

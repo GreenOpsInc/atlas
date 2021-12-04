@@ -22,6 +22,7 @@ type ClientEventMetadata struct {
 	PipelineName string `json:"pipelineName"`
 	PipelineUvn  string `json:"pipelineUvn"`
 	StepName     string `json:"stepName"`
+	FinalTry     bool   `json:"finalTry"`
 }
 
 // ClientDeployRequest -----

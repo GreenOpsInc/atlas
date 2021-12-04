@@ -2,11 +2,13 @@ package com.greenops.workfloworchestrator.ingest.handling;
 
 import com.greenops.util.datamodel.auditlog.DeploymentLog;
 import com.greenops.util.datamodel.auditlog.Log;
+import com.greenops.util.datamodel.auditlog.PipelineInfo;
 import com.greenops.util.datamodel.auditlog.RemediationLog;
 import com.greenops.util.datamodel.event.Event;
+import com.greenops.util.datamodel.event.FailureEvent;
 import com.greenops.util.dbclient.DbClient;
 import com.greenops.util.datamodel.clientmessages.ResourceGvk;
-import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
+import com.greenops.util.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.ingest.dbclient.DbKey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.greenops.util.datamodel.event.PipelineTriggerEvent.PIPELINE_TRIGGER_EVENT_CLASS_NAME;
 import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.ROOT_STEP_NAME;
 
 @Slf4j
@@ -124,15 +127,33 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
     }
 
     @Override
-    public void markStepFailedWithProcessingError(Event event, String stepName, String error) {
+    public void markStepFailedWithProcessingError(FailureEvent event, String stepName, String error) {
+        log.info("Marking step failed with processing error");
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
         var log = dbClient.fetchLatestLog(logKey);
-        if (log instanceof DeploymentLog) {
+        if (log == null) {
+            markPipelineFailedWithProcessingError(event, error);
+            return;
+        } else if (log instanceof DeploymentLog) {
             ((DeploymentLog) log).setBrokenTest("Processing Error");
             ((DeploymentLog) log).setBrokenTestLog(error);
         }
         log.setStatus(Log.LogStatus.FAILURE.name());
         dbClient.updateHeadInList(logKey, log);
+    }
+
+    //When the deployment log for a step doesn't exist, just mark the entire pipeline ambiguously and allow the user to determine the origin.
+    private void markPipelineFailedWithProcessingError(FailureEvent event, String error) {
+        log.info("No step found for the error, adding in to the pipeline metadata");
+        var key = DbKey.makeDbPipelineInfoKey(event.getOrgName(), event.getTeamName(), event.getPipelineName());
+        var pipelineInfo = dbClient.fetchLatestPipelineInfo(key);
+        if (event.getStatusCode().equals(PIPELINE_TRIGGER_EVENT_CLASS_NAME) || pipelineInfo == null) {
+            pipelineInfo = new PipelineInfo(event.getPipelineUvn(), List.of(error));
+            dbClient.insertValueInList(key, pipelineInfo);
+        } else {
+            pipelineInfo.addError(error);
+            dbClient.updateHeadInList(key, pipelineInfo);
+        }
     }
 
     @Override
@@ -157,12 +178,19 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
 
     //Returning null means a failure occurred, empty string means no match exists.
     @Override
-    public String makeRollbackDeploymentLog(Event event, String stepName) {
+    public String makeRollbackDeploymentLog(Event event, String stepName, int rollbackLimit) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
         var logIncrement = 0;
         var logList = dbClient.fetchLogList(logKey, logIncrement);
         if (logList == null || logList.size() == 0) return "";
         var currentLog = dbClient.fetchLatestDeploymentLog(logKey);
+        if (currentLog == null) {
+            throw new AtlasNonRetryableError("A rollback was triggered, but no previous logs could be found for the step.");
+        }
+        if (currentLog.getUniqueVersionInstance() >= rollbackLimit) {
+            log.info("Met the limit for rollbacks for this step, so returning an invalid commit hash to stop further processing.");
+            return "";
+        }
         //This means that there was probably an error during the execution of the step, and that the log was added but the re-triggering process was not completed
         if (currentLog.getStatus().equals(Log.LogStatus.PROGRESSING.name()) && currentLog.getUniqueVersionInstance() > 0) {
             return currentLog.getGitCommitVersion();

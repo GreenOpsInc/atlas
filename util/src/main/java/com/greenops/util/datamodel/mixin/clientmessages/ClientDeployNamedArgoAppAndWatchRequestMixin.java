@@ -23,6 +23,8 @@ public abstract class ClientDeployNamedArgoAppAndWatchRequestMixin {
     String pipelineName;
     @JsonProperty("stepName")
     String stepName;
+    @JsonProperty("finalTry")
+    boolean finalTry;
 
 
     @JsonCreator

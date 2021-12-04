@@ -10,6 +10,7 @@ public class ClientSelectiveSyncAndWatchRequest implements ClientRequest {
     private String appName;
     private String revisionHash;
     private ResourcesGvkRequest resourcesGvkRequest;
+    private boolean finalTry;
 
     public ClientSelectiveSyncAndWatchRequest(String orgName, String teamName, String pipelineName, String uvn, String stepName, String appName, String revisionHash, ResourcesGvkRequest resourcesGvkRequest) {
         this.orgName = orgName;
@@ -20,5 +21,16 @@ public class ClientSelectiveSyncAndWatchRequest implements ClientRequest {
         this.pipelineName = pipelineName;
         this.stepName = stepName;
         this.appName = appName;
+        this.finalTry = false;
+    }
+
+    @Override
+    public void setFinalTry(boolean finalTry) {
+        this.finalTry = finalTry;
+    }
+
+    @Override
+    public boolean isFinalTry() {
+        return finalTry;
     }
 }

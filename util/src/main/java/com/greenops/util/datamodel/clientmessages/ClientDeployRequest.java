@@ -11,6 +11,7 @@ public class ClientDeployRequest implements ClientRequest {
     private String deployType;
     private String revisionHash;
     private String payload;
+    private boolean finalTry;
 
     public ClientDeployRequest(String orgName, String teamName, String pipelineName, String uvn, String stepName, String responseEventType, String deployType, String revisionHash, String payload) {
         this.orgName = orgName;
@@ -22,5 +23,16 @@ public class ClientDeployRequest implements ClientRequest {
         this.deployType = deployType;
         this.revisionHash = revisionHash;
         this.payload = payload;
+        this.finalTry = false;
+    }
+
+    @Override
+    public void setFinalTry(boolean finalTry) {
+        this.finalTry = finalTry;
+    }
+
+    @Override
+    public boolean isFinalTry() {
+        return finalTry;
     }
 }

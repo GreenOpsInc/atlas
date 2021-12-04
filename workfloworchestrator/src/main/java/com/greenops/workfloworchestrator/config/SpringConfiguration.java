@@ -1,12 +1,15 @@
 package com.greenops.workfloworchestrator.config;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.greenops.util.datamodel.auditlog.DeploymentLog;
+import com.greenops.util.datamodel.auditlog.PipelineInfo;
 import com.greenops.util.datamodel.auditlog.RemediationLog;
 import com.greenops.util.datamodel.clientmessages.*;
 import com.greenops.util.datamodel.event.*;
 import com.greenops.util.datamodel.git.*;
+import com.greenops.util.datamodel.mixin.auditlog.PipelineInfoMixin;
 import com.greenops.util.datamodel.request.DeployResponse;
 import com.greenops.util.datamodel.metadata.StepMetadata;
 import com.greenops.util.datamodel.mixin.auditlog.DeploymentLogMixin;
@@ -23,12 +26,12 @@ import com.greenops.util.datamodel.pipeline.TeamSchemaImpl;
 import com.greenops.util.datamodel.request.*;
 import com.greenops.util.dbclient.DbClient;
 import com.greenops.util.dbclient.redis.RedisDbClient;
+import com.greenops.util.error.AtlasNonRetryableError;
+import com.greenops.util.error.AtlasRetryableError;
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.*;
 import com.greenops.workfloworchestrator.datamodel.mixin.requests.*;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.*;
 import com.greenops.workfloworchestrator.datamodel.requests.*;
-import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
-import com.greenops.workfloworchestrator.error.AtlasRetryableError;
 import com.greenops.workfloworchestrator.ingest.kafka.KafkaClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -59,6 +62,7 @@ public class SpringConfiguration {
                 .addMixIn(FailureEvent.class, FailureEventMixin.class)
                 .addMixIn(ApplicationInfraTriggerEvent.class, ApplicationInfraTriggerEventMixin.class)
                 .addMixIn(ApplicationInfraCompletionEvent.class, ApplicationInfraCompletionEventMixin.class)
+                .addMixIn(ClientRequestPacket.class, ClientRequestPacketMixin.class)
                 .addMixIn(ClientDeleteByConfigRequest.class, ClientDeleteByConfigRequestMixin.class)
                 .addMixIn(ClientDeleteByGvkRequest.class, ClientDeleteByGvkRequestMixin.class)
                 .addMixIn(ClientDeployAndWatchRequest.class, ClientDeployAndWatchRequestMixin.class)
@@ -95,6 +99,7 @@ public class SpringConfiguration {
                 .addMixIn(RemediationLog.class, RemediationLogMixin.class)
                 .addMixIn(ResourceStatus.class, ResourceStatusMixin.class)
                 .addMixIn(StepMetadata.class, StepMetadataMixin.class)
+                .addMixIn(PipelineInfo.class, PipelineInfoMixin.class)
                 .addMixIn(ArgoRepoSchema.class, ArgoRepoSchemaMixin.class)
                 .addMixIn(ClientDeleteByConfigRequest.class, ClientDeleteByConfigRequestMixin.class)
                 .addMixIn(ClientDeleteByGvkRequest.class, ClientDeleteByGvkRequestMixin.class)
@@ -115,14 +120,27 @@ public class SpringConfiguration {
     ContainerAwareErrorHandler errorHandler(KafkaClient kafkaClient) {
         var errorHandler =
                 new SeekToCurrentErrorHandler((record, exception) -> {
-                    if (exception.getCause() instanceof AtlasRetryableError) {
-                        //All should be instances of AtlasRetryableErrors
-                        //Send to back of topic to try again later
-                        kafkaClient.sendMessage((String)record.value());
-                    } else {
-                        //send to DLQ
-                        log.info(exception.getMessage(), exception.getCause());
-                        kafkaClient.sendMessageToDlq((String)record.value());
+                    //send to DLQ
+                    log.info(exception.getMessage(), exception.getCause());
+                    kafkaClient.sendMessageToDlq((String) record.value());
+                    try {
+                        var event = eventAndRequestObjectMapper().readValue((String) record.value(), Event.class);
+                        //If its a failure event, chances are the error will keep looping forever
+                        if (!(event instanceof FailureEvent)) {
+                            var failureEvent = new FailureEvent(
+                                    event.getOrgName(),
+                                    event.getTeamName(),
+                                    event.getPipelineName(),
+                                    event.getPipelineUvn(),
+                                    event.getStepName(),
+                                    null,
+                                    event.getClass().getName(),
+                                    exception.getMessage()
+                            );
+                            kafkaClient.sendMessage(failureEvent);
+                        }
+                    } catch (JsonProcessingException e) {
+                        log.info("Couldn't deserialize event to send failure event", e.getCause());
                     }
                 }, new FixedBackOff(100L, 5L));
         errorHandler.addNotRetryableException(AtlasNonRetryableError.class);

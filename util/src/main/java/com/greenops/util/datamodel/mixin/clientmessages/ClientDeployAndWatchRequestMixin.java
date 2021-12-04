@@ -27,6 +27,8 @@ public abstract class ClientDeployAndWatchRequestMixin {
     String stepName;
     @JsonProperty("testNumber")
     int testNumber;
+    @JsonProperty("finalTry")
+    boolean finalTry;
 
     @JsonCreator
     public ClientDeployAndWatchRequestMixin(@JsonProperty("orgName") String orgName,

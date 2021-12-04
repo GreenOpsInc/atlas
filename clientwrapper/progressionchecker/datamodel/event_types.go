@@ -49,9 +49,9 @@ type TestEventInfo struct {
 
 type FailureEventInfo struct {
 	EventInfoMetaData
-	requestdatatypes.DeployResponse
-	StatusCode string `json:"statusCode"`
-	Error      string `json:"error"`
+	DeployResponse requestdatatypes.DeployResponse `json:"deployResponse"`
+	StatusCode     string                          `json:"statusCode"`
+	Error          string                          `json:"error"`
 }
 
 type ResourceStatus struct {

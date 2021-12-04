@@ -27,6 +27,8 @@ public abstract class ClientDeleteByGvkRequestMixin {
     String version;
     @JsonProperty("kind")
     String kind;
+    @JsonProperty("finalTry")
+    boolean finalTry;
 
     @JsonCreator
     public ClientDeleteByGvkRequestMixin(@JsonProperty("orgName") String orgName,
