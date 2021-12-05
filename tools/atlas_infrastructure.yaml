@@ -1,0 +1,456 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prom-admin
+rules:
+  # Small scope, feel free to change it
+  - apiGroups: ["networking.istio.io", "apps", "", "batch"]
+    resources: ["*"] #"pods", "nodes"
+    verbs: ["*"] #"get", "watch", "list"
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prom-rbac
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: prom-admin
+  apiGroup: rbac.authorization.k8s.io
+#---
+#apiVersion: apps/v1
+#kind: Deployment
+#metadata:
+#  labels:
+#    app: dex
+#  name: dex
+#  namespace: default
+#spec:
+#  replicas: 1
+#  selector:
+#    matchLabels:
+#      app: dex
+#  template:
+#    metadata:
+#      labels:
+#        app: dex
+#    spec:
+#      serviceAccountName: dex # This is created below
+#      containers:
+#        - image: dexidp/dex:v2.27.0 #or quay.io/dexidp/dex:v2.26.0
+#          name: dex
+#          command: ["/usr/local/bin/dex", "serve", "/etc/dex/cfg/config.yaml"]
+#
+#          ports:
+#            - name: https
+#              containerPort: 5556
+#
+#          volumeMounts:
+#            - name: config
+#              mountPath: /etc/dex/cfg
+#            - name: tls
+#              mountPath: /etc/dex/tls
+#
+#          env:
+#            - name: GITHUB_CLIENT_ID
+#              valueFrom:
+#                secretKeyRef:
+#                  name: github-client
+#                  key: client-id
+#            - name: GITHUB_CLIENT_SECRET
+#              valueFrom:
+#                secretKeyRef:
+#                  name: github-client
+#                  key: client-secret
+#
+#          readinessProbe:
+#            httpGet:
+#              path: /healthz
+#              port: 5556
+#              scheme: HTTPS
+#      volumes:
+#        - name: config
+#          configMap:
+#            name: dex
+#            items:
+#              - key: config.yaml
+#                path: config.yaml
+#        - name: tls
+#          secret:
+#            secretName: dex.example.com.tls
+#---
+#kind: ConfigMap
+#apiVersion: v1
+#metadata:
+#  name: dex
+#  namespace: default
+#data:
+##  This configmap is temporary. We should be dynamically adding this info for dex. "Example App" should be replaced with Atlas' info
+#  config.yaml: |
+#    issuer: https://localhost:32000
+#    storage:
+#      type: kubernetes
+#      config:
+#        inCluster: true
+#    web:
+#      https: 0.0.0.0:5556
+#      tlsCert: /etc/dex/tls/tls.crt
+#      tlsKey: /etc/dex/tls/tls.key
+#    connectors:
+#    - type: github
+#      id: github
+#      name: GitHub
+#      config:
+#        clientID: 165aae46cd0bc4673c8f
+#        clientSecret: d7f4988472b85ff08fa3c789fb385d53c5e90abd
+#        redirectURI: https://localhost:32000/callback
+#        org: kubernetes
+#    oauth2:
+#      skipApprovalScreen: true
+#    staticClients:
+#    - id: example-app
+#      redirectURIs:
+#      - 'http://localhost:5555/callback'
+#      name: 'Example App'
+#      secret: ZXhhbXBsZS1hcHAtc2VjcmV0
+#    enablePasswordDB: true
+#    staticPasswords:
+#    - email: "admin@example.com"
+#      # bcrypt hash of the string "password": $(echo password | htpasswd -BinC 10 admin | cut -d: -f2)
+#      hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+#      username: "admin"
+#      userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"
+#---
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: dex
+#  namespace: default
+#spec:
+#  type: NodePort
+#  ports:
+#    - name: dex
+#      port: 5556
+#      protocol: TCP
+#      targetPort: 5556
+#      nodePort: 32000
+#  selector:
+#    app: dex
+#---
+#apiVersion: v1
+#kind: ServiceAccount
+#metadata:
+#  labels:
+#    app: dex
+#  name: dex
+#  namespace: default
+#---
+#apiVersion: rbac.authorization.k8s.io/v1
+#kind: ClusterRole
+#metadata:
+#  name: dex
+#rules:
+#  - apiGroups: ["dex.coreos.com"] # API group created by dex
+#    resources: ["*"]
+#    verbs: ["*"]
+#  - apiGroups: ["apiextensions.k8s.io"]
+#    resources: ["customresourcedefinitions"]
+#    verbs: ["create"] # To manage its own resources, dex must be able to create customresourcedefinitions
+#---
+#apiVersion: rbac.authorization.k8s.io/v1
+#kind: ClusterRoleBinding
+#metadata:
+#  name: dex
+#roleRef:
+#  apiGroup: rbac.authorization.k8s.io
+#  kind: ClusterRole
+#  name: dex
+#subjects:
+#  - kind: ServiceAccount
+#    name: dex           # Service account assigned to the dex pod, created above
+#    namespace: default  # The namespace dex is running in
+---
+#Redis Service & Deployment
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: redisserver
+  name: redisserver
+spec:
+  ports:
+    - name: "6379"
+      port: 6379
+      targetPort: 6379
+  selector:
+    io.kompose.service: redisserver
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: redisserver
+  name: redisserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: redisserver
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.23.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: redisserver
+    spec:
+      containers:
+        - image: redis
+          name: redisserver
+          ports:
+            - containerPort: 6379
+          resources: {}
+      restartPolicy: Always
+status: {}
+---
+#WorkflowTrigger Service & Deployment
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: workflowtrigger
+  name: workflowtrigger
+spec:
+  ports:
+    - name: "8080"
+      port: 8080
+      targetPort: 8080
+  selector:
+    io.kompose.service: workflowtrigger
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: workflowtrigger
+  name: workflowtrigger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: workflowtrigger
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.23.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: workflowtrigger
+    spec:
+      containers:
+        - env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: LOCALHOSTDYNAMICADDRESS:29092
+            - name: REDIS_ENDPOINT
+              value: redisserver.default.svc.cluster.local:6379
+            - name: REPO_SERVER_ENDPOINT
+              value: http://reposerver.default.svc.cluster.local:8081
+          image: atlasworkflowtrigger
+          imagePullPolicy: Never
+          name: workflowtrigger
+          ports:
+            - containerPort: 8080
+          resources: {}
+      restartPolicy: Always
+status: {}
+---
+#PipelineRepoServer Service & Deployment
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: reposerver
+  name: reposerver
+spec:
+  ports:
+    - name: "8081"
+      port: 8081
+      targetPort: 8081
+  selector:
+    io.kompose.service: reposerver
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: reposerver
+  name: reposerver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: reposerver
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.23.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: reposerver
+    spec:
+      containers:
+        - env:
+            - name: REDIS_ENDPOINT
+              value: redisserver.default.svc.cluster.local:6379
+            - name: ORG_NAME
+              value: org
+          image: atlasreposerver
+          imagePullPolicy: Never
+          name: reposerver
+          ports:
+            - containerPort: 8081
+          resources: {}
+      restartPolicy: Always
+status: {}
+---
+#WorkflowOrchestrator Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: workfloworchestrator
+  name: workfloworchestrator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: workfloworchestrator
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.23.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: workfloworchestrator
+    spec:
+      containers:
+        - env:
+            - name: CLIENT_WRAPPER_ENDPOINT
+              value: http://atlasclientwrapper.default.svc.cluster.local:9091
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: LOCALHOSTDYNAMICADDRESS:29092
+            - name: REDIS_ENDPOINT
+              value: redisserver.default.svc.cluster.local:6379
+            - name: REPO_SERVER_ENDPOINT
+              value: http://reposerver.default.svc.cluster.local:8081
+          image: atlasworkfloworchestrator
+          imagePullPolicy: Never
+          name: workfloworchestrator
+          resources: {}
+      restartPolicy: Always
+status: {}
+---
+#CommandDelegator Service & Deployment
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: commanddelegator
+  name: commanddelegator
+spec:
+  ports:
+    - name: "8080"
+      port: 8080
+      targetPort: 8080
+  selector:
+    io.kompose.service: commanddelegator
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: commanddelegator
+  name: commanddelegator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: commanddelegator
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.23.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: commanddelegator
+    spec:
+      containers:
+        - env:
+            - name: REDIS_ENDPOINT
+              value: redisserver.default.svc.cluster.local:6379
+          image: atlascommanddelegator
+          imagePullPolicy: Never
+          name: commanddelegator
+          ports:
+            - containerPort: 8080
+          resources: {}
+      restartPolicy: Always
+status: {}

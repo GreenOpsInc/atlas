@@ -1,9 +1,6 @@
-/workflowtrigger/.idea/
-/workflowtrigger/.gradle/
+.idea
+.gradle
+
 /workflowtrigger/build/
-/commanddelegator/.idea/
-/commanddelegator/.gradle/
 /commanddelegator/build/
-/util/.idea/
-/util/.gradle/
 /util/build/
