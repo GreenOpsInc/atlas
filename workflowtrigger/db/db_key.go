@@ -2,8 +2,13 @@ package db
 
 import (
 	"encoding/hex"
+	"fmt"
 	"strings"
 )
+
+func MakeDbNotificationKey(requestId string) string {
+	return fmt.Sprintf("notification-%s", requestId)
+}
 
 func MakeDbTeamKey(orgName string, teamName string) string {
 	return orgName + "-" + teamName

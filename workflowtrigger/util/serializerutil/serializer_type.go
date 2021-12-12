@@ -11,6 +11,7 @@ const (
 	GitCredMachineUserType   string = "machineuser"
 	GitCredTokenType         string = "oauth"
 	//Types
+	NotificationType  string = "notification"
 	TeamSchemaType    string = "teamschema"
 	ClusterSchemaType string = "clusterschema"
 	LogType           string = "log"

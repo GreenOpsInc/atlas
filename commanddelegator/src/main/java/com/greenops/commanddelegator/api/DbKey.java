@@ -10,6 +10,10 @@ public class DbKey {
         return Strings.join(List.of(orgName, clusterName, "events"), '-');
     }
 
+    public static String makeClientNotificationQueueKey(String orgName, String clusterName) {
+        return Strings.join(List.of(orgName, clusterName, "notification"), '-');
+    }
+
     public static String makeDbClusterKey(String orgName, String clusterName) {
         return orgName + "-" + clusterName;
     }

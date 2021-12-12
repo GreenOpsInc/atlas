@@ -27,6 +27,7 @@ const (
 type CommandDelegatorApi interface {
 	GetCommands() (*[]requestdatatypes.RequestEvent, error)
 	AckHeadOfRequestList() error
+	AckHeadOfNotificationList() error
 	RetryRequest() error
 }
 
@@ -105,6 +106,10 @@ func (c CommandDelegatorImpl) GetCommands() (*[]requestdatatypes.RequestEvent, e
 			var request requestdatatypes.ClientSelectiveSyncRequest
 			json.Unmarshal(c.getBytesFromUnstructured(command), &request)
 			commands = append(commands, request)
+		} else if commandType == requestdatatypes.ClientMarkNoDeployRequestType {
+			var request requestdatatypes.ClientMarkNoDeployRequest
+			json.Unmarshal(c.getBytesFromUnstructured(command), &request)
+			commands = append(commands, request)
 		} else {
 			log.Printf("Command type %s not supported", commandType)
 		}
@@ -116,6 +121,23 @@ func (c CommandDelegatorImpl) GetCommands() (*[]requestdatatypes.RequestEvent, e
 func (c CommandDelegatorImpl) AckHeadOfRequestList() error {
 	client := &http.Client{}
 	req, err := http.NewRequest("DELETE", c.commandDelegatorUrl+fmt.Sprintf("/requests/ackHead/%s/%s", c.orgName, c.clusterName), nil)
+	if err != nil {
+		log.Printf("Error while making ack head request: %s", err)
+		return err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Error while acking head: %s", err)
+		return err
+	}
+	defer resp.Body.Close()
+	//TODO: Check api statuses
+	return nil
+}
+
+func (c CommandDelegatorImpl) AckHeadOfNotificationList() error {
+	client := &http.Client{}
+	req, err := http.NewRequest("DELETE", c.commandDelegatorUrl+fmt.Sprintf("/notifications/ackHead/%s/%s", c.orgName, c.clusterName), nil)
 	if err != nil {
 		log.Printf("Error while making ack head request: %s", err)
 		return err

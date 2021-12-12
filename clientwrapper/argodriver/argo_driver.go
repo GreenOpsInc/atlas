@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/argoproj/argo-cd/pkg/apiclient"
 	"github.com/argoproj/argo-cd/pkg/apiclient/application"
+	"github.com/argoproj/argo-cd/pkg/apiclient/project"
 	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/argo-cd/util/config"
 	"github.com/argoproj/argo-cd/util/io"
@@ -17,6 +18,7 @@ import (
 	utilpointer "k8s.io/utils/pointer"
 	"log"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -63,6 +65,7 @@ type ArgoClient interface {
 	GetLatestRevision(applicationName string) (int64, error)
 	Delete(applicationName string) error
 	Rollback(appName string, appRevisionId string) (string, string, string, error)
+	MarkNoDeploy(cluster string, namespace string) error
 	//TODO: Update parameters & return type for CheckStatus
 	CheckHealthy(argoApplicationName string) bool
 }
@@ -590,6 +593,53 @@ func (a *ArgoClientDriver) Rollback(appName string, appRevisionHash string) (str
 	log.Printf("Rolled back Argo application named %s\n", argoApplication.Name)
 	//TODO: Syncing takes time. Right now, we can assume that apps will deploy properly. In the future, we will have to see whether we can blindly return true or not.
 	return argoApplication.Name, argoApplication.Namespace, argoApplication.Operation.Sync.Revision, nil
+}
+
+func (a *ArgoClientDriver) MarkNoDeploy(clusterName string, namespace string) error {
+	err := a.CheckForRefresh()
+	if err != nil {
+		return err
+	}
+	ioProjectCloser, projectServiceClient, err := a.client.NewProjectClient()
+	if err != nil {
+		log.Printf("Error while fetching the project client %s", err)
+		return err
+	}
+	defer ioProjectCloser.Close()
+	listOfProjects, err := projectServiceClient.List(context.TODO(), &project.ProjectQuery{Name: "*"})
+	if err != nil {
+		log.Printf("Error while fetching the list of projects %s", err)
+		return err
+	}
+	for _, val := range listOfProjects.Items {
+		for _, dest := range val.Spec.Destinations {
+			if dest.Name == clusterName && (namespace == "" || namespace == dest.Namespace) {
+				var namespaceList []string
+				if namespace != "" {
+					namespaceList = append(namespaceList, namespace)
+				}
+				clusterList := []string{clusterName}
+				windowExists := false
+				for _, window := range val.Spec.SyncWindows {
+					if window.Kind == "deny" && window.Schedule == "* * * * *" && window.Duration == "720h" &&
+						reflect.DeepEqual(window.Applications, []string{"*"}) && reflect.DeepEqual(window.Namespaces, namespaceList) &&
+						reflect.DeepEqual(window.Clusters, clusterList) && window.ManualSync == false {
+						windowExists = true
+					}
+				}
+				if windowExists {
+					break
+				}
+				val.Spec.AddWindow("deny", "* * * * *", "720h", []string{"*"}, namespaceList, clusterList, false)
+				_, err = projectServiceClient.Update(context.TODO(), &project.ProjectUpdateRequest{Project: &val})
+				if err != nil {
+					log.Printf("Error while adding sync window to the projects %s", err)
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (a *ArgoClientDriver) CheckHealthy(argoApplicationName string) bool {

@@ -9,6 +9,7 @@ const (
 	ClientDeployArgoAppByNameAndWatchRequestType string = "deploy_namedargo_watch"
 	ClientRollbackAndWatchRequestType            string = "rollback"
 	ClientSelectiveSyncRequestType               string = "sel_sync_watch"
+	ClientMarkNoDeployRequestType                string = "mark_no_deploy"
 )
 
 type RequestEvent interface {
@@ -147,5 +148,31 @@ func (r ClientSelectiveSyncRequest) GetClientMetadata() ClientEventMetadata {
 }
 
 func (r ClientSelectiveSyncRequest) GetPipelineUvn() string {
+	return r.PipelineUvn
+}
+
+//*****
+//*****
+//Notifications Events: Need to have a request ID
+//*****
+//*****
+
+// ClientMarkNoDeployRequest -----
+type ClientMarkNoDeployRequest struct {
+	ClientEventMetadata
+	ClusterName string `json:"clusterName"`
+	Namespace   string `json:"namespace"`
+	RequestId   string `json:"requestId"`
+}
+
+func (r ClientMarkNoDeployRequest) GetEvent() string {
+	return ClientMarkNoDeployRequestType
+}
+
+func (r ClientMarkNoDeployRequest) GetClientMetadata() ClientEventMetadata {
+	return r.ClientEventMetadata
+}
+
+func (r ClientMarkNoDeployRequest) GetPipelineUvn() string {
 	return r.PipelineUvn
 }

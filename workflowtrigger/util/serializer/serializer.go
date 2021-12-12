@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"greenops.io/workflowtrigger/pipelinestatus"
 	"greenops.io/workflowtrigger/util/auditlog"
+	"greenops.io/workflowtrigger/util/clientrequest"
 	"greenops.io/workflowtrigger/util/cluster"
 	"greenops.io/workflowtrigger/util/event"
 	"greenops.io/workflowtrigger/util/git"
@@ -49,6 +50,10 @@ func Deserialize(payload string, deserializeType string) interface{} {
 		returnVal = pipelineTriggerEvent
 	} else if deserializeType == serializerutil.TeamSchemaType {
 		returnVal = team.UnmarshallTeamSchemaString(payload)
+	} else if deserializeType == serializerutil.NotificationType {
+		var notification clientrequest.Notification
+		err = json.Unmarshal([]byte(payload), &notification)
+		returnVal = notification
 	} else if deserializeType == serializerutil.ClusterSchemaType {
 		var clusterSchema cluster.ClusterSchema
 		err = json.Unmarshal([]byte(payload), &clusterSchema)

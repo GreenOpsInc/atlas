@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"greenops.io/workflowtrigger/api/argoauthenticator"
+	"greenops.io/workflowtrigger/api/commanddelegator"
 	"greenops.io/workflowtrigger/api/reposerver"
 	"greenops.io/workflowtrigger/db"
 	"greenops.io/workflowtrigger/kafka"
 	"greenops.io/workflowtrigger/kubernetesclient"
 	"greenops.io/workflowtrigger/schemavalidation"
+	"greenops.io/workflowtrigger/util/clientrequest"
 	"greenops.io/workflowtrigger/util/event"
 	"greenops.io/workflowtrigger/util/git"
 	"greenops.io/workflowtrigger/util/pipeline"
@@ -17,6 +19,8 @@ import (
 	"greenops.io/workflowtrigger/util/team"
 	"log"
 	"net/http"
+	"strconv"
+	"time"
 )
 
 const (
@@ -31,6 +35,7 @@ var dbClient db.DbClient
 var kafkaClient kafka.KafkaClient
 var kubernetesClient kubernetesclient.KubernetesClient
 var repoManagerApi reposerver.RepoManagerApi
+var commandDelegatorApi commanddelegator.CommandDelegatorApi
 var schemaValidator schemavalidation.RequestSchemaValidator
 
 func createTeam(w http.ResponseWriter, r *http.Request) {
@@ -247,6 +252,25 @@ func generateEvent(event string) {
 	}
 }
 
+func generateNotification(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	requestId := vars["requestId"]
+	success, _ := strconv.ParseBool(vars["success"])
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	key := db.MakeDbNotificationKey(requestId)
+	dbClient.StoreValue(key, clientrequest.Notification{
+		Successful: success,
+		Body:       buf.String(),
+	})
+	w.WriteHeader(http.StatusOK)
+	return
+}
+
 func removeTeamFromOrgList(orgName string, teamName string) {
 	key := db.MakeDbListOfTeamsKey(orgName)
 	listOfTeams := dbClient.FetchStringList(key)
@@ -276,6 +300,25 @@ func addTeamToOrgList(orgName string, teamName string) {
 	dbClient.StoreValue(key, listOfTeams)
 }
 
+func getNotification(requestId string) clientrequest.Notification {
+	key := db.MakeDbNotificationKey(requestId)
+	time.Sleep(5 * time.Second)
+	var notification clientrequest.Notification
+	emptyStruct := clientrequest.Notification{}
+	for i := 0; i < 60; i++ {
+		notification = dbClient.FetchNotification(key)
+		if notification != emptyStruct {
+			dbClient.StoreValue(key, nil)
+			return notification
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return clientrequest.Notification{
+		Successful: false,
+		Body:       "error: The request response could not be found",
+	}
+}
+
 func InitPipelineTeamEndpoints(r *mux.Router) {
 	r.HandleFunc("/team/{orgName}/{parentTeamName}/{teamName}", createTeam).Methods("POST")
 	r.HandleFunc("/team/{orgName}/{teamName}", readTeam).Methods("GET")
@@ -284,13 +327,15 @@ func InitPipelineTeamEndpoints(r *mux.Router) {
 	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", getPipelineEndpoint).Methods("GET")
 	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", deletePipeline).Methods("DELETE")
 	r.HandleFunc("/sync/{orgName}/{teamName}/{pipelineName}", syncPipeline).Methods("POST")
+	r.HandleFunc("/client/generateNotification/{requestId}/{success}", generateNotification).Methods("POST")
 	r.HandleFunc("/client/{orgName}/{clusterName}/generateEvent", generateEventEndpoint).Methods("POST")
 }
 
-func InitClients(dbClientCopy db.DbClient, kafkaClientCopy kafka.KafkaClient, kubernetesClientCopy kubernetesclient.KubernetesClient, repoManagerApiCopy reposerver.RepoManagerApi, schemaValidatorCopy schemavalidation.RequestSchemaValidator) {
+func InitClients(dbClientCopy db.DbClient, kafkaClientCopy kafka.KafkaClient, kubernetesClientCopy kubernetesclient.KubernetesClient, repoManagerApiCopy reposerver.RepoManagerApi, commandDelegatorApiCopy commanddelegator.CommandDelegatorApi, schemaValidatorCopy schemavalidation.RequestSchemaValidator) {
 	dbClient = dbClientCopy
 	kafkaClient = kafkaClientCopy
 	kubernetesClient = kubernetesClientCopy
 	repoManagerApi = repoManagerApiCopy
+	commandDelegatorApi = commandDelegatorApiCopy
 	schemaValidator = schemaValidatorCopy
 }
