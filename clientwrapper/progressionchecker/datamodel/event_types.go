@@ -15,6 +15,7 @@ const (
 
 type EventInfo interface {
 	GetEventType() EventInfoType
+	GetEventOrg() string
 }
 
 type EventInfoMetaData struct {
@@ -69,6 +70,10 @@ func (eventInfo ApplicationEventInfo) GetEventType() EventInfoType {
 	return eventInfo.Type
 }
 
+func (eventInfo ApplicationEventInfo) GetEventOrg() string {
+	return eventInfo.OrgName
+}
+
 func MakeApplicationEvent(key WatchKey, appInfo ArgoAppMetricInfo, healthStatus string, syncStatus string, resourceStatuses []ResourceStatus, revisionHash string) EventInfo {
 	return ApplicationEventInfo{
 		EventInfoMetaData: EventInfoMetaData{
@@ -97,6 +102,10 @@ func (eventInfo TestEventInfo) GetEventType() EventInfoType {
 	return eventInfo.Type
 }
 
+func (eventInfo TestEventInfo) GetEventOrg() string {
+	return eventInfo.OrgName
+}
+
 func MakeTestEvent(key WatchKey, successful bool, logs string) EventInfo {
 	return TestEventInfo{
 		EventInfoMetaData: EventInfoMetaData{
@@ -119,6 +128,10 @@ func MakeTestEvent(key WatchKey, successful bool, logs string) EventInfo {
 // **
 func (eventInfo FailureEventInfo) GetEventType() EventInfoType {
 	return eventInfo.Type
+}
+
+func (eventInfo FailureEventInfo) GetEventOrg() string {
+	return eventInfo.OrgName
 }
 
 func MakeFailureEventEvent(clientMetadata requestdatatypes.ClientEventMetadata, deployResponse requestdatatypes.DeployResponse, statusCode string, error string) EventInfo {

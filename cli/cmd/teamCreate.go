@@ -76,9 +76,9 @@ Example usage:
 			return
 		}
 		statusCode := resp.StatusCode
-		if statusCode == 200{
+		if statusCode == 200 {
 			fmt.Println("Successfully created team:",teamName, "under parent team:", parentTeamName)
-		} else if statusCode == 400{
+		} else if statusCode == 400 {
 			fmt.Println("Team creation failed because the request was invalid.\nPlease check if org and parent team names are correct, a team with the specified name doesn't already exist, and the format of the schema file (if provided) is valid.")			
 		} else{
 			fmt.Println("Internal server error: ",err)			

@@ -1,19 +1,24 @@
 package com.greenops.workfloworchestrator.ingest.handling;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.clientmessages.ResourceGvk;
 import com.greenops.util.datamodel.clientmessages.ResourcesGvkRequest;
 import com.greenops.util.datamodel.event.Event;
 import com.greenops.util.datamodel.request.GetFileRequest;
+import com.greenops.util.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.PipelineData;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData;
 import com.greenops.workfloworchestrator.ingest.apiclient.clientwrapper.ClientRequestQueue;
 import com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManagerApi;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.ROOT_STEP_NAME;
 import static com.greenops.workfloworchestrator.ingest.handling.EventHandlerImpl.WATCH_ARGO_APPLICATION_KEY;
 
 @Slf4j
@@ -24,13 +29,19 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
     private ClientRequestQueue clientRequestQueue;
     private MetadataHandler metadataHandler;
     private DeploymentLogHandler deploymentLogHandler;
+    private ObjectMapper yamlObjectMapper;
 
     @Autowired
-    DeploymentHandlerImpl(RepoManagerApi repoManagerApi, ClientRequestQueue clientRequestQueue, MetadataHandler metadataHandler, DeploymentLogHandler deploymentLogHandler) {
+    DeploymentHandlerImpl(RepoManagerApi repoManagerApi,
+                          ClientRequestQueue clientRequestQueue,
+                          MetadataHandler metadataHandler,
+                          DeploymentLogHandler deploymentLogHandler,
+                          @Qualifier("yamlObjectMapper") ObjectMapper yamlObjectMapper) {
         this.repoManagerApi = repoManagerApi;
         this.clientRequestQueue = clientRequestQueue;
         this.metadataHandler = metadataHandler;
         this.deploymentLogHandler = deploymentLogHandler;
+        this.yamlObjectMapper = yamlObjectMapper;
     }
 
     @Override
@@ -47,6 +58,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
                     event.getPipelineName(),
                     event.getPipelineUvn(),
                     event.getStepName(),
+                    getStepNamespace(event, repoManagerApi, yamlObjectMapper, stepData.getArgoApplicationPath(), pipelineRepoUrl, gitCommitHash),
                     ClientRequestQueue.DELETE_KUBERNETES_REQUEST,
                     otherDeploymentsConfig
             );
@@ -67,6 +79,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
                     event.getPipelineName(),
                     event.getPipelineUvn(),
                     stepData.getName(),
+                    getStepNamespace(event, repoManagerApi, yamlObjectMapper, stepData.getArgoApplicationPath(), pipelineRepoUrl, gitCommitHash),
                     ClientRequestQueue.RESPONSE_EVENT_APPLICATION_INFRA,
                     ClientRequestQueue.DEPLOY_KUBERNETES_REQUEST,
                     ClientRequestQueue.LATEST_REVISION,
@@ -91,6 +104,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
                     event.getPipelineName(),
                     event.getPipelineUvn(),
                     event.getStepName(),
+                    getStepNamespace(event, repoManagerApi, yamlObjectMapper, stepData.getArgoApplicationPath(), pipelineRepoUrl, gitCommitHash),
                     ClientRequestQueue.DEPLOY_ARGO_REQUEST,
                     pipelineLockRevisionHash,
                     argoApplicationConfig,
@@ -124,6 +138,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
                 event.getPipelineName(),
                 event.getPipelineUvn(),
                 event.getStepName(),
+                getStepNamespace(event, repoManagerApi, yamlObjectMapper, stepData.getArgoApplicationPath(), pipelineRepoUrl, argoRevisionHash),
                 argoApplicationName,
                 argoRevisionHash,
                 WATCH_ARGO_APPLICATION_KEY
@@ -141,6 +156,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
                 event.getPipelineName(),
                 event.getPipelineUvn(),
                 stepData.getName(),
+                getStepNamespace(event, repoManagerApi, yamlObjectMapper, stepData.getArgoApplicationPath(), pipelineRepoUrl, argoRevisionHash),
                 argoRevisionHash,
                 syncRequestPayload,
                 argoApplicationName
@@ -158,5 +174,24 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
             }
         }
         return false;
+    }
+
+    public static String getStepNamespace(Event event, RepoManagerApi repoManagerApi, ObjectMapper yamlObjectMapper, String argoApplicationPath, String gitRepoUrl, String gitCommitHash) {
+        if (event.getStepName().isEmpty() || event.getStepName().equals(ROOT_STEP_NAME)) {
+            throw new AtlasNonRetryableError("Could not find a namespace associated with the event");
+        }
+        var getFileRequest = new GetFileRequest(gitRepoUrl, argoApplicationPath, gitCommitHash);
+        var argoAppPayload = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
+        String namespace;
+        try {
+            var sourceJsonNode = yamlObjectMapper.readTree(argoAppPayload).get("spec").get("destination");
+            namespace = sourceJsonNode.get("namespace").asText(null);
+        } catch (JsonProcessingException e) {
+            throw new AtlasNonRetryableError("Argo app configuration cannot be parsed");
+        }
+        if (namespace == null) {
+            throw new AtlasNonRetryableError("Could not find a namespace associated with the event");
+        }
+        return namespace;
     }
 }

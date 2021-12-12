@@ -31,6 +31,7 @@ func getStepLogs(w http.ResponseWriter, r *http.Request) {
 	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, pipelineSchema.GetGitRepoSchema().GitRepo, reposerver.RootCommit,
 		string(argoauthenticator.GetAction), string(argoauthenticator.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
 	}
 
 	count, err := strconv.Atoi(vars[countField])
@@ -66,6 +67,7 @@ func getPipelineStatus(w http.ResponseWriter, r *http.Request) {
 	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, pipelineSchema.GetGitRepoSchema().GitRepo, reposerver.RootCommit,
 		string(argoauthenticator.GetAction), string(argoauthenticator.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
 	}
 
 	status := pipelinestatus.New()
@@ -213,6 +215,7 @@ func cancelLatestPipeline(w http.ResponseWriter, r *http.Request) {
 		string(argoauthenticator.SyncAction), string(argoauthenticator.ApplicationResource),
 		string(argoauthenticator.SyncAction), string(argoauthenticator.ClusterResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
 	}
 
 	latestUvn := ""

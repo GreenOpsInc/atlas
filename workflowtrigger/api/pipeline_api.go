@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"greenops.io/workflowtrigger/api/argoauthenticator"
+	"greenops.io/workflowtrigger/api/commanddelegator"
 	"greenops.io/workflowtrigger/api/reposerver"
 	"greenops.io/workflowtrigger/db"
 	"greenops.io/workflowtrigger/kafka"
 	"greenops.io/workflowtrigger/kubernetesclient"
 	"greenops.io/workflowtrigger/schemavalidation"
+	"greenops.io/workflowtrigger/util/clientrequest"
 	"greenops.io/workflowtrigger/util/event"
 	"greenops.io/workflowtrigger/util/git"
 	"greenops.io/workflowtrigger/util/pipeline"
@@ -17,6 +19,7 @@ import (
 	"greenops.io/workflowtrigger/util/team"
 	"log"
 	"net/http"
+	"time"
 )
 
 const (
@@ -31,6 +34,7 @@ var dbClient db.DbClient
 var kafkaClient kafka.KafkaClient
 var kubernetesClient kubernetesclient.KubernetesClient
 var repoManagerApi reposerver.RepoManagerApi
+var commandDelegatorApi commanddelegator.CommandDelegatorApi
 var schemaValidator schemavalidation.RequestSchemaValidator
 
 func createTeam(w http.ResponseWriter, r *http.Request) {
@@ -117,6 +121,7 @@ func createPipeline(w http.ResponseWriter, r *http.Request) {
 	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, gitRepo.GitRepo, reposerver.RootCommit, string(argoauthenticator.CreateAction), string(argoauthenticator.ApplicationResource)) {
 		repoManagerApi.DeleteRepo(gitRepo)
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
 	}
 
 	gitRepo.GetGitCred().Hide()
@@ -139,6 +144,7 @@ func getPipelineEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, pipelineSchema.GetGitRepoSchema().GitRepo, reposerver.RootCommit, string(argoauthenticator.GetAction), string(argoauthenticator.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
 	}
 	bytesObj, _ := json.Marshal(pipelineSchema)
 	w.Write(bytesObj)
@@ -176,6 +182,7 @@ func deletePipeline(w http.ResponseWriter, r *http.Request) {
 	}
 	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, teamSchema.GetPipelineSchema(pipelineName).GetGitRepoSchema().GitRepo, reposerver.RootCommit, string(argoauthenticator.DeleteAction), string(argoauthenticator.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
 	}
 	kubernetesClient.StoreGitCred(nil, db.MakeSecretName(orgName, teamName, pipelineName))
 	gitRepo := teamSchema.GetPipelineSchema(pipelineName).GetGitRepoSchema()
@@ -214,6 +221,7 @@ func syncPipeline(w http.ResponseWriter, r *http.Request) {
 		string(argoauthenticator.SyncAction), string(argoauthenticator.ApplicationResource),
 		string(argoauthenticator.SyncAction), string(argoauthenticator.ClusterResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
 	}
 
 	triggerEvent := event.NewPipelineTriggerEvent(orgName, teamName, pipelineName)
@@ -223,12 +231,13 @@ func syncPipeline(w http.ResponseWriter, r *http.Request) {
 }
 
 func generateEventEndpoint(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
+	//vars := mux.Vars(r)
 	//orgName := vars[orgNameField]
-	clusterName := vars[clusterNameField]
-	if !schemaValidator.VerifyRbac(argoauthenticator.ActionAction, argoauthenticator.ClusterResource, clusterName) {
-		http.Error(w, "Not enough permissions", http.StatusForbidden)
-	}
+	//clusterName := vars[clusterNameField]
+	//if !schemaValidator.VerifyRbac(argoauthenticator.UpdateAction, argoauthenticator.ClusterResource, clusterName) {
+	//	http.Error(w, "Not enough permissions", http.StatusForbidden)
+	//	return
+	//}
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
@@ -245,6 +254,21 @@ func generateEvent(event string) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func generateNotification(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	requestId := vars["requestId"]
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	key := db.MakeDbNotificationKey(requestId)
+	dbClient.StoreValue(key, buf.String())
+	w.WriteHeader(http.StatusOK)
+	return
 }
 
 func removeTeamFromOrgList(orgName string, teamName string) {
@@ -276,6 +300,25 @@ func addTeamToOrgList(orgName string, teamName string) {
 	dbClient.StoreValue(key, listOfTeams)
 }
 
+func getNotification(requestId string) clientrequest.Notification {
+	key := db.MakeDbNotificationKey(requestId)
+	time.Sleep(5 * time.Second)
+	var notification clientrequest.Notification
+	emptyStruct := clientrequest.Notification{}
+	for i := 0; i < 60; i++ {
+		notification = dbClient.FetchNotification(key)
+		if notification != emptyStruct {
+			dbClient.StoreValue(key, nil)
+			return notification
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return clientrequest.Notification{
+		Successful: false,
+		Body:       "error: The request response could not be found",
+	}
+}
+
 func InitPipelineTeamEndpoints(r *mux.Router) {
 	r.HandleFunc("/team/{orgName}/{parentTeamName}/{teamName}", createTeam).Methods("POST")
 	r.HandleFunc("/team/{orgName}/{teamName}", readTeam).Methods("GET")
@@ -284,13 +327,15 @@ func InitPipelineTeamEndpoints(r *mux.Router) {
 	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", getPipelineEndpoint).Methods("GET")
 	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", deletePipeline).Methods("DELETE")
 	r.HandleFunc("/sync/{orgName}/{teamName}/{pipelineName}", syncPipeline).Methods("POST")
+	r.HandleFunc("/client/generateNotification/{requestId}", generateNotification).Methods("POST")
 	r.HandleFunc("/client/{orgName}/{clusterName}/generateEvent", generateEventEndpoint).Methods("POST")
 }
 
-func InitClients(dbClientCopy db.DbClient, kafkaClientCopy kafka.KafkaClient, kubernetesClientCopy kubernetesclient.KubernetesClient, repoManagerApiCopy reposerver.RepoManagerApi, schemaValidatorCopy schemavalidation.RequestSchemaValidator) {
+func InitClients(dbClientCopy db.DbClient, kafkaClientCopy kafka.KafkaClient, kubernetesClientCopy kubernetesclient.KubernetesClient, repoManagerApiCopy reposerver.RepoManagerApi, commandDelegatorApiCopy commanddelegator.CommandDelegatorApi, schemaValidatorCopy schemavalidation.RequestSchemaValidator) {
 	dbClient = dbClientCopy
 	kafkaClient = kafkaClientCopy
 	kubernetesClient = kubernetesClientCopy
 	repoManagerApi = repoManagerApiCopy
+	commandDelegatorApi = commandDelegatorApiCopy
 	schemaValidator = schemaValidatorCopy
 }

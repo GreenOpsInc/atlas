@@ -33,4 +33,8 @@ public class DbKey {
     public static String makeDbListOfStepsKey(String orgName, String teamName, String pipelineName) {
         return orgName + "-" + teamName + "-" + pipelineName + "-step";
     }
+
+    public static String makeDbClusterKey(String orgName, String clusterName) {
+        return orgName + "-" + clusterName;
+    }
 }
