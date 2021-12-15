@@ -16,13 +16,15 @@ import (
 type ObjectType string
 
 const (
-	teamSchema    ObjectType = "TEAM_SCHEMA"
-	stringList    ObjectType = "STRING_LIST"
-	logListObj    ObjectType = "LOG_LIST"
-	singleLog     ObjectType = "SINGLE_LOG"
-	clientRequest ObjectType = "CLIENT_REQUEST"
-	clusterSchema ObjectType = "CLUSTER_SCHEMA"
-	metadata      ObjectType = "METADATA"
+	teamSchema       ObjectType = "TEAM_SCHEMA"
+	stringList       ObjectType = "STRING_LIST"
+	logListObj       ObjectType = "LOG_LIST"
+	singleLog        ObjectType = "SINGLE_LOG"
+	pipelineInfoList ObjectType = "PIPELINE_INFO_LIST"
+	pipelineInfo     ObjectType = "PIPELINE_INFO"
+	clientRequest    ObjectType = "CLIENT_REQUEST"
+	clusterSchema    ObjectType = "CLUSTER_SCHEMA"
+	metadata         ObjectType = "METADATA"
 )
 
 type ListStoreOperation string
@@ -61,6 +63,8 @@ type DbClient interface {
 	StoreValue(key string, schema interface{})
 	InsertValueInList(key string, schema interface{})
 	UpdateHeadInList(key string, schema interface{})
+	FetchPipelineInfoList(key string, increment int) []auditlog.PipelineInfo
+	FetchLatestPipelineInfo(key string) auditlog.PipelineInfo
 	FetchTeamSchema(key string) team.TeamSchema
 	FetchClusterSchema(key string) cluster.ClusterSchema
 	FetchLogList(key string, increment int) []auditlog.Log
@@ -150,6 +154,22 @@ func (r *RedisClientImpl) store(key string, object interface{}, listStoreOperati
 	if res == nil {
 		panic(errors.New("the transaction was interrupted"))
 	}
+}
+
+func (r *RedisClientImpl) FetchPipelineInfoList(key string, increment int) []auditlog.PipelineInfo {
+	infoList := r.fetch(key, pipelineInfoList, increment)
+	if infoList == nil {
+		return make([]auditlog.PipelineInfo, 0)
+	}
+	return infoList.([]auditlog.PipelineInfo)
+}
+
+func (r *RedisClientImpl) FetchLatestPipelineInfo(key string) auditlog.PipelineInfo {
+	ret := r.fetch(key, pipelineInfo, -1)
+	if ret == nil {
+		return auditlog.PipelineInfo{}
+	}
+	return ret.(auditlog.PipelineInfo)
 }
 
 func (r *RedisClientImpl) FetchTeamSchema(key string) team.TeamSchema {
@@ -293,9 +313,20 @@ func (r *RedisClientImpl) fetch(key string, objectType ObjectType, increment int
 			logArray = append(logArray, serializer.Deserialize(val, serializerutil.LogType).(auditlog.Log))
 		}
 		return logArray
+	} else if objectType == pipelineInfoList {
+		startIdx := increment * LogIncrement
+		reply = redisWrapperFunc(redis.Strings(r.client.Do(string(lrange), key, startIdx, startIdx+LogIncrement-1)))
+		pipelineInfoArray := make([]auditlog.PipelineInfo, 0)
+		for _, val := range reply.([]string) {
+			pipelineInfoArray = append(pipelineInfoArray, serializer.Deserialize(val, serializerutil.PipelineInfoType).(auditlog.PipelineInfo))
+		}
+		return pipelineInfoArray
 	} else if objectType == singleLog {
 		reply = redisWrapperFunc(redis.String(r.client.Do(string(lindex), key, 0)))
 		return serializer.Deserialize(reply.(string), serializerutil.LogType)
+	} else if objectType == pipelineInfo {
+		reply = redisWrapperFunc(redis.String(r.client.Do(string(lindex), key, 0)))
+		return serializer.Deserialize(reply.(string), serializerutil.PipelineInfoType)
 	} else if objectType == clusterSchema {
 		reply = redisWrapperFunc(redis.String(r.client.Do(string(get), key)))
 		return serializer.Deserialize(reply.(string), serializerutil.ClusterSchemaType)

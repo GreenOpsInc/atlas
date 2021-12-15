@@ -48,6 +48,7 @@ public class SpringConfiguration {
                 .addMixIn(ClusterSchema.class, ClusterSchemaMixin.class)
                 .addMixIn(FailedStep.class, FailedStepMixin.class)
                 .addMixIn(PipelineStatus.class, PipelineStatusMixin.class)
+                .addMixIn(ClientRequestPacket.class, ClientRequestPacketMixin.class)
                 .addMixIn(ClientDeleteByConfigRequest.class, ClientDeleteByConfigRequestMixin.class)
                 .addMixIn(ClientDeleteByGvkRequest.class, ClientDeleteByGvkRequestMixin.class)
                 .addMixIn(ClientDeployAndWatchRequest.class, ClientDeployAndWatchRequestMixin.class)

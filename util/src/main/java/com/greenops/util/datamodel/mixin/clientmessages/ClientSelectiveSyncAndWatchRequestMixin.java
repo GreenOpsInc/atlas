@@ -22,6 +22,8 @@ public abstract class ClientSelectiveSyncAndWatchRequestMixin {
     String revisionHash;
     @JsonProperty("resourcesGvkRequest")
     ResourcesGvkRequest resourcesGvkRequest;
+    @JsonProperty("finalTry")
+    boolean finalTry;
 
     @JsonCreator
     public ClientSelectiveSyncAndWatchRequestMixin(@JsonProperty("orgName") String orgName,

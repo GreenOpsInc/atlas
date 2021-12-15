@@ -14,6 +14,7 @@ const (
 	TeamSchemaType    string = "teamschema"
 	ClusterSchemaType string = "clusterschema"
 	LogType           string = "log"
+	PipelineInfoType  string = "pipelineinfo"
 	StringListType    string = "stringlist"
 )
 

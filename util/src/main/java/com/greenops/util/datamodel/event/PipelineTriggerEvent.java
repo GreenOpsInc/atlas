@@ -5,6 +5,7 @@ import java.util.UUID;
 public class PipelineTriggerEvent implements Event {
 
     public static final String ROOT_STEP_NAME = "ATLAS_ROOT_DATA";
+    public static final String PIPELINE_TRIGGER_EVENT_CLASS_NAME = "com.greenops.util.datamodel.event.PipelineTriggerEvent";
 
     private String orgName;
     private String teamName;

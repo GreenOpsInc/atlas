@@ -11,6 +11,8 @@ public abstract class ClientDeployNamedArgoApplicationRequestMixin {
     String type;
     @JsonProperty("appName")
     String appName;
+    @JsonProperty("finalTry")
+    boolean finalTry;
 
     @JsonCreator
     public ClientDeployNamedArgoApplicationRequestMixin(@JsonProperty("orgName") String orgName,

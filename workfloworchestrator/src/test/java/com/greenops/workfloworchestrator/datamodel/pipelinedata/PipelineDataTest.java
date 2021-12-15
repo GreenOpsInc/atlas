@@ -14,8 +14,8 @@ public class PipelineDataTest {
         var step2ClusterName = "cluster_us_west_2";
         var step1Name = "Step_1";
         var step2Name = "Step_2";
-        var stepData1 = (StepData) new StepDataImpl(step1Name, null, null, null, null, false, null, 0, null);
-        var stepData2 = (StepData) new StepDataImpl(step2Name, null, null, null, step2ClusterName, false, null, 0, null);
+        var stepData1 = (StepData) new StepDataImpl(step1Name, null, null, null, null, null, 0, 0, null);
+        var stepData2 = (StepData) new StepDataImpl(step2Name, null, null, null, step2ClusterName, null, 0, 0, null);
         var stepDataList = List.of(stepData1, stepData2);
         var pipelineData = new PipelineDataImpl("Pipeline_1", pipelineClusterName, false, stepDataList);
         assertEquals(pipelineData.getClusterName(), pipelineClusterName);

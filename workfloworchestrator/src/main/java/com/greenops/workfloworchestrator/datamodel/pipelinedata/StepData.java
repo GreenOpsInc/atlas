@@ -21,15 +21,15 @@ public interface StepData {
 
     void setClusterName(String clusterName);
 
-    boolean getRollback();
-
     List<Test> getTests();
 
     List<String> getDependencies();
 
     int getRemediationLimit();
 
+    int getRollbackLimit();
+
     static StepData createRootStep() {
-        return new StepDataImpl(ROOT_STEP_NAME, null, null, null, null, false, List.of(), 0, List.of());
+        return new StepDataImpl(ROOT_STEP_NAME, null, null, null, null, List.of(), 0, 0, List.of());
     }
 }

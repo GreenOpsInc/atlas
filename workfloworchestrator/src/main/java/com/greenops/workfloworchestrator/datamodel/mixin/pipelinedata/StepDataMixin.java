@@ -18,12 +18,12 @@ public abstract class StepDataMixin {
     private String otherDeploymentsPath;
     @JsonProperty(value = "cluster_name")
     private String clusterName;
-    @JsonProperty(value = "rollback")
-    private boolean rollback;
     @JsonProperty(value = "tests")
     private List<Test> tests;
     @JsonProperty(value = "remediation_limit")
     private int remediationLimit;
+    @JsonProperty(value = "rollback_limit")
+    private int rollbackLimit;
     @JsonProperty(value = "dependencies")
     private List<String> dependencies;
 
@@ -32,9 +32,9 @@ public abstract class StepDataMixin {
                          @JsonProperty(value = "application_path") String argoApplicationPath,
                          @JsonProperty(value = "additional_deployments") String otherDeploymentsPath,
                          @JsonProperty(value = "cluster_name") String clusterName,
-                         @JsonProperty(value = "rollback") boolean rollback,
                          @JsonProperty(value = "tests") List<Test> tests,
                          @JsonProperty(value = "remediation_limit") int remediationLimit,
+                         @JsonProperty(value = "rollback_limit") int rollbackLimit,
                          @JsonProperty(value = "dependencies") List<String> dependencies) {
     }
 

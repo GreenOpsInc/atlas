@@ -9,9 +9,9 @@ public class StepDataImpl implements StepData {
     private String argoApplicationPath;
     private String otherDeploymentsPath;
     private String clusterName;
-    private boolean rollback;
     private List<Test> tests;
     private int remediationLimit;
+    private int rollbackLimit;
     private List<String> dependencies;
 
     StepDataImpl(String name,
@@ -19,18 +19,18 @@ public class StepDataImpl implements StepData {
                  String argoApplicationPath,
                  String otherDeploymentsPath,
                  String clusterName,
-                 boolean rollback,
                  List<Test> tests,
                  int remediationLimit,
+                 int rollbackLimit,
                  List<String> dependencies) {
         this.name = name;
         this.argoApplication = argoApplication;
         this.argoApplicationPath = argoApplicationPath;
         this.otherDeploymentsPath = otherDeploymentsPath;
         this.clusterName = clusterName;
-        this.rollback = rollback;
         this.tests = tests == null ? new ArrayList<>() : tests;
         this.remediationLimit = remediationLimit;
+        this.rollbackLimit = rollbackLimit;
         this.dependencies = dependencies == null ? new ArrayList<>() : dependencies;
     }
 
@@ -65,11 +65,6 @@ public class StepDataImpl implements StepData {
     }
 
     @Override
-    public boolean getRollback() {
-        return rollback;
-    }
-
-    @Override
     public List<Test> getTests() {
         return tests;
     }
@@ -82,5 +77,10 @@ public class StepDataImpl implements StepData {
     @Override
     public int getRemediationLimit() {
         return remediationLimit;
+    }
+
+    @Override
+    public int getRollbackLimit() {
+        return rollbackLimit;
     }
 }

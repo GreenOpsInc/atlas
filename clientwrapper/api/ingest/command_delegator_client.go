@@ -27,6 +27,7 @@ const (
 type CommandDelegatorApi interface {
 	GetCommands() (*[]requestdatatypes.RequestEvent, error)
 	AckHeadOfRequestList() error
+	RetryRequest() error
 }
 
 type CommandDelegatorImpl struct {
@@ -122,6 +123,23 @@ func (c CommandDelegatorImpl) AckHeadOfRequestList() error {
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("Error while acking head: %s", err)
+		return err
+	}
+	defer resp.Body.Close()
+	//TODO: Check api statuses
+	return nil
+}
+
+func (c CommandDelegatorImpl) RetryRequest() error {
+	client := &http.Client{}
+	req, err := http.NewRequest("DELETE", c.commandDelegatorUrl+fmt.Sprintf("/requests/retry/%s/%s", c.orgName, c.clusterName), nil)
+	if err != nil {
+		log.Printf("Error while making retry request: %s", err)
+		return err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Error while sending retry message: %s", err)
 		return err
 	}
 	defer resp.Body.Close()

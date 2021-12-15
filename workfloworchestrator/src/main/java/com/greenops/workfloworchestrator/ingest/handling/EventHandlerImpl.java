@@ -3,16 +3,17 @@ package com.greenops.workfloworchestrator.ingest.handling;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.auditlog.Log;
+import com.greenops.util.datamodel.auditlog.PipelineInfo;
 import com.greenops.util.datamodel.auditlog.RemediationLog;
 import com.greenops.util.datamodel.event.*;
 import com.greenops.util.datamodel.pipeline.TeamSchema;
 import com.greenops.util.datamodel.request.GetFileRequest;
 import com.greenops.util.dbclient.DbClient;
+import com.greenops.util.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.PipelineData;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.Test;
 import com.greenops.util.datamodel.clientmessages.ResourceGvk;
-import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManagerApi;
 import com.greenops.workfloworchestrator.ingest.dbclient.DbKey;
 import com.greenops.workfloworchestrator.ingest.kafka.KafkaClient;
@@ -22,6 +23,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.greenops.util.datamodel.event.ClientCompletionEvent.*;
@@ -68,8 +70,20 @@ public class EventHandlerImpl implements EventHandler {
 
     @Override
     public void handleEvent(Event event) {
+        log.info("Handling event of type {}", event.getClass().getName());
         var teamSchema = fetchTeamSchema(event);
         if (teamSchema == null) throw new AtlasNonRetryableError("The team doesn't exist");
+
+        //This checks whether the event was from a previous pipeline run. If it is, it will be ignored.
+        if (isStaleEvent(event)) {
+            log.info("Event from pipeline {} is stale, ignoring...", event.getPipelineUvn());
+            return;
+        }
+        if (event instanceof FailureEvent) {
+            handleFailureEvent((FailureEvent) event);
+            return;
+        }
+
         var gitCommit = ROOT_COMMIT;
         if (event instanceof TriggerStepEvent) {
             gitCommit = ((TriggerStepEvent) event).getGitCommitHash();
@@ -80,32 +94,18 @@ public class EventHandlerImpl implements EventHandler {
         var pipelineData = fetchPipelineData(event, gitRepoUrl, gitCommit);
         if (pipelineData == null) throw new AtlasNonRetryableError("The pipeline doesn't exist");
 
-        //This checks whether the event was from a previous pipeline run. If it is, it will be ignored.
-        if (isStaleEvent(event)) {
-            log.info("Event from pipeline {} is stale, ignoring...", event.getPipelineUvn());
-            return;
-        }
         if (event instanceof PipelineTriggerEvent) {
-            log.info("Handling event of type {}", PipelineTriggerEvent.class.getName());
             handlePipelineTriggerEvent(pipelineData, gitRepoUrl, (PipelineTriggerEvent) event);
         } else if (event instanceof ClientCompletionEvent) {
-            log.info("Handling event of type {}", ClientCompletionEvent.class.getName());
             handleClientCompletionEvent(pipelineData, gitRepoUrl, (ClientCompletionEvent) event);
         } else if (event instanceof TestCompletionEvent) {
-            log.info("Handling event of type {}", TestCompletionEvent.class.getName());
             handleTestCompletion(pipelineData, gitRepoUrl, (TestCompletionEvent) event);
         } else if (event instanceof ApplicationInfraTriggerEvent) {
-            log.info("Handling event of type {}", ApplicationInfraTriggerEvent.class.getName());
             handleApplicationInfraTrigger(teamSchema, pipelineData, gitRepoUrl, (ApplicationInfraTriggerEvent) event);
         } else if (event instanceof ApplicationInfraCompletionEvent) {
-            log.info("Handling event of type {}", ApplicationInfraCompletionEvent.class.getName());
             handleApplicationInfraCompletion(gitRepoUrl, pipelineData, (ApplicationInfraCompletionEvent) event);
         } else if (event instanceof TriggerStepEvent) {
-            log.info("Handling event of type {}", TriggerStepEvent.class.getName());
             handleTriggerStep(pipelineData, gitRepoUrl, (TriggerStepEvent) event);
-        } else if (event instanceof FailureEvent) {
-            log.info("Handling event of type {}", FailureEvent.class.getName());
-            handleFailureEvent(pipelineData, gitRepoUrl, (FailureEvent) event);
         }
     }
 
@@ -128,36 +128,67 @@ public class EventHandlerImpl implements EventHandler {
 
     private void handlePipelineTriggerEvent(PipelineData pipelineData, String pipelineRepoUrl, PipelineTriggerEvent event) {
         var listOfSteps = dbClient.fetchStringList(DbKey.makeDbListOfStepsKey(event.getOrgName(), event.getTeamName(), event.getPipelineName()));
-        if (listOfSteps != null) {
-            var latestUvn = "";
-            var hasNonZeroUvi = false;
-            var incomplete = false;
+        PipelineData currentPipelineData;
+        var pipelineInfoKey = DbKey.makeDbPipelineInfoKey(event.getOrgName(), event.getTeamName(), event.getPipelineName());
+        var pipelineInfo = dbClient.fetchLatestPipelineInfo(pipelineInfoKey);
+        if (pipelineInfo != null && listOfSteps != null) {
+            var latestUvn = pipelineInfo.getPipelineUvn();
             var progressing = false;
-            for (var step : listOfSteps) {
-                var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), step);
-                var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
-                if (deploymentLog == null) {
-                    incomplete = true;
-                    continue;
+            var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), listOfSteps.get(0));
+            var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
+            if (deploymentLog == null || !deploymentLog.getPipelineUniqueVersionNumber().equals(latestUvn)) {
+                if (pipelineInfo.getErrors().size() == 0) {
+                    //If there is a list but the deployment log is null it means the first step has not been triggered yet
+                    queueNewPipelineRun(event, latestUvn);
+                } else {
+                    //Errors combined with no logs for the first step means there was an error and the pipeline is complete
+                    initializeNewPipelineRun(event, pipelineRepoUrl, pipelineData);
                 }
-                if (latestUvn.isEmpty()) {
-                    latestUvn = deploymentLog.getPipelineUniqueVersionNumber();
+                return;
+            }
+            currentPipelineData = fetchPipelineData(event, pipelineRepoUrl, deploymentLog.getGitCommitVersion());
+
+            //Iterates through the logs to verify completion
+            var orderedStepsBfs = currentPipelineData.getChildrenSteps(ROOT_STEP_NAME);
+            var idx = 0;
+            while (idx < orderedStepsBfs.size()) {
+                logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), orderedStepsBfs.get(idx));
+                deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
+                if (deploymentLog == null || !deploymentLog.getPipelineUniqueVersionNumber().equals(latestUvn)) {
+                    progressing = true;
+                    break;
                 }
                 if (deploymentLog.getPipelineUniqueVersionNumber().equals(latestUvn) && deploymentLog.getStatus().equals(Log.LogStatus.PROGRESSING.name())) {
                     progressing = true;
                     break;
-                } else if (deploymentLog.getPipelineUniqueVersionNumber().equals(latestUvn) && deploymentLog.getUniqueVersionInstance() > 0) {
-                    hasNonZeroUvi = true;
-                } else if (!deploymentLog.getPipelineUniqueVersionNumber().equals(latestUvn)) {
-                    incomplete = true;
+                } else if (deploymentLog.getPipelineUniqueVersionNumber().equals(latestUvn) && deploymentLog.getStatus().equals(Log.LogStatus.FAILURE.name())) {
+                    var stepData = currentPipelineData.getStep(orderedStepsBfs.get(idx));
+                    //If the step has rollbacks enabled but has failed & not hit its rollback limit, the pipeline is still progressing
+                    if (stepData.getRollbackLimit() > deploymentLog.getUniqueVersionInstance()) {
+                        progressing = true;
+                        break;
+                    }
+                } else if (deploymentLog.getPipelineUniqueVersionNumber().equals(latestUvn) && deploymentLog.getStatus().equals(Log.LogStatus.SUCCESS.name())) {
+                    orderedStepsBfs.addAll(currentPipelineData.getChildrenSteps(orderedStepsBfs.get(idx)));
                 }
+                idx++;
             }
-            if ((!hasNonZeroUvi && incomplete) || progressing) {
-                kafkaClient.sendMessage(event);
-                log.info("Pipeline {} in progress, queueing up pipeline {}.", latestUvn, event.getPipelineUvn());
+            if (progressing) {
+                queueNewPipelineRun(event, latestUvn);
                 return;
             }
         }
+        initializeNewPipelineRun(event, pipelineRepoUrl, pipelineData);
+    }
+
+    private void queueNewPipelineRun(PipelineTriggerEvent event, String latestUvn) {
+        kafkaClient.sendMessage(event);
+        log.info("Pipeline {} in progress, queueing up pipeline {}.", latestUvn, event.getPipelineUvn());
+    }
+
+    private void initializeNewPipelineRun(PipelineTriggerEvent event, String pipelineRepoUrl, PipelineData pipelineData) {
+        var pipelineInfoKey = DbKey.makeDbPipelineInfoKey(event.getOrgName(), event.getTeamName(), event.getPipelineName());
+        dbClient.insertValueInList(pipelineInfoKey, new PipelineInfo(event.getPipelineUvn(), List.of()));
         dbClient.storeValue(DbKey.makeDbListOfStepsKey(event.getOrgName(), event.getTeamName(), event.getPipelineName()), pipelineData.getAllStepsOrdered());
         log.info("Starting new run for pipeline {}", event.getPipelineName());
         triggerNextSteps(pipelineData, createRootStep(), pipelineRepoUrl, event);
@@ -201,7 +232,7 @@ public class EventHandlerImpl implements EventHandler {
                     }
                     if (remediationLog.getUniqueVersionInstance() == step.getRemediationLimit()) {
                         //Reached remediation limit
-                        if (step.getRollback()) {
+                        if (step.getRollbackLimit() > 0) {
                             rollback(event);
                         }
                         return;
@@ -220,7 +251,7 @@ public class EventHandlerImpl implements EventHandler {
             deploymentLogHandler.updateStepDeploymentLog(event, event.getStepName(), event.getArgoName(), event.getRevisionHash());
             if (event.getHealthStatus().equals(DEGRADED) || event.getHealthStatus().equals(UNKNOWN)) {
                 deploymentLogHandler.markStepFailedWithFailedDeployment(event, event.getStepName());
-                if (step.getRollback()) rollback(event);
+                if (step.getRollbackLimit() > 0) rollback(event);
                 return;
             }
             deploymentLogHandler.markDeploymentSuccessful(event, event.getStepName());
@@ -238,7 +269,7 @@ public class EventHandlerImpl implements EventHandler {
         var step = pipelineData.getStep(event.getStepName());
         if (!event.getSuccessful()) {
             deploymentLogHandler.markStepFailedWithBrokenTest(event, event.getStepName(), event.getTestName(), event.getLog());
-            if (step.getRollback()) rollback(event);
+            if (step.getRollbackLimit() > 0) rollback(event);
             return;
         }
 
@@ -280,13 +311,14 @@ public class EventHandlerImpl implements EventHandler {
             kafkaClient.sendMessage(new ApplicationInfraCompletionEvent(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getPipelineUvn(), event.getStepName(), true));
             return;
         }
-        var oldGitCommitHash = stepData.getRollback()
+        var oldGitCommitHash = stepData.getRollbackLimit() > 0
                 ? deploymentLogHandler.getLastSuccessfulStepGitCommitHash(event, event.getStepName())
                 //TODO: Add deploymentInfraSuccessful variable in deployment log, and replace method below with one that checks for the deployment infra deploying successfully
                 : deploymentLogHandler.getLastSuccessfulDeploymentGitCommitHash(event, event.getStepName());
         if (oldGitCommitHash != null) {
             var oldPipelineData = fetchPipelineData(event, pipelineRepoUrl, oldGitCommitHash);
             var oldStepData = oldPipelineData.getStep(event.getStepName());
+            //TODO: Two separate events cannot be sent for deleting then deploying. The deployment handler has to version application infrastructure with Kubernetes labels
             deploymentHandler.deleteApplicationInfrastructure(event, pipelineRepoUrl, oldStepData, oldGitCommitHash);
         }
         deploymentHandler.deployApplicationInfrastructure(event, pipelineRepoUrl, pipelineData.getStep(event.getStepName()), deploymentLogHandler.getCurrentGitCommitHash(event, event.getStepName()));
@@ -294,7 +326,7 @@ public class EventHandlerImpl implements EventHandler {
 
     private void handleApplicationInfraCompletion(String pipelineRepoUrl, PipelineData pipelineData, ApplicationInfraCompletionEvent event) {
         var stepData = pipelineData.getStep(event.getStepName());
-        if (!event.isSuccess() && stepData.getRollback()) rollback(event);
+        if (!event.isSuccess() && stepData.getRollbackLimit() > 0) rollback(event);
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepData.getName());
         var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
 
@@ -321,7 +353,7 @@ public class EventHandlerImpl implements EventHandler {
 
         if (event.isRollback()) {
             log.info("Handling rollback trigger");
-            gitCommit = deploymentLogHandler.makeRollbackDeploymentLog(event, event.getStepName());
+            gitCommit = deploymentLogHandler.makeRollbackDeploymentLog(event, event.getStepName(), pipelineData.getStep(event.getStepName()).getRollbackLimit());
             if (gitCommit.isEmpty()) {
                 log.info("Could not find stable deployment to rollback to");
                 //Means there is no stable version that can be found.
@@ -357,9 +389,8 @@ public class EventHandlerImpl implements EventHandler {
         }
     }
 
-    private void handleFailureEvent(PipelineData pipelineData, String pipelineRepoUrl, FailureEvent event) {
+    private void handleFailureEvent(FailureEvent event) {
         deploymentLogHandler.markStepFailedWithProcessingError(event, event.getStepName(), event.getError());
-        throw new AtlasNonRetryableError("Received failure event from client wrapper for step " + event.getStepName());
     }
 
     private void triggerNextSteps(PipelineData pipelineData, StepData step, String pipelineRepoUrl, Event event) {

@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.auditlog.DeploymentLog;
 import com.greenops.util.datamodel.auditlog.Log;
+import com.greenops.util.datamodel.auditlog.PipelineInfo;
 import com.greenops.util.datamodel.auditlog.RemediationLog;
+import com.greenops.util.datamodel.clientmessages.ClientRequestPacket;
 import com.greenops.util.datamodel.cluster.ClusterSchema;
 import com.greenops.util.datamodel.metadata.StepMetadata;
 import com.greenops.util.datamodel.pipeline.TeamSchema;
@@ -139,6 +141,18 @@ public class RedisDbClient implements DbClient {
     }
 
     @Override
+    public PipelineInfo fetchLatestPipelineInfo(String key) {
+        return (PipelineInfo) fetch(key, ObjectType.PIPELINE_INFO, -1);
+    }
+
+    @Override
+    public List<PipelineInfo> fetchPipelineInfoList(String key, int increment) {
+        var pipelineInfoList = (List<PipelineInfo>) fetch(key, ObjectType.PIPELINE_INFO_LIST, increment);
+        if (pipelineInfoList == null) return new ArrayList<>();
+        return pipelineInfoList;
+    }
+
+    @Override
     public TeamSchema fetchTeamSchema(String key) {
         return (TeamSchema) fetch(key, ObjectType.TEAM_SCHEMA, -1);
     }
@@ -225,11 +239,11 @@ public class RedisDbClient implements DbClient {
     }
 
     @Override
-    public ClientRequest fetchHeadInClientRequestList(String key) throws AtlasBadKeyError {
+    public ClientRequestPacket fetchHeadInClientRequestList(String key) throws AtlasBadKeyError {
         if (redisCommands.exists(key) == 0) {
             throw new AtlasBadKeyError();
         }
-        return (ClientRequest) fetchTransactionless(key, ObjectType.CLIENT_REQUEST);
+        return (ClientRequestPacket) fetchTransactionless(key, ObjectType.CLIENT_REQUEST);
     }
 
     private Object fetchTransactionless(String key, ObjectType objectType) {
@@ -247,7 +261,7 @@ public class RedisDbClient implements DbClient {
             else if (objectType == ObjectType.CLIENT_REQUEST) {
                 var result = redisCommands.lindex(key, 0);
                 if (result == null) return null;
-                return objectMapper.readValue(result, ClientRequest.class);
+                return objectMapper.readValue(result, ClientRequestPacket.class);
             }
         } catch (JsonProcessingException e) {
             log.error("Jackson object mapping/serialization failed.", e);
@@ -283,9 +297,22 @@ public class RedisDbClient implements DbClient {
                     deploymentLogList.add(deploymentLog);
                 }
                 return deploymentLogList;
+            } else if (objectType == ObjectType.PIPELINE_INFO_LIST) {
+                //TODO: As logs get longer and longer, we cant be fetching a list of 100. We need to find a better way to get chunks of logs as needed.
+                var startIdx = increment * LOG_INCREMENT;
+                var result = redisCommands.lrange(key, startIdx, startIdx + LOG_INCREMENT - 1);
+                var pipelineInfoList = new ArrayList<PipelineInfo>();
+                for (var string : result) {
+                    var pipelineInfo = objectMapper.readValue(string, PipelineInfo.class);
+                    pipelineInfoList.add(pipelineInfo);
+                }
+                return pipelineInfoList;
             } else if (objectType == ObjectType.SINGLE_LOG) {
                 var result = redisCommands.lindex(key, 0);
                 return objectMapper.readValue(result, Log.class);
+            } else if (objectType == ObjectType.PIPELINE_INFO) {
+                var result = redisCommands.lindex(key, 0);
+                return objectMapper.readValue(result, PipelineInfo.class);
             } else if (objectType == ObjectType.CLUSTER_SCHEMA) {
                 var result = redisCommands.get(key);
                 return objectMapper.readValue(result, ClusterSchema.class);

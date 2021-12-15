@@ -22,6 +22,10 @@ public class DbKey {
         return Strings.join(List.of(orgName, teamName, pipelineName, stepName, "meta"), '-');
     }
 
+    public static String makeDbPipelineInfoKey(String orgName, String teamName, String pipelineName) {
+        return Strings.join(List.of(orgName, teamName, pipelineName, "meta"), '-');
+    }
+
     public static String makeDbListOfTeamsKey(String orgName) {
         return orgName + "-teams";
     }

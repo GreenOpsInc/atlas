@@ -53,6 +53,10 @@ func Deserialize(payload string, deserializeType string) interface{} {
 		var clusterSchema cluster.ClusterSchema
 		err = json.Unmarshal([]byte(payload), &clusterSchema)
 		returnVal = clusterSchema
+	} else if deserializeType == serializerutil.PipelineInfoType {
+		var pipelineInfo auditlog.PipelineInfo
+		err = json.Unmarshal([]byte(payload), &pipelineInfo)
+		returnVal = pipelineInfo
 	} else if deserializeType == serializerutil.StringListType {
 		var stringList []string
 		err = json.Unmarshal([]byte(payload), &stringList)
