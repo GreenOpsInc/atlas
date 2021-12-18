@@ -4,13 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/gorilla/mux"
+	"greenops.io/workflowtrigger/api/argoauthenticator"
 	"greenops.io/workflowtrigger/db"
 	"greenops.io/workflowtrigger/util/cluster"
 	"net/http"
-)
-
-const (
-	clusterNameField string = "clusterName"
 )
 
 func createCluster(w http.ResponseWriter, r *http.Request) {
@@ -23,6 +20,10 @@ func createCluster(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
+	}
+
+	if !schemaValidator.VerifyRbac(argoauthenticator.CreateAction, argoauthenticator.ClusterResource, clusterSchema.ClusterName) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
 	}
 
 	key := db.MakeDbClusterKey(orgName, clusterSchema.ClusterName)
@@ -41,6 +42,10 @@ func readCluster(w http.ResponseWriter, r *http.Request) {
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
 
+	if !schemaValidator.VerifyRbac(argoauthenticator.GetAction, argoauthenticator.ClusterResource, clusterName) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
+	}
+
 	key := db.MakeDbClusterKey(orgName, clusterName)
 	clusterSchema := dbClient.FetchClusterSchema(key)
 	if clusterSchema.ClusterIP == "" {
@@ -55,6 +60,10 @@ func deleteCluster(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
+
+	if !schemaValidator.VerifyRbac(argoauthenticator.DeleteAction, argoauthenticator.ClusterResource, clusterName) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
+	}
 
 	key := db.MakeDbClusterKey(orgName, clusterName)
 	dbClient.StoreValue(key, nil)

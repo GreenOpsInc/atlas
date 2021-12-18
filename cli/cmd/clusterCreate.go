@@ -3,6 +3,10 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
+	"github.com/argoproj/argo-cd/v2/util/errors"
+	"github.com/argoproj/argo-cd/v2/util/localconfig"
+
 	// "strconv"
 	"fmt"
 	"github.com/spf13/cobra"
@@ -28,7 +32,11 @@ Example usage:
 		clusterName:=args[0]
 		clusterIP,_:=cmd.Flags().GetString("ip")
 		exposedPort,_:=cmd.Flags().GetInt("port")
-		
+
+		defaultLocalConfigPath, err := localconfig.DefaultLocalConfigPath()
+		errors.CheckError(err)
+		config, _ := localconfig.ReadLocalConfig(defaultLocalConfigPath)
+		context, _ := config.ResolveContext(apiclient.ClientOptions{}.Context)
 		
 		url:= "http://"+atlasURL+"/cluster/"+orgName
 
@@ -42,8 +50,8 @@ Example usage:
 		
 		json, _:= json.Marshal(body)
 		req, _ = http.NewRequest("POST", url, bytes.NewBuffer(json))
-
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
 		
 		client := &http.Client{Timeout: 20 * time.Second}
 		resp, err := client.Do(req)

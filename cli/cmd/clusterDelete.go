@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
+	"github.com/argoproj/argo-cd/v2/util/errors"
+	"github.com/argoproj/argo-cd/v2/util/localconfig"
 	"github.com/spf13/cobra"
 	"net/http"
 	"time"
@@ -23,10 +26,15 @@ Example usage:
 		}
 
 		clusterName:=args[0]
-		
+
+		defaultLocalConfigPath, err := localconfig.DefaultLocalConfigPath()
+		errors.CheckError(err)
+		config, _ := localconfig.ReadLocalConfig(defaultLocalConfigPath)
+		context, _ := config.ResolveContext(apiclient.ClientOptions{}.Context)
 
 		url:= "http://"+atlasURL+"/cluster/"+orgName+"/"+clusterName
-		req, err:= http.NewRequest("DELETE", url, nil)
+		req, _ := http.NewRequest("DELETE", url, nil)
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
 		
 		client := &http.Client{Timeout: 20 * time.Second}
 		resp, err := client.Do(req)

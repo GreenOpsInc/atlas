@@ -22,6 +22,7 @@ const (
 type KubernetesClient interface {
 	StoreGitCred(gitCred git.GitCred, name string) bool
 	FetchGitCred(name string) git.GitCred
+	FetchSecretData(name string, namespace string) map[string][]byte
 }
 
 type KubernetesClientDriver struct {
@@ -64,6 +65,14 @@ func (k KubernetesClientDriver) FetchGitCred(name string) git.GitCred {
 			return git.UnmarshallGitCredString(val)
 		}
 		return nil
+	}
+	return nil
+}
+
+func (k KubernetesClientDriver) FetchSecretData(name string, namespace string) map[string][]byte {
+	secret := k.readSecret(namespace, name)
+	if secret != nil {
+		return secret.Data
 	}
 	return nil
 }

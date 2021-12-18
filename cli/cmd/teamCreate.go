@@ -3,6 +3,9 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
+	"github.com/argoproj/argo-cd/v2/util/errors"
+	"github.com/argoproj/argo-cd/v2/util/localconfig"
 	"github.com/spf13/cobra"
 	"io/ioutil"
 	"net/http"
@@ -30,6 +33,10 @@ Example usage:
 			fmt.Println("Invalid number of arguments. Run atlas team create -h to see usage details.")
 			return
 		}
+		defaultLocalConfigPath, err := localconfig.DefaultLocalConfigPath()
+		errors.CheckError(err)
+		config, _ := localconfig.ReadLocalConfig(defaultLocalConfigPath)
+		context, _ := config.ResolveContext(apiclient.ClientOptions{}.Context)
 
 		parentTeamName,_:=cmd.Flags().GetString("parent")
 		teamName:= args[0]
@@ -49,11 +56,13 @@ Example usage:
 			byteValue, _ := ioutil.ReadAll(jsonFile)
 			req, er = http.NewRequest("POST", url, bytes.NewReader(byteValue))
 			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
 			if er != nil{
 				fmt.Println("Request failed, please try again.")
 			}
 		} else{
 			req, er = http.NewRequest("POST", url, nil)
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
 			if er != nil{
 				fmt.Println("Request failed, please try again.")
 			}

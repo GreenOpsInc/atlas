@@ -3,6 +3,8 @@ package api
 import (
 	"fmt"
 	"github.com/gorilla/mux"
+	"greenops.io/workflowtrigger/api/argoauthenticator"
+	"greenops.io/workflowtrigger/api/reposerver"
 	"greenops.io/workflowtrigger/db"
 	"greenops.io/workflowtrigger/pipelinestatus"
 	"greenops.io/workflowtrigger/util/auditlog"
@@ -24,6 +26,13 @@ func getStepLogs(w http.ResponseWriter, r *http.Request) {
 	teamName := vars[teamNameField]
 	pipelineName := vars[pipelineNameField]
 	stepName := vars[stepNameField]
+
+	pipelineSchema := getPipeline(orgName, teamName, pipelineName)
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, pipelineSchema.GetGitRepoSchema().GitRepo, reposerver.RootCommit,
+		string(argoauthenticator.GetAction), string(argoauthenticator.ApplicationResource)) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
+	}
+
 	count, err := strconv.Atoi(vars[countField])
 	if err != nil {
 		http.Error(w, "Count variable could not be deserialized", http.StatusBadRequest)
@@ -52,6 +61,12 @@ func getPipelineStatus(w http.ResponseWriter, r *http.Request) {
 	teamName := vars[teamNameField]
 	pipelineName := vars[pipelineNameField]
 	pipelineUvn := vars[pipelineUvnField]
+
+	pipelineSchema := getPipeline(orgName, teamName, pipelineName)
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, pipelineSchema.GetGitRepoSchema().GitRepo, reposerver.RootCommit,
+		string(argoauthenticator.GetAction), string(argoauthenticator.ApplicationResource)) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
+	}
 
 	status := pipelinestatus.New()
 	//Get pipeline UVN if not specified
@@ -192,6 +207,14 @@ func cancelLatestPipeline(w http.ResponseWriter, r *http.Request) {
 	orgName := vars[orgNameField]
 	teamName := vars[teamNameField]
 	pipelineName := vars[pipelineNameField]
+
+	pipelineSchema := getPipeline(orgName, teamName, pipelineName)
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, pipelineSchema.GetGitRepoSchema().GitRepo, reposerver.RootCommit,
+		string(argoauthenticator.SyncAction), string(argoauthenticator.ApplicationResource),
+		string(argoauthenticator.SyncAction), string(argoauthenticator.ClusterResource)) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
+	}
+
 	latestUvn := ""
 	steps := dbClient.FetchStringList(db.MakeDbListOfStepsKey(orgName, teamName, pipelineName))
 	for _, stepName := range steps {
