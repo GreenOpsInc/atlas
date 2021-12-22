@@ -9,6 +9,9 @@ const (
 	ClientDeployArgoAppByNameAndWatchRequestType string = "deploy_namedargo_watch"
 	ClientRollbackAndWatchRequestType            string = "rollback"
 	ClientSelectiveSyncRequestType               string = "sel_sync_watch"
+	ClientMarkNoDeployRequestType                string = "mark_no_deploy"
+	ClientLabelRequestType                       string = "label"
+	ClientAggregateRequestType                   string = "aggregate"
 )
 
 type RequestEvent interface {
@@ -16,12 +19,14 @@ type RequestEvent interface {
 	GetClientMetadata() ClientEventMetadata
 	GetPipelineUvn() string
 }
+
 type ClientEventMetadata struct {
 	OrgName      string `json:"orgName"`
 	TeamName     string `json:"teamName"`
 	PipelineName string `json:"pipelineName"`
 	PipelineUvn  string `json:"pipelineUvn"`
 	StepName     string `json:"stepName"`
+	FinalTry     bool   `json:"finalTry"`
 }
 
 // ClientDeployRequest -----
@@ -146,5 +151,71 @@ func (r ClientSelectiveSyncRequest) GetClientMetadata() ClientEventMetadata {
 }
 
 func (r ClientSelectiveSyncRequest) GetPipelineUvn() string {
+	return r.PipelineUvn
+}
+
+//*****
+//*****
+//Notifications Events: Need to have a request ID
+//*****
+//*****
+
+// ClientMarkNoDeployRequest -----
+type ClientMarkNoDeployRequest struct {
+	ClientEventMetadata
+	ClusterName string `json:"clusterName"`
+	Namespace   string `json:"namespace"`
+	Apply       bool   `json:"apply"`
+	RequestId   string `json:"requestId"`
+}
+
+func (r ClientMarkNoDeployRequest) GetEvent() string {
+	return ClientMarkNoDeployRequestType
+}
+
+func (r ClientMarkNoDeployRequest) GetClientMetadata() ClientEventMetadata {
+	return r.ClientEventMetadata
+}
+
+func (r ClientMarkNoDeployRequest) GetPipelineUvn() string {
+	return r.PipelineUvn
+}
+
+// ClientLabelRequest -----
+type ClientLabelRequest struct {
+	ClientEventMetadata
+	GvkResourceList GvkGroupRequest `json:"resourcesGvkRequest"`
+	RequestId       string          `json:"requestId"`
+}
+
+func (r ClientLabelRequest) GetEvent() string {
+	return ClientLabelRequestType
+}
+
+func (r ClientLabelRequest) GetClientMetadata() ClientEventMetadata {
+	return r.ClientEventMetadata
+}
+
+func (r ClientLabelRequest) GetPipelineUvn() string {
+	return r.PipelineUvn
+}
+
+// ClientAggregateRequest -----
+type ClientAggregateRequest struct {
+	ClientEventMetadata
+	ClusterName string `json:"clusterName"`
+	Namespace   string `json:"namespace"`
+	RequestId   string `json:"requestId"`
+}
+
+func (r ClientAggregateRequest) GetEvent() string {
+	return ClientAggregateRequestType
+}
+
+func (r ClientAggregateRequest) GetClientMetadata() ClientEventMetadata {
+	return r.ClientEventMetadata
+}
+
+func (r ClientAggregateRequest) GetPipelineUvn() string {
 	return r.PipelineUvn
 }

@@ -19,6 +19,8 @@ public abstract class ClientDeleteByConfigRequestMixin {
     String type;
     @JsonProperty("configPayload")
     String configPayload;
+    @JsonProperty("finalTry")
+    boolean finalTry;
 
     @JsonCreator
     public ClientDeleteByConfigRequestMixin(@JsonProperty("orgName") String orgName,

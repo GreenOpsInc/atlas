@@ -13,6 +13,7 @@ public class ClientDeleteByGvkRequest implements ClientRequest {
     private String group;
     private String version;
     private String kind;
+    private boolean finalTry;
 
     public ClientDeleteByGvkRequest(String orgName, String teamName, String pipelineName, String uvn, String stepName, String deleteType, String resourceName, String resourceNamespace, String group, String version, String kind) {
         this.orgName = orgName;
@@ -26,5 +27,16 @@ public class ClientDeleteByGvkRequest implements ClientRequest {
         this.group = group;
         this.version = version;
         this.kind = kind;
+        this.finalTry = false;
+    }
+
+    @Override
+    public void setFinalTry(boolean finalTry) {
+        this.finalTry = finalTry;
+    }
+
+    @Override
+    public boolean isFinalTry() {
+        return finalTry;
     }
 }

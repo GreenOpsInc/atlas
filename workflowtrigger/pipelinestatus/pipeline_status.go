@@ -1,8 +1,8 @@
 package pipelinestatus
 
 import (
-	"encoding/json"
-	"greenops.io/workflowtrigger/util/auditlog"
+	"github.com/greenopsinc/util/auditlog"
+	"gitlab.com/c0b/go-ordered-json"
 )
 
 type PipelineStatus struct {
@@ -66,20 +66,20 @@ func (p *PipelineStatus) AddFailedDeploymentLog(log auditlog.DeploymentLog, step
 	})
 }
 
-func MarshallPipelineStatus(status PipelineStatus) map[string]interface{} {
-	bytes, err := json.Marshal(status)
-	if err != nil {
-		panic(err)
-	}
-	var mapObj map[string]interface{}
-	err = json.Unmarshal(bytes, &mapObj)
-	if err != nil {
-		panic(err)
-	}
-	var failedStepsList []interface{}
+func MarshallPipelineStatus(status PipelineStatus) *ordered.OrderedMap {
+	mapObj := ordered.NewOrderedMap()
+
+	var failedStepsList []*ordered.OrderedMap
+	failedStepsList = make([]*ordered.OrderedMap, 0)
 	for _, val := range status.FailedSteps {
-		failedStepsList = append(failedStepsList, MarshallFailedStep(val))
+		step := MarshallFailedStep(val)
+		failedStepsList = append(failedStepsList, step)
 	}
-	mapObj["failedSteps"] = failedStepsList
+
+	mapObj.Set("progressingSteps", status.ProgressingSteps)
+	mapObj.Set("stable", status.Stable)
+	mapObj.Set("complete", status.Complete)
+	mapObj.Set("cancelled", status.Cancelled)
+	mapObj.Set("failedSteps", failedStepsList)
 	return mapObj
 }

@@ -6,5 +6,6 @@ Enter the Tasks & Tests Registry; instead of starting from scratch every time, y
 
 Here is a list of all the tasks & tests that currently exist:
 
-- [Script Injection](scriptinjection.md)
+- [Injection](scriptinjection.md)
 - [K8S Job](k8sjob.md)
+- [Argo Workflows](workflows.md)

@@ -1,7 +1,7 @@
 package datamodel
 
 import (
-	"greenops.io/client/atlasoperator/requestdatatypes"
+	"github.com/greenopsinc/util/clientrequest"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -15,6 +15,7 @@ const (
 
 type EventInfo interface {
 	GetEventType() EventInfoType
+	GetEventOrg() string
 }
 
 type EventInfoMetaData struct {
@@ -49,9 +50,9 @@ type TestEventInfo struct {
 
 type FailureEventInfo struct {
 	EventInfoMetaData
-	requestdatatypes.DeployResponse
-	StatusCode string `json:"statusCode"`
-	Error      string `json:"error"`
+	DeployResponse clientrequest.DeployResponse `json:"deployResponse"`
+	StatusCode     string                       `json:"statusCode"`
+	Error          string                       `json:"error"`
 }
 
 type ResourceStatus struct {
@@ -67,6 +68,10 @@ type ResourceStatus struct {
 // **
 func (eventInfo ApplicationEventInfo) GetEventType() EventInfoType {
 	return eventInfo.Type
+}
+
+func (eventInfo ApplicationEventInfo) GetEventOrg() string {
+	return eventInfo.OrgName
 }
 
 func MakeApplicationEvent(key WatchKey, appInfo ArgoAppMetricInfo, healthStatus string, syncStatus string, resourceStatuses []ResourceStatus, revisionHash string) EventInfo {
@@ -97,6 +102,10 @@ func (eventInfo TestEventInfo) GetEventType() EventInfoType {
 	return eventInfo.Type
 }
 
+func (eventInfo TestEventInfo) GetEventOrg() string {
+	return eventInfo.OrgName
+}
+
 func MakeTestEvent(key WatchKey, successful bool, logs string) EventInfo {
 	return TestEventInfo{
 		EventInfoMetaData: EventInfoMetaData{
@@ -121,7 +130,11 @@ func (eventInfo FailureEventInfo) GetEventType() EventInfoType {
 	return eventInfo.Type
 }
 
-func MakeFailureEventEvent(clientMetadata requestdatatypes.ClientEventMetadata, deployResponse requestdatatypes.DeployResponse, statusCode string, error string) EventInfo {
+func (eventInfo FailureEventInfo) GetEventOrg() string {
+	return eventInfo.OrgName
+}
+
+func MakeFailureEventEvent(clientMetadata clientrequest.ClientRequestEventMetadata, deployResponse clientrequest.DeployResponse, statusCode string, error string) EventInfo {
 	return FailureEventInfo{
 		EventInfoMetaData: EventInfoMetaData{
 			Type:         FailureEvent,
@@ -134,5 +147,19 @@ func MakeFailureEventEvent(clientMetadata requestdatatypes.ClientEventMetadata, 
 		DeployResponse: deployResponse,
 		StatusCode:     statusCode,
 		Error:          error,
+	}
+}
+
+func MakeFailureEventEventRaw(orgName string, teamName string, pipelineName string, pipelineUvn string, stepName string, error string) EventInfo {
+	return FailureEventInfo{
+		EventInfoMetaData: EventInfoMetaData{
+			Type:         FailureEvent,
+			OrgName:      orgName,
+			TeamName:     teamName,
+			PipelineName: pipelineName,
+			PipelineUvn:  pipelineUvn,
+			StepName:     stepName,
+		},
+		Error: error,
 	}
 }

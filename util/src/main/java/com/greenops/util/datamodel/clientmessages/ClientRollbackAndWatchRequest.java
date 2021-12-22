@@ -12,6 +12,7 @@ public class ClientRollbackAndWatchRequest implements ClientRequest {
     private String teamName;
     private String pipelineName;
     private String stepName;
+    private boolean finalTry;
 
     public ClientRollbackAndWatchRequest(String orgName, String uvn, String appName, String revisionHash, String watchType, String teamName, String pipelineName, String stepName) {
         this.orgName = orgName;
@@ -22,5 +23,16 @@ public class ClientRollbackAndWatchRequest implements ClientRequest {
         this.teamName = teamName;
         this.pipelineName = pipelineName;
         this.stepName = stepName;
+        this.finalTry = false;
+    }
+
+    @Override
+    public void setFinalTry(boolean finalTry) {
+        this.finalTry = finalTry;
+    }
+
+    @Override
+    public boolean isFinalTry() {
+        return finalTry;
     }
 }

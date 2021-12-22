@@ -14,6 +14,7 @@ public class ClientDeployAndWatchRequest implements ClientRequest {
     private String pipelineName;
     private String stepName;
     private int testNumber;
+    private boolean finalTry;
 
     public ClientDeployAndWatchRequest(String orgName, String uvn, String deployType, String revisionHash, String payload, String watchType, String teamName, String pipelineName, String stepName, int testNumber) {
         this.orgName = orgName;
@@ -26,5 +27,16 @@ public class ClientDeployAndWatchRequest implements ClientRequest {
         this.pipelineName = pipelineName;
         this.stepName = stepName;
         this.testNumber = testNumber;
+        this.finalTry = false;
+    }
+
+    @Override
+    public void setFinalTry(boolean finalTry) {
+        this.finalTry = finalTry;
+    }
+
+    @Override
+    public boolean isFinalTry() {
+        return finalTry;
     }
 }

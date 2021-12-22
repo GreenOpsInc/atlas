@@ -2,26 +2,27 @@ package argodriver
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
+	"reflect"
+	"regexp"
+	"strings"
+	"time"
+
 	"github.com/argoproj/argo-cd/pkg/apiclient"
 	"github.com/argoproj/argo-cd/pkg/apiclient/application"
+	"github.com/argoproj/argo-cd/pkg/apiclient/project"
 	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/argo-cd/util/config"
-	"github.com/argoproj/argo-cd/util/io"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/dgrijalva/jwt-go/v4"
-	"greenops.io/client/atlasoperator/requestdatatypes"
+	"github.com/greenopsinc/util/clientrequest"
+	"github.com/greenopsinc/util/tlsmanager"
 	"greenops.io/client/k8sdriver"
 	"greenops.io/client/progressionchecker/datamodel"
 	"greenops.io/client/util"
 	utilpointer "k8s.io/utils/pointer"
-	"log"
-	"os"
-	"strings"
-	"time"
-
-	sessionpkg "github.com/argoproj/argo-cd/pkg/apiclient/session"
-	grpcutil "github.com/argoproj/argo-cd/util/grpc"
 )
 
 const (
@@ -56,77 +57,41 @@ type ArgoGetRestrictedClient interface {
 type ArgoClient interface {
 	Deploy(configPayload *string, revisionHash string) (string, string, string, error)
 	Sync(applicationName string) (string, string, string, error)
-	SelectiveSync(applicationName string, revisionHash string, gvkGroup requestdatatypes.GvkGroupRequest) (string, string, string, error)
+	SelectiveSync(applicationName string, revisionHash string, gvkGroup clientrequest.GvkGroupRequest) (string, string, string, error)
 	GetAppResourcesStatus(applicationName string) ([]datamodel.ResourceStatus, error)
 	GetOperationSuccess(applicationName string) (bool, bool, string, error)
 	GetCurrentRevisionHash(applicationName string) (string, error)
 	GetLatestRevision(applicationName string) (int64, error)
 	Delete(applicationName string) error
 	Rollback(appName string, appRevisionId string) (string, string, string, error)
+	MarkNoDeploy(cluster string, namespace string, apply bool) error
 	//TODO: Update parameters & return type for CheckStatus
 	CheckHealthy(argoApplicationName string) bool
 }
 
+type ArgoAuthClient interface {
+	GetAuthToken() string
+}
+
 type ArgoClientDriver struct {
 	client           apiclient.Client
+	tm               tlsmanager.Manager
+	tlsCertPath      string
+	tlsEnabled       bool
+	apiServerAddress string
 	kubernetesClient k8sdriver.KubernetesClientNamespaceSecretRestricted
 }
 
 //TODO: ALL functions should have a callee tag on them
-func New(kubernetesDriver *k8sdriver.KubernetesClient) ArgoClient {
+func New(kubernetesDriver *k8sdriver.KubernetesClient, tm tlsmanager.Manager) ArgoClient {
 	var kubernetesClient k8sdriver.KubernetesClientNamespaceSecretRestricted
 	kubernetesClient = *kubernetesDriver
 	apiServerAddress, userAccount, userPassword, _ := getClientCreationData(&kubernetesClient)
-	argoClient, err := getArgoClient(apiServerAddress, userAccount, userPassword)
-	util.CheckFatalError(err)
-
-	var client ArgoClient
-	client = &ArgoClientDriver{argoClient, kubernetesClient}
-	return client
-}
-
-func getArgoClient(apiServerAddress string, userAccount string, userPassword string) (apiclient.Client, error) {
-	tlsTestResult, err := grpcutil.TestTLS(apiServerAddress)
-	if err != nil {
-		log.Printf("Error when testing TLS: %s", err)
-		return nil, err
+	driver := &ArgoClientDriver{kubernetesClient: kubernetesClient, apiServerAddress: apiServerAddress, tm: tm}
+	if err := driver.initArgoDriver(userAccount, userPassword); err != nil {
+		util.CheckFatalError(err)
 	}
-
-	argoClient, err := apiclient.NewClient(
-		&apiclient.ClientOptions{
-			ServerAddr: apiServerAddress,
-			Insecure:   true,
-			PlainText:  !tlsTestResult.TLS,
-		})
-	if err != nil {
-		log.Printf("Error when making new API client: %s", err)
-		return nil, err
-	}
-
-	closer, sessionClient, err := argoClient.NewSessionClient()
-	if err != nil {
-		log.Printf("Error when making new session client: %s", err)
-		return nil, err
-	}
-	defer io.Close(closer)
-
-	sessionResponse, err := sessionClient.Create(context.TODO(), &sessionpkg.SessionCreateRequest{Username: userAccount, Password: userPassword})
-	if err != nil {
-		log.Printf("Error when fetching access token: %s", err)
-		return nil, err
-	}
-
-	argoClient, err = apiclient.NewClient(&apiclient.ClientOptions{
-		Insecure:   true,
-		ServerAddr: apiServerAddress,
-		AuthToken:  sessionResponse.Token,
-		PlainText:  !tlsTestResult.TLS,
-	})
-	if err != nil {
-		log.Printf("Error when making properly authenticated client: %s", err)
-		return nil, err
-	}
-	return argoClient, nil
+	return driver
 }
 
 func (a *ArgoClientDriver) CheckForRefresh() error {
@@ -140,16 +105,31 @@ func (a *ArgoClientDriver) CheckForRefresh() error {
 		return err
 	}
 	now := jwt.At(time.Now().UTC())
-	if now.Time.After(claims.ExpiresAt.Time) {
-		log.Printf("Getting new token")
-		apiServerAddress, userAccount, userPassword, _ := getClientCreationData(&a.kubernetesClient)
-		argoClient, err := getArgoClient(apiServerAddress, userAccount, userPassword)
-		if err != nil {
-			return err
-		}
-		a.client = argoClient
+	if !now.Time.After(claims.ExpiresAt.Time) {
+		return nil
 	}
+
+	log.Printf("Getting new token")
+	_, userAccount, userPassword, _ := getClientCreationData(&a.kubernetesClient)
+	token, err := a.generateArgoToken(userAccount, userPassword)
+	if err != nil {
+		return err
+	}
+	argoClient, err := apiclient.NewClient(a.getAPIClientOptions(token))
+	if err != nil {
+		return errors.New(fmt.Sprintf("error when making properly authenticated client: %s", err.Error()))
+	}
+	a.client = argoClient
 	return nil
+}
+
+func (a *ArgoClientDriver) GetAuthToken() string {
+	err := a.CheckForRefresh()
+	if err != nil {
+		log.Printf("Error when getting auth token, returning empty string")
+		return ""
+	}
+	return a.client.ClientOptions().AuthToken
 }
 
 func (a *ArgoClientDriver) Deploy(configPayload *string, revisionHash string) (string, string, string, error) {
@@ -183,7 +163,7 @@ func (a *ArgoClientDriver) Deploy(configPayload *string, revisionHash string) (s
 			return a.Sync(existingApp.Name)
 		} else {
 			log.Printf("Specs differ, triggering update...\n")
-			return a.Update(configPayload)
+			return a.Update(&applicationPayload)
 		}
 	}
 
@@ -200,7 +180,7 @@ func (a *ArgoClientDriver) Deploy(configPayload *string, revisionHash string) (s
 	return a.Sync(argoApplication.Name)
 }
 
-func (a *ArgoClientDriver) Update(configPayload *string) (string, string, string, error) {
+func (a *ArgoClientDriver) Update(applicationPayload *v1alpha1.Application) (string, string, string, error) {
 	err := a.CheckForRefresh()
 	if err != nil {
 		return "", "", "", err
@@ -212,7 +192,6 @@ func (a *ArgoClientDriver) Update(configPayload *string) (string, string, string
 	}
 	defer ioCloser.Close()
 
-	applicationPayload := makeApplication(configPayload)
 	_, err = a.kubernetesClient.CheckAndCreateNamespace(applicationPayload.Spec.Destination.Namespace)
 	if err != nil {
 		return "", "", "", err
@@ -221,7 +200,7 @@ func (a *ArgoClientDriver) Update(configPayload *string) (string, string, string
 	argoApplication, err := applicationClient.Update(
 		context.TODO(),
 		&application.ApplicationUpdateRequest{
-			Application: &applicationPayload,
+			Application: applicationPayload,
 		},
 	) //CallOption is not necessary, for now...
 	if err != nil {
@@ -358,7 +337,7 @@ func (a *ArgoClientDriver) Sync(applicationName string) (string, string, string,
 	return argoApplication.Name, argoApplication.Namespace, argoApplication.Operation.Sync.Revision, nil
 }
 
-func (a *ArgoClientDriver) SelectiveSync(applicationName string, revisionHash string, gvkGroup requestdatatypes.GvkGroupRequest) (string, string, string, error) {
+func (a *ArgoClientDriver) SelectiveSync(applicationName string, revisionHash string, gvkGroup clientrequest.GvkGroupRequest) (string, string, string, error) {
 	err := a.CheckForRefresh()
 	if err != nil {
 		return "", "", "", err
@@ -458,16 +437,12 @@ func (a *ArgoClientDriver) GetOperationSuccess(applicationName string) (bool, bo
 	defer ioCloser.Close()
 	app, err := applicationClient.Get(context.TODO(), &application.ApplicationQuery{Name: &applicationName})
 	if err != nil {
-		if strings.Contains(err.Error(), "\""+applicationName+"\" not found") {
-			//TODO: Probably need better handling for this
-			return false, false, "", nil
-		}
 		log.Printf("Getting the application threw an error. Error was %s\n", err)
 		return false, false, "", err
 	}
 
 	if app.Status.OperationState == nil || app.Status.OperationState.SyncResult == nil {
-		return false, false, "", nil
+		return false, false, "", errors.New("couldn't get status information")
 	}
 	return app.Status.OperationState.Phase.Completed(),
 		app.Status.OperationState.Phase.Successful(),
@@ -488,14 +463,14 @@ func (a *ArgoClientDriver) GetCurrentRevisionHash(applicationName string) (strin
 	defer ioCloser.Close()
 	app, err := applicationClient.Get(context.TODO(), &application.ApplicationQuery{Name: &applicationName})
 	if err != nil {
-		if strings.Contains(err.Error(), "\""+applicationName+"\" not found") {
-			return "", nil
-		}
 		log.Printf("Getting the application threw an error. Error was %s\n", err)
 		return "", err
 	}
 	//Note, this is the most recent SYNCED revision. If an operation is still progressing, the revision tied to that operation
 	//will likely not be sent
+	if app.Status.Sync.Revision == "" {
+		return "", errors.New("argo revision is empty")
+	}
 	return app.Status.Sync.Revision, nil
 }
 
@@ -592,6 +567,69 @@ func (a *ArgoClientDriver) Rollback(appName string, appRevisionHash string) (str
 	return argoApplication.Name, argoApplication.Namespace, argoApplication.Operation.Sync.Revision, nil
 }
 
+func (a *ArgoClientDriver) MarkNoDeploy(clusterName string, namespace string, apply bool) error {
+	err := a.CheckForRefresh()
+	if err != nil {
+		return err
+	}
+	ioProjectCloser, projectServiceClient, err := a.client.NewProjectClient()
+	if err != nil {
+		log.Printf("Error while fetching the project client %s", err)
+		return err
+	}
+	defer ioProjectCloser.Close()
+	listOfProjects, err := projectServiceClient.List(context.TODO(), &project.ProjectQuery{Name: "*"})
+	if err != nil {
+		log.Printf("Error while fetching the list of projects %s", err)
+		return err
+	}
+	for _, appProject := range listOfProjects.Items {
+		for _, dest := range appProject.Spec.Destinations {
+			nameMatch, _ := regexp.MatchString(dest.Name, clusterName)
+			namespaceMatch, _ := regexp.MatchString(dest.Namespace, namespace)
+			if nameMatch && (namespace == "" || namespaceMatch) {
+				var namespaceList []string
+				var clusterList []string
+				if namespace != "" {
+					namespaceList = []string{namespace}
+				} else {
+					clusterList = []string{clusterName}
+				}
+				windowExists := false
+				windowIdx := 0
+				for idx, window := range appProject.Spec.SyncWindows {
+					//Checking for application list length to be 0 as application level nodeploy is not supported yet
+					if window.Kind == "deny" && window.Schedule == "* * * * *" && window.Duration == "720h" &&
+						len(window.Applications) == 0 && reflect.DeepEqual(window.Namespaces, namespaceList) &&
+						reflect.DeepEqual(window.Clusters, clusterList) && window.ManualSync == false {
+						windowExists = true
+						windowIdx = idx
+						break
+					}
+				}
+				if windowExists && apply {
+					break
+				} else if windowExists && !apply {
+					appProject.Spec.DeleteWindow(windowIdx)
+					_, err = projectServiceClient.Update(context.TODO(), &project.ProjectUpdateRequest{Project: &appProject})
+					if err != nil {
+						log.Printf("Error while deleting sync window to the projects %s", err)
+						return err
+					}
+				} else if !windowExists && apply {
+					appProject.Spec.AddWindow("deny", "* * * * *", "720h", []string{}, namespaceList, clusterList, false)
+					_, err = projectServiceClient.Update(context.TODO(), &project.ProjectUpdateRequest{Project: &appProject})
+					if err != nil {
+						log.Printf("Error while adding sync window to the projects %s", err)
+						return err
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (a *ArgoClientDriver) CheckHealthy(argoApplicationName string) bool {
 	err := a.CheckForRefresh()
 	if err != nil {
@@ -621,27 +659,4 @@ func makeApplication(configPayload *string) v1alpha1.Application {
 		return v1alpha1.Application{}
 	}
 	return argoApplication
-}
-
-func getClientCreationData(kubernetesDriver *k8sdriver.KubernetesClientNamespaceSecretRestricted) (string, string, string, string) {
-	argoCdServer := os.Getenv(apiclient.EnvArgoCDServer)
-	if argoCdServer == "" {
-		argoCdServer = DefaultApiServerAddress
-	}
-	argoCdUser := os.Getenv(UserAccountEnvVar)
-	if argoCdUser == "" {
-		argoCdUser = DefaultUserAccount
-	}
-	argoCdUserPassword := os.Getenv(UserAccountPasswordEnvVar)
-	if argoCdUserPassword == "" {
-		secretData := (*kubernetesDriver).GetSecret("argocd-initial-admin-secret", "argocd")
-		if secretData != nil {
-			argoCdUserPassword = string(secretData["password"])
-		}
-	}
-	argoCdUserToken := "" //os.Getenv(apiclient.EnvArgoCDAuthToken)
-	//if argoCdUserToken == "" {
-	//	panic("An acces token has to be entered. Not implemented yet.")
-	//}
-	return argoCdServer, argoCdUser, argoCdUserPassword, argoCdUserToken
 }

@@ -5,7 +5,11 @@ import com.greenops.util.datamodel.auditlog.DeploymentLog;
 import com.greenops.util.datamodel.auditlog.RemediationLog;
 import com.greenops.util.datamodel.clientmessages.*;
 import com.greenops.util.datamodel.cluster.ClusterSchema;
+import com.greenops.util.datamodel.cluster.NoDeployInfo;
 import com.greenops.util.datamodel.event.ClientCompletionEvent;
+import com.greenops.util.datamodel.clientmessages.NoDeployRequest;
+import com.greenops.util.datamodel.clientmessages.AggregateRequest;
+import com.greenops.util.datamodel.clientmessages.LabelRequest;
 import com.greenops.util.datamodel.git.GitCredMachineUser;
 import com.greenops.util.datamodel.git.GitCredToken;
 import com.greenops.util.datamodel.git.GitRepoSchema;
@@ -13,7 +17,11 @@ import com.greenops.util.datamodel.mixin.auditlog.DeploymentLogMixin;
 import com.greenops.util.datamodel.mixin.auditlog.RemediationLogMixin;
 import com.greenops.util.datamodel.mixin.clientmessages.*;
 import com.greenops.util.datamodel.mixin.cluster.ClusterSchemaMixin;
+import com.greenops.util.datamodel.mixin.cluster.NoDeployInfoMixin;
 import com.greenops.util.datamodel.mixin.event.ClientCompletionEventMixin;
+import com.greenops.util.datamodel.mixin.clientmessages.AggregateRequestMixin;
+import com.greenops.util.datamodel.mixin.clientmessages.LabelRequestMixin;
+import com.greenops.util.datamodel.mixin.clientmessages.NoDeployRequestMixin;
 import com.greenops.util.datamodel.mixin.git.GitCredMachineUserMixin;
 import com.greenops.util.datamodel.mixin.git.GitCredTokenMixin;
 import com.greenops.util.datamodel.mixin.git.GitRepoSchemaMixin;
@@ -48,6 +56,7 @@ public class SpringConfiguration {
                 .addMixIn(ClusterSchema.class, ClusterSchemaMixin.class)
                 .addMixIn(FailedStep.class, FailedStepMixin.class)
                 .addMixIn(PipelineStatus.class, PipelineStatusMixin.class)
+                .addMixIn(ClientRequestPacket.class, ClientRequestPacketMixin.class)
                 .addMixIn(ClientDeleteByConfigRequest.class, ClientDeleteByConfigRequestMixin.class)
                 .addMixIn(ClientDeleteByGvkRequest.class, ClientDeleteByGvkRequestMixin.class)
                 .addMixIn(ClientDeployAndWatchRequest.class, ClientDeployAndWatchRequestMixin.class)
@@ -55,7 +64,11 @@ public class SpringConfiguration {
                 .addMixIn(ClientRollbackAndWatchRequest.class, ClientRollbackAndWatchRequestMixin.class)
                 .addMixIn(ClientSelectiveSyncAndWatchRequest.class, ClientSelectiveSyncAndWatchRequestMixin.class)
                 .addMixIn(ResourcesGvkRequest.class, ResourcesGvkRequestMixin.class)
-                .addMixIn(ResourceGvk.class, ResourceGvkMixin.class);
+                .addMixIn(ResourceGvk.class, ResourceGvkMixin.class)
+                .addMixIn(NoDeployInfo.class, NoDeployInfoMixin.class)
+                .addMixIn(NoDeployRequest.class, NoDeployRequestMixin.class)
+                .addMixIn(AggregateRequest.class, AggregateRequestMixin.class)
+                .addMixIn(LabelRequest.class, LabelRequestMixin.class);
     }
 
     @Bean

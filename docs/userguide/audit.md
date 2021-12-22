@@ -8,8 +8,6 @@ Pipelines are organized and ordered using unique version numbers (UVNs). Each pi
 
 ## Pipeline-Level Logs
 
-
-
 Pipeline-level statuses can be fetched using the CLI or API, which return payloads similar to this:
 
 
@@ -55,6 +53,12 @@ Use the atlas pipeline status command to fetch a pipeline level status update:
 atlas status pipeline_name --team team_name (No -u flag specified means uvn is LATEST)
 ```
 
+Adding the `-u` flag will specify the UVN and fetch the logs for that specific pipeline run. To get a list of the previous UVNs, add the `--history` flag:
+
+```
+atlas status pipeline_name --team team_name --history
+```
+
 ## Step-Level Logs
 
 ### Deployment Log
@@ -90,7 +94,7 @@ There are a few key components here:
 Use the atlas pipeline status command with the step_name flag set to fetch a pipeline step level status update:
 
 ```
-atlas status pipeline_name --team team_name --step step_name --c 15`
+atlas status pipeline_name --team team_name --step step_name`
 ```
 
 

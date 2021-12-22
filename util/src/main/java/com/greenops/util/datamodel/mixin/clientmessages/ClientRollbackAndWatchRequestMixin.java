@@ -23,6 +23,8 @@ public abstract class ClientRollbackAndWatchRequestMixin {
     String pipelineName;
     @JsonProperty("stepName")
     String stepName;
+    @JsonProperty("finalTry")
+    boolean finalTry;
 
     @JsonCreator
     public ClientRollbackAndWatchRequestMixin(@JsonProperty("orgName") String orgName,

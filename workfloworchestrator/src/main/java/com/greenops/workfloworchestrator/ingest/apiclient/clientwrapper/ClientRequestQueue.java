@@ -15,19 +15,20 @@ public interface ClientRequestQueue {
 
     static final String RESPONSE_EVENT_APPLICATION_INFRA = "ApplicationInfraCompletionEvent";
 
-    public void deploy(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String responseEventType, String type, String revisionHash, Object payload);
+    public void deploy(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String stepNamespace, String responseEventType, String type, String revisionHash, Object payload);
 
-    public void deployAndWatch(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String deployType, String revisionHash, Object payload, String watchType, int testNumber);
+    public void deployAndWatch(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String stepNamespace, String deployType, String revisionHash, Object payload, String watchType, int testNumber);
 
-    public void selectiveSyncArgoApplication(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String revisionHash, ResourcesGvkRequest resourcesGvkRequest, String appName);
+    public void selectiveSyncArgoApplication(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String stepNamespace, String revisionHash, ResourcesGvkRequest resourcesGvkRequest, String appName);
 
+    @Deprecated
     public void deployArgoAppByName(String clusterName, String orgName, String pipelineName, String stepName, String appName, String watchType);
 
-    public void deployArgoAppByNameAndWatch(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String appName, String watchType);
+    public void deployArgoAppByNameAndWatch(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String stepNamespace, String appName, String watchType);
 
-    public void rollbackAndWatch(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String appName, String revisionHash, String watchType);
+    public void rollbackAndWatch(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String stepNamespace, String appName, String revisionHash, String watchType);
 
-    public void deleteByConfig(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String type, String configPayload);
+    public void deleteByConfig(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String stepNamespace, String type, String configPayload);
 
-    public void deleteByGvk(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String type, String resourceName, String resourceNamespace, String group, String version, String kind);
+    public void deleteByGvk(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String stepNamespace, String type, String resourceName, String resourceNamespace, String group, String version, String kind);
 }

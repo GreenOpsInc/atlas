@@ -23,6 +23,8 @@ public abstract class ClientDeployRequestMixin {
     String revisionHash;
     @JsonProperty("payload")
     String payload;
+    @JsonProperty("finalTry")
+    boolean finalTry;
 
     @JsonCreator
     public ClientDeployRequestMixin(@JsonProperty("orgName") String orgName,

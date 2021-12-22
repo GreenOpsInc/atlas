@@ -2,9 +2,13 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
+	"io"
 	"net/http"
-	"time"
+
+	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
+	"github.com/argoproj/argo-cd/v2/util/errors"
+	"github.com/argoproj/argo-cd/v2/util/localconfig"
+	"github.com/spf13/cobra"
 )
 
 // clusterDeleteCmd represents the clusterDelete command
@@ -17,31 +21,35 @@ Command to delete a cluster. Specify the name of the cluster to be deleted.
 Example usage:
 	atlas cluster delete cluster_name`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args)!=1 {
+		if len(args) != 1 {
 			fmt.Println("Invalid number of arguments. Run atlas cluster delete -h for usage details.")
 			return
 		}
 
-		clusterName:=args[0]
-		
+		clusterName := args[0]
 
-		url:= "http://"+atlasURL+"/cluster/"+orgName+"/"+clusterName
-		req, err:= http.NewRequest("DELETE", url, nil)
-		
-		client := &http.Client{Timeout: 20 * time.Second}
+		defaultLocalConfigPath, err := localconfig.DefaultLocalConfigPath()
+		errors.CheckError(err)
+		config, _ := localconfig.ReadLocalConfig(defaultLocalConfigPath)
+		context, _ := config.ResolveContext(apiclient.ClientOptions{}.Context)
+
+		url := "https://" + atlasURL + "/cluster/" + orgName + "/" + clusterName
+		req, _ := http.NewRequest("DELETE", url, nil)
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
+
+		client := getHttpClient()
 		resp, err := client.Do(req)
 		if err != nil {
-			fmt.Println("Request failed with the following error:",err)
+			fmt.Println("Request failed with the following error:", err)
 			return
 		}
 
 		statusCode := resp.StatusCode
-		if statusCode == 200{
-			fmt.Println("Successfully deleted cluster:",clusterName)
-		} else if statusCode == 400{
-			fmt.Println("Cluster deletion failed. Invalid org name or cluster name provided.")			
-		} else{
-			fmt.Println("Internal server error, please try again.")			
+		if statusCode == 200 {
+			fmt.Println("Successfully deleted cluster:", clusterName)
+		} else {
+			body, _ := io.ReadAll(resp.Body)
+			fmt.Printf("Error: %d - %s", statusCode, string(body))
 		}
 	},
 }

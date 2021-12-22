@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.clientmessages.*;
 import com.greenops.util.dbclient.DbClient;
-import com.greenops.workfloworchestrator.error.AtlasNonRetryableError;
+import com.greenops.util.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.ingest.dbclient.DbKey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,12 +28,12 @@ public class ClientRequestQueueImpl implements ClientRequestQueue {
     }
 
     @Override
-    public void deploy(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String responseEventType, String type, String revisionHash, Object payload) {
+    public void deploy(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String stepNamespace, String responseEventType, String type, String revisionHash, Object payload) {
         try {
-            var body = type.equals(DEPLOY_TEST_REQUEST) ? objectMapper.writeValueAsString(payload) : (String)payload;
+            var body = type.equals(DEPLOY_TEST_REQUEST) ? objectMapper.writeValueAsString(payload) : (String) payload;
             var deployRequest = new ClientDeployRequest(orgName, teamName, pipelineName, uvn, stepName, responseEventType, type, revisionHash, body);
             var dbKey = DbKey.makeClientRequestQueueKey(orgName, clusterName);
-            dbClient.insertValueInTransactionlessList(dbKey, deployRequest);
+            dbClient.insertValueInTransactionlessList(dbKey, new ClientRequestPacket(stepNamespace, deployRequest));
         } catch (JsonProcessingException e) {
             log.error("Object mapper could not convert payload to ClientDeployRequest", e);
             throw new AtlasNonRetryableError(e);
@@ -41,12 +41,12 @@ public class ClientRequestQueueImpl implements ClientRequestQueue {
     }
 
     @Override
-    public void deployAndWatch(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String deployType, String revisionHash, Object payload, String watchType, int testNumber) {
+    public void deployAndWatch(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String stepNamespace, String deployType, String revisionHash, Object payload, String watchType, int testNumber) {
         try {
-            var body = deployType.equals(DEPLOY_TEST_REQUEST) ? objectMapper.writeValueAsString(payload) : (String)payload;
+            var body = deployType.equals(DEPLOY_TEST_REQUEST) ? objectMapper.writeValueAsString(payload) : (String) payload;
             var deployAndWatchRequest = new ClientDeployAndWatchRequest(orgName, uvn, deployType, revisionHash, body, watchType, teamName, pipelineName, stepName, testNumber);
             var dbKey = DbKey.makeClientRequestQueueKey(orgName, clusterName);
-            dbClient.insertValueInTransactionlessList(dbKey, deployAndWatchRequest);
+            dbClient.insertValueInTransactionlessList(dbKey, new ClientRequestPacket(stepNamespace, deployAndWatchRequest));
         } catch (JsonProcessingException e) {
             log.error("Object mapper could not convert payload to ClientDeployAndWatchRequest", e);
             throw new AtlasNonRetryableError(e);
@@ -54,44 +54,44 @@ public class ClientRequestQueueImpl implements ClientRequestQueue {
     }
 
     @Override
-    public void selectiveSyncArgoApplication(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String revisionHash, ResourcesGvkRequest resourcesGvkRequest, String appName) {
+    public void selectiveSyncArgoApplication(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String stepNamespace, String revisionHash, ResourcesGvkRequest resourcesGvkRequest, String appName) {
         var deployRequest = new ClientSelectiveSyncAndWatchRequest(orgName, teamName, pipelineName, uvn, stepName, appName, revisionHash, resourcesGvkRequest);
         var dbKey = DbKey.makeClientRequestQueueKey(orgName, clusterName);
-        dbClient.insertValueInTransactionlessList(dbKey, deployRequest);
+        dbClient.insertValueInTransactionlessList(dbKey, new ClientRequestPacket(stepNamespace, deployRequest));
     }
 
     @Override
     public void deployArgoAppByName(String clusterName, String orgName, String pipelineName, String stepName, String appName, String watchType) {
         var deployRequest = new ClientDeployNamedArgoApplicationRequest(orgName, DEPLOY_ARGO_REQUEST, appName);
         var dbKey = DbKey.makeClientRequestQueueKey(orgName, clusterName);
-        dbClient.insertValueInTransactionlessList(dbKey, deployRequest);
+        dbClient.insertValueInTransactionlessList(dbKey, new ClientRequestPacket("", deployRequest));
     }
 
     @Override
-    public void deployArgoAppByNameAndWatch(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String appName, String watchType) {
-            var deployAndWatchRequest = new ClientDeployNamedArgoAppAndWatchRequest(orgName, uvn, DEPLOY_ARGO_REQUEST, appName, watchType, teamName, pipelineName, stepName);
-            var dbKey = DbKey.makeClientRequestQueueKey(orgName, clusterName);
-            dbClient.insertValueInTransactionlessList(dbKey, deployAndWatchRequest);
+    public void deployArgoAppByNameAndWatch(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String stepNamespace, String appName, String watchType) {
+        var deployAndWatchRequest = new ClientDeployNamedArgoAppAndWatchRequest(orgName, uvn, DEPLOY_ARGO_REQUEST, appName, watchType, teamName, pipelineName, stepName);
+        var dbKey = DbKey.makeClientRequestQueueKey(orgName, clusterName);
+        dbClient.insertValueInTransactionlessList(dbKey, new ClientRequestPacket(stepNamespace, deployAndWatchRequest));
     }
 
     @Override
-    public void rollbackAndWatch(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String appName, String revisionHash, String watchType) {
+    public void rollbackAndWatch(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String stepNamespace, String appName, String revisionHash, String watchType) {
         var rollbackAndWatchRequest = new ClientRollbackAndWatchRequest(orgName, uvn, appName, revisionHash, watchType, teamName, pipelineName, stepName);
         var dbKey = DbKey.makeClientRequestQueueKey(orgName, clusterName);
-        dbClient.insertValueInTransactionlessList(dbKey, rollbackAndWatchRequest);
+        dbClient.insertValueInTransactionlessList(dbKey, new ClientRequestPacket(stepNamespace, rollbackAndWatchRequest));
     }
 
     @Override
-    public void deleteByConfig(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String type, String configPayload) {
+    public void deleteByConfig(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String stepNamespace, String type, String configPayload) {
         var deleteRequest = new ClientDeleteByConfigRequest(orgName, teamName, pipelineName, uvn, stepName, type, configPayload);
         var dbKey = DbKey.makeClientRequestQueueKey(orgName, clusterName);
-        dbClient.insertValueInTransactionlessList(dbKey, deleteRequest);
+        dbClient.insertValueInTransactionlessList(dbKey, new ClientRequestPacket(stepNamespace, deleteRequest));
     }
 
     @Override
-    public void deleteByGvk(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String type, String resourceName, String resourceNamespace, String group, String version, String kind) {
+    public void deleteByGvk(String clusterName, String orgName, String teamName, String pipelineName, String uvn, String stepName, String stepNamespace, String type, String resourceName, String resourceNamespace, String group, String version, String kind) {
         var deleteRequest = new ClientDeleteByGvkRequest(orgName, teamName, pipelineName, uvn, stepName, type, resourceName, resourceNamespace, group, version, kind);
         var dbKey = DbKey.makeClientRequestQueueKey(orgName, clusterName);
-        dbClient.insertValueInTransactionlessList(dbKey, deleteRequest);
+        dbClient.insertValueInTransactionlessList(dbKey, new ClientRequestPacket(stepNamespace, deleteRequest));
     }
 }

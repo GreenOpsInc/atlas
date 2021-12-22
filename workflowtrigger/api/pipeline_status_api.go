@@ -1,11 +1,14 @@
 package api
 
 import (
+	"fmt"
 	"github.com/gorilla/mux"
-	"greenops.io/workflowtrigger/db"
+	"github.com/greenopsinc/util/auditlog"
+	"github.com/greenopsinc/util/db"
+	"greenops.io/workflowtrigger/api/argo"
+	"greenops.io/workflowtrigger/api/reposerver"
 	"greenops.io/workflowtrigger/pipelinestatus"
-	"greenops.io/workflowtrigger/util/auditlog"
-	"greenops.io/workflowtrigger/util/serializer"
+	"greenops.io/workflowtrigger/serializer"
 	"math"
 	"net/http"
 	"strconv"
@@ -23,6 +26,17 @@ func getStepLogs(w http.ResponseWriter, r *http.Request) {
 	teamName := vars[teamNameField]
 	pipelineName := vars[pipelineNameField]
 	stepName := vars[stepNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
+	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
+	gitRepo := pipelineSchema.GetGitRepoSchema()
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit,
+		string(argo.GetAction), string(argo.ApplicationResource)) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
+	}
+
 	count, err := strconv.Atoi(vars[countField])
 	if err != nil {
 		http.Error(w, "Count variable could not be deserialized", http.StatusBadRequest)
@@ -45,32 +59,96 @@ func getStepLogs(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(serializer.Serialize(logList)))
 }
 
+func getPipelineUvns(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	orgName := vars[orgNameField]
+	teamName := vars[teamNameField]
+	pipelineName := vars[pipelineNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
+	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
+	gitRepo := pipelineSchema.GetGitRepoSchema()
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit,
+		string(argo.GetAction), string(argo.ApplicationResource)) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
+	}
+
+	count, err := strconv.Atoi(vars[countField])
+	if err != nil {
+		http.Error(w, "Count variable could not be deserialized", http.StatusBadRequest)
+		return
+	}
+	key := db.MakeDbPipelineInfoKey(orgName, teamName, pipelineName)
+	increments := int(math.Ceil(float64(db.LogIncrement / count)))
+	var pipelineUvnList []string
+	var fetchedPipelineUvnList []string
+	for idx := 0; idx < increments; idx++ {
+		for _, pipelineInfo := range dbClient.FetchPipelineInfoList(key, idx) {
+			fetchedPipelineUvnList = append(fetchedPipelineUvnList, pipelineInfo.PipelineUvn)
+		}
+		if idx == increments-1 {
+			difference := count - ((increments - 1) * db.LogIncrement)
+			pipelineUvnList = append(pipelineUvnList, fetchedPipelineUvnList[0:int(math.Min(float64(difference), float64(len(fetchedPipelineUvnList))))]...)
+		} else {
+			pipelineUvnList = append(pipelineUvnList, fetchedPipelineUvnList...)
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(serializer.Serialize(pipelineUvnList)))
+}
+
 func getPipelineStatus(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	teamName := vars[teamNameField]
 	pipelineName := vars[pipelineNameField]
 	pipelineUvn := vars[pipelineUvnField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
 
-	status := pipelinestatus.New()
-	steps := dbClient.FetchStringList(db.MakeDbListOfStepsKey(orgName, teamName, pipelineName))
-	if len(steps) == 0 {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(""))
+	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
+	gitRepo := pipelineSchema.GetGitRepoSchema()
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit,
+		string(argo.GetAction), string(argo.ApplicationResource)) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}
+
+	status := pipelinestatus.New()
+	//Get pipeline UVN if not specified
+	pipelineInfoKey := db.MakeDbPipelineInfoKey(orgName, teamName, pipelineName)
+	var pipelineInfo auditlog.PipelineInfo
+	if pipelineUvn == "LATEST" {
+		pipelineInfo = dbClient.FetchLatestPipelineInfo(pipelineInfoKey)
+		pipelineUvn = pipelineInfo.PipelineUvn
+	} else {
+		logIncrement := 0
+		pipelineInfoList := dbClient.FetchPipelineInfoList(pipelineInfoKey, logIncrement)
+		idx := 0
+		for idx < len(pipelineInfoList) {
+			if pipelineInfoList[idx].PipelineUvn == pipelineUvn {
+				pipelineInfo = pipelineInfoList[idx]
+				break
+			}
+			idx++
+			if idx == len(pipelineInfoList) {
+				logIncrement++
+				pipelineInfoList = dbClient.FetchPipelineInfoList(pipelineInfoKey, logIncrement)
+				idx = 0
+			}
+		}
+	}
+	if pipelineInfo.PipelineUvn == "" && len(pipelineInfo.Errors) == 0 {
+		http.Error(w, "No pipeline runs exist with the requested UVN", http.StatusBadRequest)
+		return
+	}
+	steps := pipelineInfo.StepList
 	for _, step := range steps {
 		//Get pipeline UVN if not specified
 		logKey := db.MakeDbStepKey(orgName, teamName, pipelineName, step)
 		var log auditlog.Log
-		if pipelineUvn == "LATEST" {
-			log = dbClient.FetchLatestLog(logKey)
-			if log == nil {
-				http.Error(w, "No deployment log exists", http.StatusBadRequest)
-				return
-			}
-			pipelineUvn = log.GetPipelineUniqueVersionNumber()
-		}
 
 		//TODO: This iteration is in enough places where it should be extracted as a dbClient method
 		//Get most recent log (deployment or remediation) with desired pipeline UVN
@@ -89,6 +167,7 @@ func getPipelineStatus(w http.ResponseWriter, r *http.Request) {
 				idx = 0
 			}
 		}
+
 		if log == nil {
 			status.MarkIncomplete()
 			continue
@@ -102,6 +181,9 @@ func getPipelineStatus(w http.ResponseWriter, r *http.Request) {
 		if tempDeploymentLog, ok := log.(*auditlog.DeploymentLog); ok {
 			if tempDeploymentLog.GetStatus() == auditlog.Cancelled {
 				status.MarkCancelled()
+				if tempDeploymentLog.BrokenTest != "" {
+					status.AddFailedDeploymentLog(*tempDeploymentLog, step)
+				}
 				continue
 			}
 		}
@@ -154,6 +236,16 @@ func getPipelineStatus(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	//Get additional "floating" errors. Largely related to processing
+	if !(pipelineInfo.PipelineUvn == "" && len(pipelineInfo.Errors) == 0) {
+		for idx, err := range pipelineInfo.Errors {
+			status.AddFailedDeploymentLog(auditlog.DeploymentLog{
+				DeploymentComplete: false,
+				BrokenTest:         fmt.Sprintf("Processing error %d", idx),
+				BrokenTestLog:      err,
+			}, "Unknown")
+		}
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(serializer.Serialize(status)))
 }
@@ -163,8 +255,19 @@ func cancelLatestPipeline(w http.ResponseWriter, r *http.Request) {
 	orgName := vars[orgNameField]
 	teamName := vars[teamNameField]
 	pipelineName := vars[pipelineNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
+	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
+	gitRepo := pipelineSchema.GetGitRepoSchema()
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit,
+		string(argo.SyncAction), string(argo.ApplicationResource)) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
+	}
+
 	latestUvn := ""
-	steps := dbClient.FetchStringList(db.MakeDbListOfStepsKey(orgName, teamName, pipelineName))
+	steps := dbClient.FetchLatestPipelineInfo(db.MakeDbPipelineInfoKey(orgName, teamName, pipelineName)).StepList
 	for _, stepName := range steps {
 		key := db.MakeDbStepKey(orgName, teamName, pipelineName, stepName)
 		latestLog := dbClient.FetchLatestLog(key)
@@ -189,6 +292,7 @@ func cancelLatestPipeline(w http.ResponseWriter, r *http.Request) {
 }
 
 func InitStatusEndpoints(r *mux.Router) {
+	r.HandleFunc("/status/{orgName}/{teamName}/pipeline/{pipelineName}/history/{count}", getPipelineUvns).Methods("GET")
 	r.HandleFunc("/status/{orgName}/{teamName}/pipeline/{pipelineName}/step/{stepName}/{count}", getStepLogs).Methods("GET")
 	r.HandleFunc("/status/{orgName}/{teamName}/pipeline/{pipelineName}/{pipelineUvn}", getPipelineStatus).Methods("GET")
 	r.HandleFunc("/status/{orgName}/{teamName}/pipelineRun/{pipelineName}", cancelLatestPipeline).Methods("DELETE")

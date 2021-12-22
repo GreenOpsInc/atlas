@@ -13,8 +13,14 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
                 @JsonSubTypes.Type(value = ClientDeployNamedArgoApplicationRequest.class, name = "deploy_namedargo"),
                 @JsonSubTypes.Type(value = ClientDeployRequest.class, name = "deploy"),
                 @JsonSubTypes.Type(value = ClientRollbackAndWatchRequest.class, name = "rollback"),
-                @JsonSubTypes.Type(value = ClientSelectiveSyncAndWatchRequest.class, name = "sel_sync_watch")
+                @JsonSubTypes.Type(value = ClientSelectiveSyncAndWatchRequest.class, name = "sel_sync_watch"),
+                @JsonSubTypes.Type(value = NoDeployRequest.class, name = "mark_no_deploy"),
+                @JsonSubTypes.Type(value = LabelRequest.class, name = "label"),
+                @JsonSubTypes.Type(value = AggregateRequest.class, name = "aggregate")
         }
 )
 public interface ClientRequest {
+    boolean isFinalTry();
+
+    void setFinalTry(boolean finalTry);
 }

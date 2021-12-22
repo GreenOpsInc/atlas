@@ -14,12 +14,21 @@ public abstract class PipelineTriggerEventMixin {
     String pipelineName;
     @JsonProperty(value = "pipelineUvn")
     String uvn;
+    @JsonProperty(value = "stepName")
+    String stepName;
+    @JsonProperty(value = "revisionHash")
+    String revisionHash;
+    @JsonProperty(value = "pathToRoot")
+    String pathToRoot;
 
     @JsonCreator
     public PipelineTriggerEventMixin(@JsonProperty(value = "orgName") String orgName,
                                      @JsonProperty(value = "teamName") String teamName,
                                      @JsonProperty(value = "pipelineName") String pipelineName,
-                                     @JsonProperty(value = "pipelineUvn") String uvn) {
+                                     @JsonProperty(value = "pipelineUvn") String uvn,
+                                     @JsonProperty(value = "stepName") String stepName,
+                                     @JsonProperty(value = "revisionHash") String revisionHash,
+                                     @JsonProperty(value = "pathToRoot") String pathToRoot) {
     }
 
     @JsonIgnore

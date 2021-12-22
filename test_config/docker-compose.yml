@@ -14,13 +14,23 @@ services:
       - zookeeper
     ports:
       - 29092:29092
+      - 9093:9093
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092, PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT, PLAINTEXT_HOST:PLAINTEXT
+#      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,SSL://kafka:9093, PLAINTEXT_HOST://localhost:29092
+#      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT, SSL:SSL, PLAINTEXT_HOST:PLAINTEXT
+#      KAFKA_SSL_KEYSTORE_FILENAME: 'certs/kafka.keystore.jks'
+#      KAFKA_SSL_KEYSTORE_CREDENTIALS: 'certs/kafka.keystore.credentials'
+#      KAFKA_SSL_KEY_CREDENTIALS: 'certs/kafka.key.credentials'
+#      KAFKA_SSL_TRUSTSTORE_FILENAME: 'certs/kafka.truststore.jks'
+#      KAFKA_SSL_TRUSTSTORE_CREDENTIALS: 'certs/kafka.truststore.credentials'
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+#    volumes:
+#      - ./tls/certs/:/etc/kafka/secrets/certs
 
   workfloworchestrator:
     image: atlasworkfloworchestrator

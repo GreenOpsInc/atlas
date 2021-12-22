@@ -1,53 +1,84 @@
 package cmd
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
-	"os"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"github.com/spf13/pflag"
+	"log"
+	"net/http"
 	"strings"
-	
+	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
+
 type GitCredOpen struct {
 	Type string `json:"type"`
 }
 type GitCredToken struct {
-	Type string `json:"type"`
+	Type  string `json:"type"`
 	Token string `json:"token"`
 }
 type GitCredMachineUser struct {
-	Type string `json:"type"`
+	Type     string `json:"type"`
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 type GitRepoSchemaOpen struct {
-	GitRepo string `json:"gitRepo"`
-	PathToRoot string `json:"pathToRoot"`
-	GitCred GitCredOpen `json:"gitCred"`
+	GitRepo    string      `json:"gitRepo"`
+	PathToRoot string      `json:"pathToRoot"`
+	GitCred    GitCredOpen `json:"gitCred"`
 }
 
 type GitRepoSchemaToken struct {
-	GitRepo string `json:"gitRepo"`
-	PathToRoot string `json:"pathToRoot"`
-	GitCred GitCredToken `json:"gitCred"`
+	GitRepo    string       `json:"gitRepo"`
+	PathToRoot string       `json:"pathToRoot"`
+	GitCred    GitCredToken `json:"gitCred"`
 }
 
 type GitRepoSchemaMachineUser struct {
-	GitRepo string `json:"gitRepo"`
-	PathToRoot string `json:"pathToRoot"`
-	GitCred GitCredMachineUser `json:"gitCred"`
+	GitRepo    string             `json:"gitRepo"`
+	PathToRoot string             `json:"pathToRoot"`
+	GitCred    GitCredMachineUser `json:"gitCred"`
 }
 
 type UpdateTeamRequest struct {
-	TeamName string `json:"teamName"`	
+	TeamName       string `json:"teamName"`
 	ParentTeamName string `json:"parentTeamName"`
 }
 
 type ClusterSchema struct {
-	ClusterIP string `json:"clusterIP"`
-	ExposedPort int `json:"exposedPort"`
+	ClusterIP   string `json:"clusterIP"`
+	ExposedPort int    `json:"exposedPort"`
 	ClusterName string `json:"clusterName"`
+}
+
+type NoDeployInfo struct {
+	Name      string `json:"name"`
+	Reason    string `json:"reason"`
+	Namespace string `json:"namespace"`
+}
+
+type ClusterNamespaceGroup struct {
+	ClusterName string `json:"clusterName"`
+	Namespace   string `json:"namespace"`
+}
+
+type ClusterNamespaceGroups struct {
+	Groups []ClusterNamespaceGroup `json:"groups"`
+}
+
+type AggregateResult struct {
+	Cluster      string     `json:"cluster"`
+	ResourceList []Resource `json:"resourceList"`
+}
+type Resource struct {
+	Kind         string     `json:"kind"`
+	Name         string     `json:"name"`
+	Version      string     `json:"version"`
+	ResourceList []Resource `json:"resource_list"`
 }
 
 var cfgFile string
@@ -58,7 +89,7 @@ var orgName string
 var rootCmd = &cobra.Command{
 	Use:   "atlas",
 	Short: "A brief description of your application",
-	Long: ``,
+	Long:  ``,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) {},
@@ -67,7 +98,7 @@ var rootCmd = &cobra.Command{
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	cobra.CheckErr(rootCmd.Execute())	
+	cobra.CheckErr(rootCmd.Execute())
 }
 
 func init() {
@@ -79,47 +110,43 @@ func init() {
 	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.atlas.yaml)")
 
 	rootCmd.PersistentFlags().StringVar(&atlasURL, "url", "localhost:8081", "override the default atlas url for a single command execution ")
-	rootCmd.PersistentFlags().StringVar(&orgName, "org","org", "override the default org name for a single command execution")
-	
+	rootCmd.PersistentFlags().StringVar(&orgName, "org", "org", "override the default org name for a single command execution")
 }
 
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	if cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := os.UserHomeDir()
-		
-		cobra.CheckErr(err)
-
-		// Search config in home directory with name ".atlas" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigType("yaml")
-		viper.SetConfigName(".atlas")
-	}
-
-	viper.AutomaticEnv() // read in environment variables that match
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		bindFlags()		
-	}
-
-
-	atlasURL, _ = rootCmd.Flags().GetString("url")
-	orgName, _ = rootCmd.Flags().GetString("org")	
-}
-
-func bindFlags(){
+func bindFlags() {
 	rootCmd.Flags().VisitAll(func(f *pflag.Flag) {
 		viper.BindEnv(f.Name, strings.ToUpper(f.Name))
-		if !f.Changed && viper.IsSet(f.Name){
+		if !f.Changed && viper.IsSet(f.Name) {
 			val := viper.Get(f.Name)
 			rootCmd.Flags().Set(f.Name, fmt.Sprintf("%v", val))
 		}
 	})
 }
 
+func getHttpClient() *http.Client {
+	certPEM, err := getCertPEM()
+	if err != nil {
+		log.Fatal(err)
+	}
 
+	clientTLSConf := &tls.Config{}
+	if certPEM == nil {
+		clientTLSConf.InsecureSkipVerify = true
+	} else {
+		certpool := bestEffortSystemCertPool()
+		certpool.AppendCertsFromPEM(certPEM)
+		clientTLSConf.RootCAs = certpool
+	}
+
+	return &http.Client{Timeout: 20 * time.Second, Transport: &http.Transport{
+		TLSClientConfig: clientTLSConf,
+	}}
+}
+
+func bestEffortSystemCertPool() *x509.CertPool {
+	rootCAs, _ := x509.SystemCertPool()
+	if rootCAs == nil {
+		return x509.NewCertPool()
+	}
+	return rootCAs
+}

@@ -3,6 +3,7 @@ package com.greenops.workfloworchestrator.ingest.handling;
 import com.greenops.util.datamodel.auditlog.DeploymentLog;
 import com.greenops.util.datamodel.event.Event;
 import com.greenops.util.datamodel.clientmessages.ResourceGvk;
+import com.greenops.util.datamodel.event.FailureEvent;
 
 import java.util.List;
 
@@ -26,13 +27,13 @@ public interface DeploymentLogHandler {
 
     void markStepFailedWithBrokenTest(Event event, String stepName, String testName, String testLog);
 
-    void markStepFailedWithProcessingError(Event event, String stepName, String error);
+    void markStepFailedWithProcessingError(FailureEvent event, String stepName, String error);
 
     boolean areParentStepsComplete(Event event, List<String> parentSteps);
 
     String getStepStatus(Event event);
 
-    String makeRollbackDeploymentLog(Event event, String stepName);
+    String makeRollbackDeploymentLog(Event event, String stepName, int rollbackLimit, boolean dryRun);
 
     String getCurrentGitCommitHash(Event event, String stepName);
 

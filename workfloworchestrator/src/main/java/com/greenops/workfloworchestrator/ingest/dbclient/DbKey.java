@@ -22,11 +22,15 @@ public class DbKey {
         return Strings.join(List.of(orgName, teamName, pipelineName, stepName, "meta"), '-');
     }
 
+    public static String makeDbPipelineInfoKey(String orgName, String teamName, String pipelineName) {
+        return Strings.join(List.of(orgName, teamName, pipelineName, "meta"), '-');
+    }
+
     public static String makeDbListOfTeamsKey(String orgName) {
         return orgName + "-teams";
     }
 
-    public static String makeDbListOfStepsKey(String orgName, String teamName, String pipelineName) {
-        return orgName + "-" + teamName + "-" + pipelineName + "-step";
+    public static String makeDbClusterKey(String orgName, String clusterName) {
+        return orgName + "-" + clusterName;
     }
 }

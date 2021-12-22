@@ -1,4 +1,7 @@
+/.idea/
+/cli/.idea/
 /workflowtrigger/.idea/
+/test_config/.idea/
 /workflowtrigger/.gradle/
 /workflowtrigger/build/
 /commanddelegator/.idea/
@@ -7,3 +10,4 @@
 /util/.idea/
 /util/.gradle/
 /util/build/
+.DS_Store

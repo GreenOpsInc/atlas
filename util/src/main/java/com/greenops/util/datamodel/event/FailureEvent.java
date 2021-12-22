@@ -56,4 +56,8 @@ public class FailureEvent implements Event {
     public String getError() {
         return error;
     }
+
+    public String getStatusCode() {
+        return statusCode;
+    }
 }

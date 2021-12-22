@@ -3,26 +3,20 @@ module greenops.io/workflowtrigger
 go 1.16
 
 require (
-	github.com/go-logr/logr v0.2.1 // indirect
+	github.com/argoproj/argo-cd v1.8.7
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/gomodule/redigo v1.8.5
 	github.com/google/go-cmp v0.5.6 // indirect
-	github.com/google/uuid v1.1.1
+	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
-	github.com/klauspost/compress v1.11.1 // indirect
-	github.com/segmentio/kafka-go v0.4.23
-	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781 // indirect
-	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
+	github.com/greenopsinc/util v0.0.0-00010101000000-000000000000
+	gitlab.com/c0b/go-ordered-json v0.0.0-20201030195603-febf46534d5a
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
-	google.golang.org/appengine v1.6.7 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/api v0.19.6
-	k8s.io/apimachinery v0.19.6
-	k8s.io/client-go v11.0.1-0.20190816222228-6d55c1b1f1ca+incompatible
-	k8s.io/klog/v2 v2.3.0 // indirect
+	google.golang.org/grpc v1.29.1
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 replace (
+	github.com/greenopsinc/util => ../utilgo
 	k8s.io/api => k8s.io/api v0.19.6
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.19.6
 	k8s.io/apimachinery => k8s.io/apimachinery v0.19.6
