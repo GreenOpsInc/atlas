@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/gomodule/redigo/redis"
 	"greenops.io/workflowtrigger/util/auditlog"
+	"greenops.io/workflowtrigger/util/clientrequest"
 	"greenops.io/workflowtrigger/util/cluster"
 	"greenops.io/workflowtrigger/util/serializer"
 	"greenops.io/workflowtrigger/util/serializerutil"
@@ -16,6 +17,7 @@ import (
 type ObjectType string
 
 const (
+	notification  ObjectType = "NOTIFICATION"
 	teamSchema       ObjectType = "TEAM_SCHEMA"
 	stringList       ObjectType = "STRING_LIST"
 	logListObj       ObjectType = "LOG_LIST"
@@ -63,6 +65,7 @@ type DbClient interface {
 	StoreValue(key string, schema interface{})
 	InsertValueInList(key string, schema interface{})
 	UpdateHeadInList(key string, schema interface{})
+	FetchNotification(key string) clientrequest.Notification
 	FetchPipelineInfoList(key string, increment int) []auditlog.PipelineInfo
 	FetchLatestPipelineInfo(key string) auditlog.PipelineInfo
 	FetchTeamSchema(key string) team.TeamSchema
@@ -154,6 +157,14 @@ func (r *RedisClientImpl) store(key string, object interface{}, listStoreOperati
 	if res == nil {
 		panic(errors.New("the transaction was interrupted"))
 	}
+}
+
+func (r *RedisClientImpl) FetchNotification(key string) clientrequest.Notification {
+	ret := r.fetch(key, notification, -1)
+	if ret == nil {
+		return clientrequest.Notification{}
+	}
+	return ret.(clientrequest.Notification)
 }
 
 func (r *RedisClientImpl) FetchPipelineInfoList(key string, increment int) []auditlog.PipelineInfo {
@@ -302,6 +313,9 @@ func (r *RedisClientImpl) fetch(key string, objectType ObjectType, increment int
 	} else if objectType == teamSchema {
 		reply = redisWrapperFunc(redis.String(r.client.Do(string(get), key)))
 		return serializer.Deserialize(reply.(string), serializerutil.TeamSchemaType)
+	} else if objectType == notification {
+		reply = redisWrapperFunc(redis.String(r.client.Do(string(get), key)))
+		return serializer.Deserialize(reply.(string), serializerutil.NotificationType)
 	} else if objectType == stringList {
 		reply = redisWrapperFunc(redis.String(r.client.Do(string(get), key)))
 		return serializer.Deserialize(reply.(string), serializerutil.StringListType)

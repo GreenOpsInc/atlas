@@ -1,4 +1,4 @@
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: prom-admin
@@ -9,7 +9,7 @@ rules:
     verbs: ["*"] #"get", "watch", "list"
 
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: prom-rbac
@@ -283,6 +283,8 @@ spec:
               value: redisserver.default.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
               value: http://reposerver.default.svc.cluster.local:8081
+            - name: COMMAND_DELEGATOR_SERVER_ENDPOINT
+              value: http://commanddelegator.default.svc.cluster.local:8080
           image: atlasworkflowtrigger
           imagePullPolicy: Never
           name: workflowtrigger
@@ -454,3 +456,50 @@ spec:
           resources: {}
       restartPolicy: Always
 status: {}
+---
+# ClientWrapper Service & Deployment
+apiVersion: v1
+kind: Service
+metadata:
+  name: atlasclientwrapper
+  labels:
+    app: atlasclientwrapper
+spec:
+  ports:
+    - port: 9091
+      targetPort: 9091
+  type: LoadBalancer
+  selector:
+    app: atlasclientwrapper
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atlasclientwrapper
+  labels:
+    app: atlasclientwrapper
+spec:
+  selector:
+    matchLabels:
+      app: atlasclientwrapper
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: atlasclientwrapper
+    spec:
+      containers:
+        - env:
+          - name: WORKFLOW_TRIGGER_SERVER_ADDR
+            value: http://workflowtrigger.default.svc.cluster.local:8080
+          - name: COMMAND_DELEGATOR_URL
+            value: http://commanddelegator.default.svc.cluster.local:8080
+          name: atlasclientwrapper
+          image: atlasclientwrapper
+          imagePullPolicy: Never
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
+          ports:
+            - containerPort: 8080

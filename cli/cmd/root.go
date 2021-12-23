@@ -2,12 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"os"
 	"strings"
-	
 )
 type GitCredOpen struct {
 	Type string `json:"type"`
@@ -48,6 +47,12 @@ type ClusterSchema struct {
 	ClusterIP string `json:"clusterIP"`
 	ExposedPort int `json:"exposedPort"`
 	ClusterName string `json:"clusterName"`
+}
+
+type NoDeployInfo struct {
+	Name      string `json:"name"`
+	Reason    string `json:"reason"`
+	Namespace string `json:"namespace"`
 }
 
 var cfgFile string

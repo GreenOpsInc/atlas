@@ -29,6 +29,7 @@ func (eventType ResponseEventType) MakeResponseEvent(deployResponse *DeployRespo
 
 type ResponseEvent interface {
 	GetEvent(deployResponse *DeployResponse, deployRequest *ClientDeployRequest) ResponseEvent
+	GetEventOrg() string
 }
 
 type ApplicationInfraCompletionEvent struct {
@@ -50,4 +51,8 @@ func (event ApplicationInfraCompletionEvent) GetEvent(deployResponse *DeployResp
 	event.Success = deployResponse.Success
 	event.Type = "appinfracompletion"
 	return event
+}
+
+func (event ApplicationInfraCompletionEvent) GetEventOrg() string {
+	return event.OrgName
 }

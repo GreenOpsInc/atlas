@@ -7,10 +7,12 @@ import com.greenops.util.datamodel.clientmessages.ClientRequest;
 public abstract class ClientRequestPacketMixin {
     @JsonProperty("retryCount")
     int retryCount;
+    @JsonProperty("namespace")
+    String namespace;
     @JsonProperty("clientRequest")
     ClientRequest clientRequest;
 
     @JsonCreator
-    public ClientRequestPacketMixin(@JsonProperty("clientRequest") ClientRequest clientRequest) {
+    public ClientRequestPacketMixin(@JsonProperty("namespace") String namespace, @JsonProperty("clientRequest") ClientRequest clientRequest) {
     }
 }

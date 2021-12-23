@@ -241,7 +241,7 @@ public class RedisDbClient implements DbClient {
     @Override
     public ClientRequestPacket fetchHeadInClientRequestList(String key) throws AtlasBadKeyError {
         if (redisCommands.exists(key) == 0) {
-            throw new AtlasBadKeyError();
+            return null;
         }
         return (ClientRequestPacket) fetchTransactionless(key, ObjectType.CLIENT_REQUEST);
     }

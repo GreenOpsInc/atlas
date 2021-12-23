@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/argoproj/argo-cd/pkg/apiclient"
 	"github.com/argoproj/argo-cd/pkg/apiclient/application"
+	"github.com/argoproj/argo-cd/pkg/apiclient/project"
 	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/argo-cd/util/config"
 	"github.com/argoproj/argo-cd/util/io"
@@ -17,6 +18,8 @@ import (
 	utilpointer "k8s.io/utils/pointer"
 	"log"
 	"os"
+	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
@@ -63,8 +66,13 @@ type ArgoClient interface {
 	GetLatestRevision(applicationName string) (int64, error)
 	Delete(applicationName string) error
 	Rollback(appName string, appRevisionId string) (string, string, string, error)
+	MarkNoDeploy(cluster string, namespace string, apply bool) error
 	//TODO: Update parameters & return type for CheckStatus
 	CheckHealthy(argoApplicationName string) bool
+}
+
+type ArgoAuthClient interface {
+	GetAuthToken() string
 }
 
 type ArgoClientDriver struct {
@@ -150,6 +158,15 @@ func (a *ArgoClientDriver) CheckForRefresh() error {
 		a.client = argoClient
 	}
 	return nil
+}
+
+func (a *ArgoClientDriver) GetAuthToken() string {
+	err := a.CheckForRefresh()
+	if err != nil {
+		log.Printf("Error when getting auth token, returning empty string")
+		return ""
+	}
+	return a.client.ClientOptions().AuthToken
 }
 
 func (a *ArgoClientDriver) Deploy(configPayload *string, revisionHash string) (string, string, string, error) {
@@ -590,6 +607,68 @@ func (a *ArgoClientDriver) Rollback(appName string, appRevisionHash string) (str
 	log.Printf("Rolled back Argo application named %s\n", argoApplication.Name)
 	//TODO: Syncing takes time. Right now, we can assume that apps will deploy properly. In the future, we will have to see whether we can blindly return true or not.
 	return argoApplication.Name, argoApplication.Namespace, argoApplication.Operation.Sync.Revision, nil
+}
+
+func (a *ArgoClientDriver) MarkNoDeploy(clusterName string, namespace string, apply bool) error {
+	err := a.CheckForRefresh()
+	if err != nil {
+		return err
+	}
+	ioProjectCloser, projectServiceClient, err := a.client.NewProjectClient()
+	if err != nil {
+		log.Printf("Error while fetching the project client %s", err)
+		return err
+	}
+	defer ioProjectCloser.Close()
+	listOfProjects, err := projectServiceClient.List(context.TODO(), &project.ProjectQuery{Name: "*"})
+	if err != nil {
+		log.Printf("Error while fetching the list of projects %s", err)
+		return err
+	}
+	for _, appProject := range listOfProjects.Items {
+		for _, dest := range appProject.Spec.Destinations {
+			nameMatch, _ := regexp.MatchString(dest.Name, clusterName)
+			namespaceMatch, _ := regexp.MatchString(dest.Namespace, namespace)
+			if nameMatch && (namespace == "" || namespaceMatch) {
+				var namespaceList []string
+				if namespace != "" {
+					namespaceList = []string{namespace}
+				} else {
+					namespaceList = []string{"*"}
+				}
+				clusterList := []string{clusterName}
+				windowExists := false
+				windowIdx := 0
+				for idx, window := range appProject.Spec.SyncWindows {
+					if window.Kind == "deny" && window.Schedule == "* * * * *" && window.Duration == "720h" &&
+						reflect.DeepEqual(window.Applications, []string{"*"}) && reflect.DeepEqual(window.Namespaces, namespaceList) &&
+						reflect.DeepEqual(window.Clusters, clusterList) && window.ManualSync == false {
+						windowExists = true
+						windowIdx = idx
+						break
+					}
+				}
+				if windowExists && apply {
+					break
+				} else if windowExists && !apply {
+					appProject.Spec.DeleteWindow(windowIdx)
+					_, err = projectServiceClient.Update(context.TODO(), &project.ProjectUpdateRequest{Project: &appProject})
+					if err != nil {
+						log.Printf("Error while deleting sync window to the projects %s", err)
+						return err
+					}
+				} else if !windowExists && apply {
+					appProject.Spec.AddWindow("deny", "* * * * *", "720h", []string{"*"}, namespaceList, clusterList, false)
+					_, err = projectServiceClient.Update(context.TODO(), &project.ProjectUpdateRequest{Project: &appProject})
+					if err != nil {
+						log.Printf("Error while adding sync window to the projects %s", err)
+						return err
+					}
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (a *ArgoClientDriver) CheckHealthy(argoApplicationName string) bool {

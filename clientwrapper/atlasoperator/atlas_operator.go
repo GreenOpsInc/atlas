@@ -54,6 +54,8 @@ func (a AtlasError) Error() string {
 
 var drivers Drivers
 var channel chan string
+var commandDelegatorApi ingest.CommandDelegatorApi
+var eventGenerationApi generation.EventGenerationApi
 
 func deploy(request *requestdatatypes.ClientDeployRequest) (requestdatatypes.DeployResponse, error) {
 	deployType := request.DeployType
@@ -263,6 +265,16 @@ func deleteApplicationByGvk(request *requestdatatypes.ClientDeleteByGvkRequest) 
 	return nil
 }
 
+func markNoDeploy(request interface{}) (interface{}, error) {
+	//request needs to be of type requestdatatypes.ClientMarkNoDeployRequest
+	strongTypeRequest := request.(requestdatatypes.ClientMarkNoDeployRequest)
+	err := drivers.argoDriver.MarkNoDeploy(strongTypeRequest.ClusterName, strongTypeRequest.Namespace, strongTypeRequest.Apply)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func checkStatus(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	groupVersionKind := schema.GroupVersionKind{
@@ -391,7 +403,45 @@ func rollbackAndWatch(request *requestdatatypes.ClientRollbackAndWatchRequest) e
 	return nil
 }
 
-func handleRequests(commandDelegatorApi ingest.CommandDelegatorApi, eventGenerationApi generation.EventGenerationApi) {
+//WARNING: Make sure that the correct request time is sent alongside the function
+func handleNotificationRequest(requestId string, f func(interface{}) (interface{}, error), parameter interface{}) {
+	var resp interface{}
+	var err error
+	for i := 0; i < 3; i++ {
+		resp, err = f(parameter)
+		if err == nil {
+			break
+		}
+	}
+	generationSuccess := false
+	for !generationSuccess {
+		var notification generation.Notification
+		if err != nil {
+			notification.Successful = false
+			notification.Body = err.Error()
+			generationSuccess = eventGenerationApi.GenerateNotification(requestId, notification)
+		} else {
+			notification.Successful = true
+			notification.Body = resp
+			generationSuccess = eventGenerationApi.GenerateNotification(requestId, notification)
+		}
+		if !generationSuccess {
+			log.Printf("Caught error trying to send notification...looping until request can be sent correctly")
+		}
+	}
+	generationSuccess = false
+	for !generationSuccess {
+		retryError := commandDelegatorApi.AckHeadOfNotificationList()
+		if retryError != nil {
+			log.Printf("Caught error trying to send ack notification message: %s...looping until request can be sent correctly", retryError)
+			generationSuccess = false
+			continue
+		}
+		generationSuccess = true
+	}
+}
+
+func handleRequests() {
 	for {
 		var err error
 		commands, err := commandDelegatorApi.GetCommands()
@@ -432,6 +482,11 @@ func handleRequests(commandDelegatorApi ingest.CommandDelegatorApi, eventGenerat
 				var request requestdatatypes.ClientSelectiveSyncRequest
 				request = command.(requestdatatypes.ClientSelectiveSyncRequest)
 				err = selectiveSyncArgoApp(&request)
+			} else if command.GetEvent() == requestdatatypes.ClientMarkNoDeployRequestType {
+				var request requestdatatypes.ClientMarkNoDeployRequest
+				request = command.(requestdatatypes.ClientMarkNoDeployRequest)
+				handleNotificationRequest(request.RequestId, markNoDeploy, request)
+				continue
 			}
 			generationSuccess := false
 			for !generationSuccess {
@@ -462,7 +517,7 @@ func handleRequests(commandDelegatorApi ingest.CommandDelegatorApi, eventGenerat
 				}
 				retryError = commandDelegatorApi.AckHeadOfRequestList()
 				if retryError != nil {
-					log.Printf("Caught error trying to send ack message: %s...looping until request can be sent correctly", retryError)
+					log.Printf("Caught error trying to send ack request message: %s...looping until request can be sent correctly", retryError)
 					err = nil
 					generationSuccess = false
 					continue
@@ -476,10 +531,10 @@ func handleRequests(commandDelegatorApi ingest.CommandDelegatorApi, eventGenerat
 }
 
 func main() {
-	commandDelegatorApi := ingest.Create()
-	eventGenerationApi := generation.Create()
 	kubernetesDriver := k8sdriver.New()
 	argoDriver := argodriver.New(&kubernetesDriver)
+	commandDelegatorApi = ingest.Create(argoDriver.(argodriver.ArgoAuthClient))
+	eventGenerationApi = generation.Create(argoDriver.(argodriver.ArgoAuthClient))
 	var pluginList plugins.Plugins
 	pluginList = make([]plugins.Plugin, 0)
 	drivers = Drivers{
@@ -493,5 +548,5 @@ func main() {
 	var getRestrictedArgoClient argodriver.ArgoGetRestrictedClient
 	getRestrictedArgoClient = argoDriver
 	go progressionchecker.Start(getRestrictedKubernetesClient, getRestrictedArgoClient, eventGenerationApi, pluginList, channel)
-	handleRequests(commandDelegatorApi, eventGenerationApi)
+	handleRequests()
 }

@@ -6,6 +6,7 @@ import com.greenops.util.datamodel.auditlog.Log;
 import com.greenops.util.datamodel.auditlog.PipelineInfo;
 import com.greenops.util.datamodel.auditlog.RemediationLog;
 import com.greenops.util.datamodel.event.*;
+import com.greenops.util.datamodel.git.ArgoRepoSchema;
 import com.greenops.util.datamodel.pipeline.TeamSchema;
 import com.greenops.util.datamodel.request.GetFileRequest;
 import com.greenops.util.dbclient.DbClient;
@@ -291,7 +292,7 @@ public class EventHandlerImpl implements EventHandler {
                 || (!completedTest.shouldExecuteBefore() && completedTestNumber < step.getTests().size())) {
             testHandler.createAndRunTest(
                     step.getClusterName(),
-                    step.getName(),
+                    step,
                     pipelineRepoUrl,
                     step.getTests().get(completedTestNumber + 1),
                     completedTestNumber + 1,

@@ -66,7 +66,7 @@ func (r *RepoManagerApiImpl) CloneRepo(orgName string, gitRepoSchema git.GitRepo
 		panic(err)
 	}
 	defer resp.Body.Close()
-	log.Printf("Sync repo request returned status code %d", resp.StatusCode)
+	log.Printf("Clone repo request returned status code %d", resp.StatusCode)
 	return resp.StatusCode == 200
 }
 
@@ -85,7 +85,7 @@ func (r *RepoManagerApiImpl) DeleteRepo(gitRepoSchema git.GitRepoSchema) bool {
 		panic(err)
 	}
 	defer resp.Body.Close()
-	log.Printf("Sync repo request returned status code %d", resp.StatusCode)
+	log.Printf("Delete repo request returned status code %d", resp.StatusCode)
 	return resp.StatusCode == 200
 }
 
@@ -123,7 +123,7 @@ func (r *RepoManagerApiImpl) GetFileFromRepo(getFileRequest GetFileRequest, orgN
 		panic(err)
 	}
 	defer resp.Body.Close()
-	log.Printf("Sync repo request returned status code %d", resp.StatusCode)
+	log.Printf("Get file from repo request returned status code %d", resp.StatusCode)
 	buf := new(bytes.Buffer)
 	_, err = buf.ReadFrom(resp.Body)
 	if err != nil {

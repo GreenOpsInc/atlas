@@ -20,11 +20,13 @@ const (
 	ClusterResource     RbacResource = "clusters"
 	ApplicationResource RbacResource = "applications"
 
-	SyncAction   RbacAction = "sync"
-	CreateAction RbacAction = "create"
-	GetAction    RbacAction = "get"
-	DeleteAction RbacAction = "delete"
-	ActionAction RbacAction = "action"
+	SyncAction     RbacAction = "sync"
+	CreateAction   RbacAction = "create"
+	UpdateAction   RbacAction = "update"
+	GetAction      RbacAction = "get"
+	DeleteAction   RbacAction = "delete"
+	ActionAction   RbacAction = "action"
+	OverrideAction RbacAction = "override"
 )
 
 type ArgoAuthenticatorApi interface {
@@ -81,7 +83,6 @@ func (a *ArgoAuthenticatorApiImpl) getConfiguredArgoClient(token string) {
 func (a *ArgoAuthenticatorApiImpl) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := r.Header.Get("Authorization")
-		log.Printf(token)
 		splitToken := strings.Split(token, "Bearer ")
 		token = splitToken[1]
 		a.getConfiguredArgoClient(token)
@@ -94,6 +95,7 @@ func (a *ArgoAuthenticatorApiImpl) Middleware(next http.Handler) http.Handler {
 						log.Printf("User is unauthenticated")
 						http.Error(w, "User is unauthenticated", http.StatusUnauthorized)
 					} else {
+						log.Printf("Interal error occurred: %s", err.(string))
 						http.Error(w, err.(string), http.StatusInternalServerError)
 					}
 				case error:
@@ -104,6 +106,7 @@ func (a *ArgoAuthenticatorApiImpl) Middleware(next http.Handler) http.Handler {
 							http.Error(w, "User is unauthenticated", http.StatusUnauthorized)
 						}
 					} else {
+						log.Printf("Interal error occurred: %s", err.(error).Error())
 						http.Error(w, err.(error).Error(), http.StatusInternalServerError)
 					}
 				default:

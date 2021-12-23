@@ -134,9 +134,6 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 						//TODO: Add option to clean up nodes after a Workflow is complete
 						deleteKeys = append(deleteKeys, mapKey)
 						break
-					} else if kubernetesClient.Delete(watchKey.Name, watchKey.Namespace, schema.GroupVersionKind{Kind: k8sdriver.JobType}) == nil {
-						deleteKeys = append(deleteKeys, mapKey)
-						break
 					}
 				}
 			}
