@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"greenops.io/workflowtrigger/api/argoauthenticator"
 	"greenops.io/workflowtrigger/api/commanddelegator"
@@ -12,6 +13,7 @@ import (
 	"greenops.io/workflowtrigger/kubernetesclient"
 	"greenops.io/workflowtrigger/schemavalidation"
 	"greenops.io/workflowtrigger/util/clientrequest"
+	"greenops.io/workflowtrigger/util/cluster"
 	"greenops.io/workflowtrigger/util/event"
 	"greenops.io/workflowtrigger/util/git"
 	"greenops.io/workflowtrigger/util/pipeline"
@@ -28,6 +30,10 @@ const (
 	pipelineNameField   string = "pipelineName"
 	parentTeamNameField string = "parentTeamName"
 	clusterNameField    string = "clusterName"
+	//Default val is ROOT_COMMIT
+	revisionHashField string = "revisionHash"
+	//Default val is LATEST_REVISION
+	argoRevisionHashField string = "argoRevisionHash"
 )
 
 var dbClient db.DbClient
@@ -216,6 +222,7 @@ func syncPipeline(w http.ResponseWriter, r *http.Request) {
 	orgName := vars[orgNameField]
 	teamName := vars[teamNameField]
 	pipelineName := vars[pipelineNameField]
+	revisionHash := vars[revisionHashField]
 	var gitRepo git.GitRepoSchema
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(r.Body)
@@ -229,7 +236,7 @@ func syncPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, gitRepo.GitRepo, reposerver.RootCommit,
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, gitRepo.GitRepo, revisionHash,
 		string(argoauthenticator.SyncAction), string(argoauthenticator.ApplicationResource),
 		string(argoauthenticator.SyncAction), string(argoauthenticator.ClusterResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
@@ -237,8 +244,108 @@ func syncPipeline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	triggerEvent := event.NewPipelineTriggerEvent(orgName, teamName, pipelineName)
+	triggerEvent.(*event.PipelineTriggerEvent).RevisionHash = revisionHash
 	payload := serializer.Serialize(triggerEvent)
 	generateEvent(payload)
+	w.WriteHeader(http.StatusOK)
+}
+
+func runSubPipeline(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	orgName := vars[orgNameField]
+	teamName := vars[teamNameField]
+	pipelineName := vars[pipelineNameField]
+	stepName := vars[stepNameField]
+	revisionHash := vars[revisionHashField]
+	var gitRepo git.GitRepoSchema
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	gitRepo = git.UnmarshallGitRepoSchemaString(string(buf.Bytes()))
+	if !repoManagerApi.SyncRepo(gitRepo) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, gitRepo.GitRepo, revisionHash,
+		string(argoauthenticator.OverrideAction), string(argoauthenticator.ApplicationResource),
+		string(argoauthenticator.SyncAction), string(argoauthenticator.ApplicationResource),
+		string(argoauthenticator.SyncAction), string(argoauthenticator.ClusterResource)) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
+	}
+
+	triggerEvent := event.NewPipelineTriggerEvent(orgName, teamName, pipelineName)
+	triggerEvent.(*event.PipelineTriggerEvent).StepName = stepName
+	triggerEvent.(*event.PipelineTriggerEvent).RevisionHash = revisionHash
+	payload := serializer.Serialize(triggerEvent)
+	generateEvent(payload)
+	w.WriteHeader(http.StatusOK)
+}
+
+func forceDeploy(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	orgName := vars[orgNameField]
+	teamName := vars[teamNameField]
+	pipelineName := vars[pipelineNameField]
+	stepName := vars[stepNameField]
+	pipelineRevisionHash := vars[revisionHashField]
+	argoRevisionHash := vars[argoRevisionHashField]
+	var gitRepo git.GitRepoSchema
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	gitRepo = git.UnmarshallGitRepoSchemaString(string(buf.Bytes()))
+	if !repoManagerApi.SyncRepo(gitRepo) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, gitRepo.GitRepo, pipelineRevisionHash,
+		string(argoauthenticator.OverrideAction), string(argoauthenticator.ApplicationResource),
+		string(argoauthenticator.SyncAction), string(argoauthenticator.ApplicationResource),
+		string(argoauthenticator.SyncAction), string(argoauthenticator.ClusterResource)) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
+	}
+
+	applicationPayload, clusterName := schemaValidator.GetStepApplicationPayload(orgName, teamName, gitRepo.GitRepo, pipelineRevisionHash, stepName)
+
+	clusterSchema := dbClient.FetchClusterSchema(db.MakeDbClusterKey(orgName, clusterName))
+	emptyStruct := cluster.ClusterSchema{}
+	if clusterSchema == emptyStruct {
+		http.Error(w, "Cluster does not exist", http.StatusBadRequest)
+	}
+	if clusterSchema.NoDeploy != nil {
+		http.Error(w, "No deploy is enabled for this cluster, the request will be blocked", http.StatusBadRequest)
+	}
+
+	deployRequest := clientrequest.ClientDeployRequest{
+		ClientRequestEventMetadata: clientrequest.ClientRequestEventMetadata{
+			OrgName:      orgName,
+			TeamName:     teamName,
+			PipelineName: pipelineName,
+			PipelineUvn:  uuid.New().String(),
+			StepName:     stepName,
+		},
+		ResponseEventType: "",
+		DeployType:        "DeployArgoRequest",
+		RevisionHash:      argoRevisionHash,
+		Payload:           applicationPayload,
+	}
+
+	payload := serializer.Serialize(clientrequest.ClientRequestPacket{
+		RetryCount:    0,
+		Namespace:     schemaValidator.GetArgoApplicationNamespace(applicationPayload),
+		ClientRequest: deployRequest,
+	})
+	dbClient.InsertValueInTransactionlessList(db.MakeClientRequestQueueKey(orgName, clusterName), payload)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -339,7 +446,9 @@ func InitPipelineTeamEndpoints(r *mux.Router) {
 	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", createPipeline).Methods("POST")
 	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", getPipelineEndpoint).Methods("GET")
 	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", deletePipeline).Methods("DELETE")
-	r.HandleFunc("/sync/{orgName}/{teamName}/{pipelineName}", syncPipeline).Methods("POST")
+	r.HandleFunc("/sync/{orgName}/{teamName}/{pipelineName}/{revisionHash}", syncPipeline).Methods("POST")
+	r.HandleFunc("/sync/{orgName}/{teamName}/{pipelineName}/{revisionHash}/{stepName}", runSubPipeline).Methods("POST")
+	r.HandleFunc("/force/{orgName}/{teamName}/{pipelineName}/{revisionHash}/{stepName}/{argoRevisionHash}", forceDeploy).Methods("POST")
 	r.HandleFunc("/client/generateNotification/{requestId}", generateNotification).Methods("POST")
 	r.HandleFunc("/client/{orgName}/{clusterName}/generateEvent", generateEventEndpoint).Methods("POST")
 }

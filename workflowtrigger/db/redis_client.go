@@ -17,7 +17,7 @@ import (
 type ObjectType string
 
 const (
-	notification  ObjectType = "NOTIFICATION"
+	notification     ObjectType = "NOTIFICATION"
 	teamSchema       ObjectType = "TEAM_SCHEMA"
 	stringList       ObjectType = "STRING_LIST"
 	logListObj       ObjectType = "LOG_LIST"
@@ -64,6 +64,7 @@ const (
 type DbClient interface {
 	StoreValue(key string, schema interface{})
 	InsertValueInList(key string, schema interface{})
+	InsertValueInTransactionlessList(key string, schema interface{})
 	UpdateHeadInList(key string, schema interface{})
 	FetchNotification(key string) clientrequest.Notification
 	FetchPipelineInfoList(key string, increment int) []auditlog.PipelineInfo

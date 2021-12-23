@@ -13,34 +13,36 @@ import (
 	"time"
 )
 
-// pipelineSyncCmd represents the pipelineSync command
-var pipelineSyncCmd = &cobra.Command{
-	Use:   "sync <pipeline name> --team <team name> --pipelineRevisionHash <pipeline repo revision> --repo <git repo url> --root <path to root>",
-	Short: "Sync a pipeline",
+var (
+	pipelineRevisionHash string
+	argoRevisionHash     string
+)
+
+// pipelineForceDeployCmd represents the pipelineForceDeploy command
+var pipelineForceDeployCmd = &cobra.Command{
+	Use:   "force-deploy <pipeline name> --step <step name> --pipelineRevisionHash <pipeline repo revision> --argoRevisionHash <argo manifest revision> --team <team name> --repo <git repo url> --root <path to root>",
+	Short: "Force deploy a pipeline",
 	Long: `
-Command to sync a pipeline. Specify the name of the pipeline to be synced. 
+Command to force the deployment of an application in a step. Specify the name, step, and revision of the application to be deployed. 
 Set the team name, git repo url, and path to root with the required flags. 
 Optional flags should be set based on the type of Git access credential (open, oauth token, or username and password).
-For sub-pipeline runs (specific steps), use the optional --step flag.
 
 Example usage:
-	atlas pipeline sync pipeline_name --team team_name --repo git_repo --root path_to_root (No flags specified means open access)
-	atlas pipeline sync pipeline_name --team team_name --repo git_repo --root path_to_root -t token
-	atlas pipeline sync pipeline_name --team team_name --repo git_repo --root path_to_root -u username -p password
-	atlas pipeline sync pipeline_name --team team_name --step step_name --repo git_repo --root path_to_root -u username -p password`,
+	atlas pipeline force-deploy pipeline_name --step step_name --team team_name --repo git_repo --root path_to_root (No flags specified means open access)
+	atlas pipeline force-deploy pipeline_name --step step_name --team team_name --repo git_repo --root path_to_root -t token
+	atlas pipeline force-deploy pipeline_name --step step_name --team team_name --repo git_repo --root path_to_root -u username -p password`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 1 {
-			fmt.Println("Invalid number of arguments. Run 'atlas pipeline sync -h' to see usage details")
+			fmt.Println("Invalid number of arguments. Run 'atlas pipeline force-deploy -h' to see usage details")
 			return
 		}
 
 		tokenFlagSet := cmd.Flags().Lookup("token").Changed
 		usernameFlagSet := cmd.Flags().Lookup("username").Changed
 		passwordFlagSet := cmd.Flags().Lookup("password").Changed
-		stepFlagSet := cmd.Flags().Lookup("step").Changed
 
 		if tokenFlagSet && (usernameFlagSet || passwordFlagSet) {
-			fmt.Println("Invalid combination of flags. Run 'atlas pipeline sync -h' to see usage details")
+			fmt.Println("Invalid combination of flags. Run 'atlas pipeline force-deploy -h' to see usage details")
 			return
 		}
 
@@ -50,6 +52,7 @@ Example usage:
 		}
 
 		teamName, _ := cmd.Flags().GetString("team")
+		stepName, _ := cmd.Flags().GetString("step")
 		gitRepo, _ := cmd.Flags().GetString("repo")
 		pathToRoot, _ := cmd.Flags().GetString("root")
 		pipelineName := args[0]
@@ -59,13 +62,7 @@ Example usage:
 		config, _ := localconfig.ReadLocalConfig(defaultLocalConfigPath)
 		context, _ := config.ResolveContext(apiclient.ClientOptions{}.Context)
 
-		var url string
-		if stepFlagSet {
-			stepName, _ := cmd.Flags().GetString("step")
-			url = fmt.Sprintf("http://%s/sync/%s/%s/%s/%s/%s", atlasURL, orgName, teamName, pipelineName, pipelineRevisionHash, stepName)
-		} else {
-			url = fmt.Sprintf("http://%s/sync/%s/%s/%s/%s", atlasURL, orgName, teamName, pipelineName, pipelineRevisionHash)
-		}
+		url := fmt.Sprintf("http://%s/force/%s/%s/%s/%s/%s/%s", atlasURL, orgName, teamName, pipelineName, pipelineRevisionHash, stepName, argoRevisionHash)
 
 		var req *http.Request
 
@@ -121,7 +118,7 @@ Example usage:
 		}
 		statusCode := resp.StatusCode
 		if statusCode == 200 {
-			fmt.Println("Successfully synced pipeline:", pipelineName, "for team:", teamName)
+			fmt.Println("Successfully force-deployed step:", stepName, "in pipeline:", pipelineName)
 		} else {
 			body, _ := io.ReadAll(resp.Body)
 			fmt.Printf("An error occurred: %s", body)
@@ -130,17 +127,19 @@ Example usage:
 }
 
 func init() {
-	pipelineCmd.AddCommand(pipelineSyncCmd)
+	pipelineCmd.AddCommand(pipelineForceDeployCmd)
 
-	pipelineSyncCmd.PersistentFlags().StringP("repo", "", "", "git repo url")
-	pipelineSyncCmd.PersistentFlags().StringP("root", "", "", "path to root")
-	pipelineSyncCmd.MarkPersistentFlagRequired("repo")
-	pipelineSyncCmd.MarkPersistentFlagRequired("root")
+	pipelineForceDeployCmd.PersistentFlags().StringP("repo", "", "", "git repo url")
+	pipelineForceDeployCmd.PersistentFlags().StringP("root", "", "", "path to root")
+	pipelineForceDeployCmd.PersistentFlags().StringP("step", "", "", "step name")
+	pipelineForceDeployCmd.MarkPersistentFlagRequired("repo")
+	pipelineForceDeployCmd.MarkPersistentFlagRequired("root")
+	pipelineForceDeployCmd.MarkPersistentFlagRequired("step")
 
-	pipelineSyncCmd.PersistentFlags().StringP("token", "t", "", "Name of git cred token")
-	pipelineSyncCmd.PersistentFlags().StringP("username", "u", "", "Github username")
-	pipelineSyncCmd.PersistentFlags().StringP("password", "p", "", "Github password")
-	pipelineSyncCmd.PersistentFlags().StringP("step", "s", "", "Step name for sub-pipeline run")
+	pipelineForceDeployCmd.PersistentFlags().StringP("token", "t", "", "Name of git cred token")
+	pipelineForceDeployCmd.PersistentFlags().StringP("username", "u", "", "Github username")
+	pipelineForceDeployCmd.PersistentFlags().StringP("password", "p", "", "Github password")
 
-	pipelineSyncCmd.PersistentFlags().StringVarP(&pipelineRevisionHash, "pipelineRevisionHash", "", "ROOT_COMMIT", "set pipeline repo revision")
+	pipelineForceDeployCmd.PersistentFlags().StringVarP(&pipelineRevisionHash, "pipelineRevisionHash", "", "ROOT_COMMIT", "set pipeline repo revision")
+	pipelineForceDeployCmd.PersistentFlags().StringVarP(&argoRevisionHash, "argoRevisionHash", "", "LATEST_REVISION", "set Argo manifest revision")
 }

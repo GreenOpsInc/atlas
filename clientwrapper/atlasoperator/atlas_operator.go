@@ -458,7 +458,8 @@ func handleRequests() {
 				var deployResponse requestdatatypes.DeployResponse
 				deployResponse, err = deploy(&request)
 				if err == nil && deployResponse.Success {
-					if !eventGenerationApi.GenerateResponseEvent(request.ResponseEventType.MakeResponseEvent(&deployResponse, &request)) {
+					//If there is no response event (in case of a force deploy), this if will simply pass over event generation
+					if request.ResponseEventType != "" && !eventGenerationApi.GenerateResponseEvent(request.ResponseEventType.MakeResponseEvent(&deployResponse, &request)) {
 						err = AtlasError{AtlasErrorType: AtlasRetryableError, Err: errors.New("response event not generated correctly")}
 					}
 				}

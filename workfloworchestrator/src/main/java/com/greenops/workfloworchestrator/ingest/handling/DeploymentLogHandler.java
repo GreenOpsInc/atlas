@@ -33,7 +33,7 @@ public interface DeploymentLogHandler {
 
     String getStepStatus(Event event);
 
-    String makeRollbackDeploymentLog(Event event, String stepName, int rollbackLimit);
+    String makeRollbackDeploymentLog(Event event, String stepName, int rollbackLimit, boolean dryRun);
 
     String getCurrentGitCommitHash(Event event, String stepName);
 

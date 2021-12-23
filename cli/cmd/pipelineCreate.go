@@ -8,6 +8,7 @@ import (
 	"github.com/argoproj/argo-cd/v2/util/errors"
 	"github.com/argoproj/argo-cd/v2/util/localconfig"
 	"github.com/spf13/cobra"
+	"io"
 	"net/http"
 	"time"
 )
@@ -117,7 +118,8 @@ Example usage:
 		} else if statusCode == 409 {
 			fmt.Println("Pipeline named", pipelineName, "already exists for team:", teamName)
 		} else {
-			fmt.Println("Internal server error, please try again and confirm that the provided values are correct.")
+			body, _ := io.ReadAll(resp.Body)
+			fmt.Printf("An error occurred: %s", body)
 		}
 	},
 }

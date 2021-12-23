@@ -8,6 +8,7 @@ const (
 	RemediationLogType            string = "stateremediation"
 	PipelineTriggerEventType      string = "pipelinetrigger"
 	NoDeployNotificationEventType string = "mark_no_deploy"
+	DeployRequestEventType        string = "deploy"
 	GitCredOpenType               string = "open"
 	GitCredMachineUserType        string = "machineuser"
 	GitCredTokenType              string = "oauth"

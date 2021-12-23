@@ -14,6 +14,10 @@ import (
 	"time"
 )
 
+var (
+	history bool
+)
+
 // statusCmd represents the status command
 var statusCmd = &cobra.Command{
 	Use:   "status <pipeline name> --team <team name>",
@@ -24,6 +28,7 @@ and the team name the pipeline is under using the --team flag. For fetching the
 pipeline status, the UVN can optionally be set with the -u flag, otherwise it will be set to LATEST by default.
 For fetching the status of a pipeline step, specify the name of the step with the --step argument.
 The step count can optionally be set with the -c flag, otherwise it will be set to 15 by default.
+For fetching the history list of pipeline UVNs, add the --history flag. The -c flag can apply to this request as well.
  
 Example usage:
 	atlas status pipeline_name --team team_name (No -u flag specified means uvn is LATEST)
@@ -44,12 +49,21 @@ Example usage:
 		var req *http.Request
 		var url string
 
-		if stepFlagSet && uvnFlagSet {
+		if (stepFlagSet && uvnFlagSet) || (stepFlagSet && history) || (uvnFlagSet && history) {
 			fmt.Println("Invalid combination of flags. Run 'atlas status -h' to see usage details")
 			return
 		}
 
-		if stepFlagSet {
+		if history {
+			countFlagSet := cmd.Flags().Lookup("count").Changed
+			var count int
+			if countFlagSet {
+				count, _ = cmd.Flags().GetInt("count")
+			} else {
+				count = 15
+			}
+			url = fmt.Sprintf("http://%s/status/%s/%s/pipeline/%s/history/%s", atlasURL, orgName, teamName, pipelineName, strconv.Itoa(count))
+		} else if stepFlagSet {
 			stepName, _ := cmd.Flags().GetString("step")
 			countFlagSet := cmd.Flags().Lookup("count").Changed
 			var count int
@@ -58,7 +72,7 @@ Example usage:
 			} else {
 				count = 15
 			}
-			url = "http://" + atlasURL + "/status/" + orgName + "/" + teamName + "/pipeline/" + pipelineName + "/step/" + stepName + "/" + strconv.Itoa(count)
+			url = fmt.Sprintf("http://%s/status/%s/%s/pipeline/%s/step/%s/%s", atlasURL, orgName, teamName, pipelineName, stepName, strconv.Itoa(count))
 		} else {
 			var uvn string
 			if uvnFlagSet {
@@ -66,7 +80,7 @@ Example usage:
 			} else {
 				uvn = "LATEST"
 			}
-			url = "http://" + atlasURL + "/status/" + orgName + "/" + teamName + "/pipeline/" + pipelineName + "/" + uvn
+			url = fmt.Sprintf("http://%s/status/%s/%s/pipeline/%s/%s", atlasURL, orgName, teamName, pipelineName, uvn)
 		}
 
 		defaultLocalConfigPath, err := localconfig.DefaultLocalConfigPath()
@@ -109,4 +123,5 @@ func init() {
 	statusCmd.PersistentFlags().StringP("step", "s", "", "step name")
 	statusCmd.MarkPersistentFlagRequired("team")
 
+	statusCmd.PersistentFlags().BoolVarP(&history, "history", "", false, "get previous pipeline runs' UVNs")
 }
