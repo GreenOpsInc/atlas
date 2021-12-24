@@ -56,6 +56,43 @@ func getStepLogs(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(serializer.Serialize(logList)))
 }
 
+func getPipelineUvns(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	orgName := vars[orgNameField]
+	teamName := vars[teamNameField]
+	pipelineName := vars[pipelineNameField]
+
+	pipelineSchema := getPipeline(orgName, teamName, pipelineName)
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, pipelineSchema.GetGitRepoSchema().GitRepo, reposerver.RootCommit,
+		string(argoauthenticator.GetAction), string(argoauthenticator.ApplicationResource)) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
+	}
+
+	count, err := strconv.Atoi(vars[countField])
+	if err != nil {
+		http.Error(w, "Count variable could not be deserialized", http.StatusBadRequest)
+		return
+	}
+	key := db.MakeDbPipelineInfoKey(orgName, teamName, pipelineName)
+	increments := int(math.Ceil(float64(db.LogIncrement / count)))
+	var pipelineUvnList []string
+	var fetchedPipelineUvnList []string
+	for idx := 0; idx < increments; idx++ {
+		for _, pipelineInfo := range dbClient.FetchPipelineInfoList(key, idx) {
+			fetchedPipelineUvnList = append(fetchedPipelineUvnList, pipelineInfo.PipelineUvn)
+		}
+		if idx == increments-1 {
+			difference := count - ((increments - 1) * db.LogIncrement)
+			pipelineUvnList = append(pipelineUvnList, fetchedPipelineUvnList[0:int(math.Min(float64(difference), float64(len(fetchedPipelineUvnList))))]...)
+		} else {
+			pipelineUvnList = append(pipelineUvnList, fetchedPipelineUvnList...)
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(serializer.Serialize(pipelineUvnList)))
+}
+
 func getPipelineStatus(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
@@ -244,6 +281,7 @@ func cancelLatestPipeline(w http.ResponseWriter, r *http.Request) {
 }
 
 func InitStatusEndpoints(r *mux.Router) {
+	r.HandleFunc("/status/{orgName}/{teamName}/pipeline/{pipelineName}/{count}", getPipelineUvns).Methods("GET")
 	r.HandleFunc("/status/{orgName}/{teamName}/pipeline/{pipelineName}/step/{stepName}/{count}", getStepLogs).Methods("GET")
 	r.HandleFunc("/status/{orgName}/{teamName}/pipeline/{pipelineName}/{pipelineUvn}", getPipelineStatus).Methods("GET")
 	r.HandleFunc("/status/{orgName}/{teamName}/pipelineRun/{pipelineName}", cancelLatestPipeline).Methods("DELETE")

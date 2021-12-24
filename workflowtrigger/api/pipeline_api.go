@@ -69,6 +69,18 @@ func readTeam(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(teamSchema)
 }
 
+func listTeams(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	orgName := vars[orgNameField]
+	key := db.MakeDbListOfTeamsKey(orgName)
+	listOfTeams := dbClient.FetchStringList(key)
+	if listOfTeams == nil {
+		listOfTeams = make([]string, 0)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(serializer.Serialize(listOfTeams)))
+}
+
 func deleteTeam(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
@@ -320,6 +332,7 @@ func getNotification(requestId string) clientrequest.Notification {
 }
 
 func InitPipelineTeamEndpoints(r *mux.Router) {
+	r.HandleFunc("/team/{orgName}", listTeams).Methods("GET")
 	r.HandleFunc("/team/{orgName}/{parentTeamName}/{teamName}", createTeam).Methods("POST")
 	r.HandleFunc("/team/{orgName}/{teamName}", readTeam).Methods("GET")
 	r.HandleFunc("/team/{orgName}/{teamName}", deleteTeam).Methods("DELETE")
