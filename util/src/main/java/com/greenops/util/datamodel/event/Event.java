@@ -21,4 +21,7 @@ public interface Event {
     String getPipelineName();
     String getPipelineUvn();
     String getStepName();
+    String getMQKey();
+    void setDeliveryAttempt(int attempt);
+    int getDeliveryAttempt();
 }

@@ -7,7 +7,7 @@ import com.greenops.util.datamodel.event.ResourceStatus;
 
 import java.util.List;
 
-public abstract class ClientCompletionEventMixin {
+public abstract class ClientCompletionEventMixin extends EventMixin {
 
     @JsonProperty(value = "healthStatus")
     String healthStatus;
@@ -15,16 +15,6 @@ public abstract class ClientCompletionEventMixin {
     String syncStatus;
     @JsonProperty(value = "resourceStatuses")
     List<ResourceStatus> resourceStatuses;
-    @JsonProperty(value = "orgName")
-    String orgName;
-    @JsonProperty(value = "teamName")
-    String teamName;
-    @JsonProperty(value = "pipelineName")
-    String pipelineName;
-    @JsonProperty(value = "pipelineUvn")
-    String uvn;
-    @JsonProperty(value = "stepName")
-    String stepName;
     @JsonProperty(value = "argoName")
     String argoName;
     @JsonProperty(value = "argoNamespace")
@@ -44,7 +34,7 @@ public abstract class ClientCompletionEventMixin {
                                       @JsonProperty(value = "orgName") String orgName,
                                       @JsonProperty(value = "teamName") String teamName,
                                       @JsonProperty(value = "pipelineName") String pipelineName,
-                                      @JsonProperty(value = "pipelineUvn") String uvn,
+                                      @JsonProperty(value = "pipelineUvn") String pipelineUvn,
                                       @JsonProperty(value = "stepName") String stepName,
                                       @JsonProperty(value = "argoName") String argoName,
                                       @JsonProperty(value = "argoNamespace") String argoNamespace,
@@ -57,7 +47,4 @@ public abstract class ClientCompletionEventMixin {
 
     @JsonIgnore
     abstract String getRepoUrl();
-
-    @JsonIgnore
-    abstract String getPipelineUvn();
 }

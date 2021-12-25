@@ -6,10 +6,13 @@ import com.greenops.util.datamodel.event.Event;
 import com.greenops.util.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.ingest.handling.EventHandler;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
+import org.springframework.kafka.support.KafkaHeaders;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -24,9 +27,10 @@ public class SpringKafkaListener {
     ObjectMapper objectMapper;
 
     @KafkaListener(topics = "${spring.kafka.topic}", groupId = "${spring.kafka.consumer.group-id}")
-    public void listen(String message, Acknowledgment ack) {
+    public void listen(String message, Acknowledgment ack, @Header(KafkaHeaders.DELIVERY_ATTEMPT) int delivery) {
         try {
             var event = objectMapper.readValue(message, Event.class);
+            event.setDeliveryAttempt(delivery);
             eventHandler.handleEvent(event);
             ack.acknowledge();
         } catch (JsonProcessingException e) {

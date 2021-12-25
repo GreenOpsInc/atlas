@@ -3,6 +3,8 @@ package com.greenops.workfloworchestrator.ingest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.greenops.util.datamodel.event.PipelineTriggerEvent;
+import com.greenops.util.datamodel.mixin.event.PipelineTriggerEventMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.PipelineDataMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.StepDataMixin;
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.InjectScriptTestMixin;
@@ -24,7 +26,8 @@ public class DataSerializationTest {
         objectMapper = new ObjectMapper()
                 .addMixIn(PipelineDataImpl.class, PipelineDataMixin.class)
                 .addMixIn(StepDataImpl.class, StepDataMixin.class)
-                .addMixIn(InjectScriptTest.class, InjectScriptTestMixin.class);
+                .addMixIn(InjectScriptTest.class, InjectScriptTestMixin.class)
+                .addMixIn(PipelineTriggerEvent.class, PipelineTriggerEventMixin.class);
     }
 
     //TODO: Obviously an incomplete test. This should be manually tested if the data model is updated.
@@ -52,5 +55,17 @@ public class DataSerializationTest {
                 "  dependencies: #default is none, outlines steps that have to be completed before current step\n" +
                 "  - deploy_to_dev";
         var pipelineObject = objectMapper.readValue(objectMapper.writeValueAsString(yamlObjectMapper.readValue(pipelineData, Object.class)), PipelineData.class);
+    }
+
+    @Test
+    void testEventSerialization() throws JsonProcessingException {
+        var pipeline = new PipelineTriggerEvent("org", "team", "pipeline");
+        var stringRep = objectMapper.writeValueAsString(pipeline);
+        var readPipelineObj = objectMapper.readValue(stringRep, PipelineTriggerEvent.class);
+        System.out.println(stringRep);
+        System.out.println(readPipelineObj.getPipelineName());
+        System.out.println(readPipelineObj.getOrgName());
+        System.out.println(readPipelineObj.getTeamName());
+        System.out.println(readPipelineObj.getPipelineUvn());
     }
 }

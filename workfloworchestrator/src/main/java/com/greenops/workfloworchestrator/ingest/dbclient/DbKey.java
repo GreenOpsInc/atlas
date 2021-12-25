@@ -26,6 +26,10 @@ public class DbKey {
         return Strings.join(List.of(orgName, teamName, pipelineName, "meta"), '-');
     }
 
+    public static String makeStepUniqueCacheKey(String orgName, String teamName, String pipelineName, String stepName) {
+        return Strings.join(List.of(orgName, teamName, pipelineName, stepName, "keys"), '-');
+    }
+
     public static String makeDbListOfTeamsKey(String orgName) {
         return orgName + "-teams";
     }
