@@ -7,6 +7,7 @@ import (
 
 const (
 	rootStepName string = "ATLAS_ROOT_DATA"
+	rootCommit   string = "ROOT_COMMIT"
 )
 
 type Event interface {
@@ -19,6 +20,7 @@ type PipelineTriggerEvent struct {
 	PipelineName string `json:"pipelineName"`
 	Uvn          string `json:"pipelineUvn"`
 	StepName     string `json:"stepName"`
+	RevisionHash string `json:"revisionHash"`
 }
 
 func NewPipelineTriggerEventRaw(orgName string, teamName string, pipelineName string, pipelineUvn string) Event {
@@ -38,6 +40,7 @@ func NewPipelineTriggerEvent(orgName string, teamName string, pipelineName strin
 		PipelineName: pipelineName,
 		Uvn:          uuid.New().String(),
 		StepName:     rootStepName,
+		RevisionHash: rootCommit,
 	}
 }
 

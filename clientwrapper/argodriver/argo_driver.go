@@ -200,7 +200,7 @@ func (a *ArgoClientDriver) Deploy(configPayload *string, revisionHash string) (s
 			return a.Sync(existingApp.Name)
 		} else {
 			log.Printf("Specs differ, triggering update...\n")
-			return a.Update(configPayload)
+			return a.Update(&applicationPayload)
 		}
 	}
 
@@ -217,7 +217,7 @@ func (a *ArgoClientDriver) Deploy(configPayload *string, revisionHash string) (s
 	return a.Sync(argoApplication.Name)
 }
 
-func (a *ArgoClientDriver) Update(configPayload *string) (string, string, string, error) {
+func (a *ArgoClientDriver) Update(applicationPayload *v1alpha1.Application) (string, string, string, error) {
 	err := a.CheckForRefresh()
 	if err != nil {
 		return "", "", "", err
@@ -229,7 +229,6 @@ func (a *ArgoClientDriver) Update(configPayload *string) (string, string, string
 	}
 	defer ioCloser.Close()
 
-	applicationPayload := makeApplication(configPayload)
 	_, err = a.kubernetesClient.CheckAndCreateNamespace(applicationPayload.Spec.Destination.Namespace)
 	if err != nil {
 		return "", "", "", err
@@ -238,7 +237,7 @@ func (a *ArgoClientDriver) Update(configPayload *string) (string, string, string
 	argoApplication, err := applicationClient.Update(
 		context.TODO(),
 		&application.ApplicationUpdateRequest{
-			Application: &applicationPayload,
+			Application: applicationPayload,
 		},
 	) //CallOption is not necessary, for now...
 	if err != nil {
@@ -631,17 +630,17 @@ func (a *ArgoClientDriver) MarkNoDeploy(clusterName string, namespace string, ap
 			namespaceMatch, _ := regexp.MatchString(dest.Namespace, namespace)
 			if nameMatch && (namespace == "" || namespaceMatch) {
 				var namespaceList []string
+				var clusterList []string
 				if namespace != "" {
 					namespaceList = []string{namespace}
 				} else {
-					namespaceList = []string{"*"}
+					clusterList = []string{clusterName}
 				}
-				clusterList := []string{clusterName}
 				windowExists := false
 				windowIdx := 0
 				for idx, window := range appProject.Spec.SyncWindows {
 					if window.Kind == "deny" && window.Schedule == "* * * * *" && window.Duration == "720h" &&
-						reflect.DeepEqual(window.Applications, []string{"*"}) && reflect.DeepEqual(window.Namespaces, namespaceList) &&
+						reflect.DeepEqual(window.Applications, []string{}) && reflect.DeepEqual(window.Namespaces, namespaceList) &&
 						reflect.DeepEqual(window.Clusters, clusterList) && window.ManualSync == false {
 						windowExists = true
 						windowIdx = idx
@@ -658,7 +657,7 @@ func (a *ArgoClientDriver) MarkNoDeploy(clusterName string, namespace string, ap
 						return err
 					}
 				} else if !windowExists && apply {
-					appProject.Spec.AddWindow("deny", "* * * * *", "720h", []string{"*"}, namespaceList, clusterList, false)
+					appProject.Spec.AddWindow("deny", "* * * * *", "720h", []string{}, namespaceList, clusterList, false)
 					_, err = projectServiceClient.Update(context.TODO(), &project.ProjectUpdateRequest{Project: &appProject})
 					if err != nil {
 						log.Printf("Error while adding sync window to the projects %s", err)

@@ -31,7 +31,11 @@ func Serialize(object interface{}) string {
 	case event.Event:
 		bytes, err = json.Marshal(event.MarshalEvent(object.(event.Event)))
 	case clientrequest.NotificationRequestEvent:
-		bytes, err = json.Marshal(clientrequest.MarshalEvent(object.(clientrequest.NotificationRequestEvent)))
+		bytes, err = json.Marshal(clientrequest.MarshalNotificationEvent(object.(clientrequest.NotificationRequestEvent)))
+	case clientrequest.ClientRequestPacket:
+		bytes, err = json.Marshal(clientrequest.MarshalRequestPacket(object.(clientrequest.ClientRequestPacket)))
+	case clientrequest.ClientRequestEvent:
+		bytes, err = json.Marshal(clientrequest.MarshalRequestEvent(object.(clientrequest.ClientRequestEvent)))
 	case string:
 		return object.(string)
 	default:

@@ -12,14 +12,14 @@ const (
 )
 
 type PipelineData struct {
-	ClusterName string `json:"cluster_name"`
+	ClusterName string `yaml:"cluster_name"`
 	Steps       []StepData
 }
 
 type StepData struct {
-	Name            string `json:"name"`
-	ClusterName     string `json:"cluster_name"`
-	ApplicationPath string `json:"application_path"`
+	Name            string `yaml:"name"`
+	ClusterName     string `yaml:"cluster_name"`
+	ApplicationPath string `yaml:"application_path"`
 }
 
 func (p *PipelineData) initClusterNames() {
@@ -40,6 +40,34 @@ func New(argoAuthenticatorApi argoauthenticator.ArgoAuthenticatorApi, repoApi re
 		argoAuthenticatorApi: argoAuthenticatorApi,
 		repoManagerApi:       repoApi,
 	}
+}
+
+func (r RequestSchemaValidator) GetStepApplicationPath(orgName string, teamName string, gitRepoUrl string, gitCommitHash string, step string) string {
+	pipelineData := r.getPipelineData(orgName, teamName, gitRepoUrl, gitCommitHash)
+	for _, stepData := range pipelineData.Steps {
+		if stepData.Name == step {
+			return stepData.ApplicationPath
+		}
+	}
+	return ""
+}
+
+func (r RequestSchemaValidator) GetStepApplicationPayload(orgName string, teamName string, gitRepoUrl string, gitCommitHash string, step string) (string, string) {
+	var applicationPath string
+	var clusterName string
+	pipelineData := r.getPipelineData(orgName, teamName, gitRepoUrl, gitCommitHash)
+	for _, stepData := range pipelineData.Steps {
+		if stepData.Name == step {
+			applicationPath = stepData.ApplicationPath
+			clusterName = stepData.ClusterName
+			break
+		}
+	}
+	if applicationPath == "" {
+		panic("This step does not have an application deployed")
+	}
+	request := reposerver.GetFileRequest{GitRepoUrl: gitRepoUrl, Filename: applicationPath, GitCommitHash: reposerver.RootCommit}
+	return r.repoManagerApi.GetFileFromRepo(request, orgName, teamName), clusterName
 }
 
 func (r RequestSchemaValidator) ValidateSchemaAccess(orgName string, teamName string, gitRepoUrl string, gitCommitHash string, actionResourceEntries ...string) bool {
@@ -86,13 +114,13 @@ func (r RequestSchemaValidator) getPipelineData(orgName string, teamName string,
 func (r RequestSchemaValidator) getArgoApplicationProjectAndName(orgName string, teamName string, gitRepoUrl string, gitCommitHash string, applicationPath string) string {
 	request := reposerver.GetFileRequest{GitRepoUrl: gitRepoUrl, Filename: applicationPath, GitCommitHash: gitCommitHash}
 	argoApplicationConfig := r.repoManagerApi.GetFileFromRepo(request, orgName, teamName)
-	var rawPayload map[string]interface{}
+	var rawPayload map[interface{}]interface{}
 	err := yaml.Unmarshal([]byte(argoApplicationConfig), &rawPayload)
 	if err != nil {
 		panic(err)
 	}
-	project := rawPayload["spec"].(map[string]interface{})["project"]
-	name := rawPayload["metadata"].(map[string]interface{})["name"]
+	project := rawPayload["spec"].(map[interface{}]interface{})["project"]
+	name := rawPayload["metadata"].(map[interface{}]interface{})["name"]
 	if name == nil || name.(string) == "" {
 		panic("the Argo CD app does not have a name")
 	}
@@ -101,4 +129,17 @@ func (r RequestSchemaValidator) getArgoApplicationProjectAndName(orgName string,
 	} else {
 		return project.(string) + "/" + name.(string)
 	}
+}
+
+func (r RequestSchemaValidator) GetArgoApplicationNamespace(argoApplicationConfig string) string {
+	var rawPayload map[interface{}]interface{}
+	err := yaml.Unmarshal([]byte(argoApplicationConfig), &rawPayload)
+	if err != nil {
+		panic(err)
+	}
+	namespace := rawPayload["spec"].(map[interface{}]interface{})["destination"].(map[interface{}]interface{})["namespace"]
+	if namespace == nil || namespace.(string) == "" {
+		panic("the Argo CD app does not have a namespace")
+	}
+	return namespace.(string)
 }

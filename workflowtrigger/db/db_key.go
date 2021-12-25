@@ -18,16 +18,16 @@ func MakeDbStepKey(orgName string, teamName string, pipelineName string, stepNam
 	return strings.Join([]string{orgName, teamName, pipelineName, stepName}, "-")
 }
 
+func MakeClientRequestQueueKey(orgName string, clusterName string) string {
+	return strings.Join([]string{orgName, clusterName, "events"}, "-")
+}
+
 func MakeDbPipelineInfoKey(orgName string, teamName string, pipelineName string) string {
 	return strings.Join([]string{orgName, teamName, pipelineName, "meta"}, "-")
 }
 
 func MakeDbListOfTeamsKey(orgName string) string {
 	return orgName + "-teams"
-}
-
-func MakeDbListOfStepsKey(orgName string, teamName string, pipelineName string) string {
-	return orgName + "-" + teamName + "-" + pipelineName + "-step"
 }
 
 func MakeDbClusterKey(orgName string, clusterName string) string {

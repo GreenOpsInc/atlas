@@ -135,7 +135,7 @@ func getPipelineStatus(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No pipeline runs exist with the requested UVN", http.StatusBadRequest)
 		return
 	}
-	steps := dbClient.FetchStringList(db.MakeDbListOfStepsKey(orgName, teamName, pipelineName))
+	steps := pipelineInfo.StepList
 	for _, step := range steps {
 		//Get pipeline UVN if not specified
 		logKey := db.MakeDbStepKey(orgName, teamName, pipelineName, step)
@@ -256,7 +256,7 @@ func cancelLatestPipeline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	latestUvn := ""
-	steps := dbClient.FetchStringList(db.MakeDbListOfStepsKey(orgName, teamName, pipelineName))
+	steps := dbClient.FetchLatestPipelineInfo(db.MakeDbPipelineInfoKey(orgName, teamName, pipelineName)).StepList
 	for _, stepName := range steps {
 		key := db.MakeDbStepKey(orgName, teamName, pipelineName, stepName)
 		latestLog := dbClient.FetchLatestLog(key)
@@ -281,7 +281,7 @@ func cancelLatestPipeline(w http.ResponseWriter, r *http.Request) {
 }
 
 func InitStatusEndpoints(r *mux.Router) {
-	r.HandleFunc("/status/{orgName}/{teamName}/pipeline/{pipelineName}/{count}", getPipelineUvns).Methods("GET")
+	r.HandleFunc("/status/{orgName}/{teamName}/pipeline/{pipelineName}/history/{count}", getPipelineUvns).Methods("GET")
 	r.HandleFunc("/status/{orgName}/{teamName}/pipeline/{pipelineName}/step/{stepName}/{count}", getStepLogs).Methods("GET")
 	r.HandleFunc("/status/{orgName}/{teamName}/pipeline/{pipelineName}/{pipelineUvn}", getPipelineStatus).Methods("GET")
 	r.HandleFunc("/status/{orgName}/{teamName}/pipelineRun/{pipelineName}", cancelLatestPipeline).Methods("DELETE")

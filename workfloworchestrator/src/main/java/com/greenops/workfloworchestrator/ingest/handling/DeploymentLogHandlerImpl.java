@@ -148,7 +148,7 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
         var key = DbKey.makeDbPipelineInfoKey(event.getOrgName(), event.getTeamName(), event.getPipelineName());
         var pipelineInfo = dbClient.fetchLatestPipelineInfo(key);
         if (event.getStatusCode().equals(PIPELINE_TRIGGER_EVENT_CLASS_NAME) || pipelineInfo == null) {
-            pipelineInfo = new PipelineInfo(event.getPipelineUvn(), List.of(error));
+            pipelineInfo = new PipelineInfo(event.getPipelineUvn(), List.of(error), List.of());
             dbClient.insertValueInList(key, pipelineInfo);
         } else {
             pipelineInfo.addError(error);
@@ -178,7 +178,7 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
 
     //Returning null means a failure occurred, empty string means no match exists.
     @Override
-    public String makeRollbackDeploymentLog(Event event, String stepName, int rollbackLimit) {
+    public String makeRollbackDeploymentLog(Event event, String stepName, int rollbackLimit, boolean dryRun) {
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
         var logIncrement = 0;
         var logList = dbClient.fetchLogList(logKey, logIncrement);
@@ -250,7 +250,9 @@ public class DeploymentLogHandlerImpl implements DeploymentLogHandler {
                         null,
                         null
                 );
-                dbClient.insertValueInList(logKey, newLog);
+                if (!dryRun) {
+                    dbClient.insertValueInList(logKey, newLog);
+                }
                 return gitCommitVersion;
             }
             idx++;

@@ -19,9 +19,9 @@ const (
 )
 
 type GetFileRequest struct {
-	GitRepoUrl    string
-	Filename      string
-	GitCommitHash string
+	GitRepoUrl    string `json:"gitRepoUrl"`
+	Filename      string `json:"filename"`
+	GitCommitHash string `json:"gitCommitHash"`
 }
 
 type RepoManagerApi interface {
@@ -38,9 +38,7 @@ type RepoManagerApiImpl struct {
 
 func New(serverEndpoint string) RepoManagerApi {
 	if strings.HasSuffix(serverEndpoint, "/") {
-		serverEndpoint = serverEndpoint + "repo"
-	} else {
-		serverEndpoint = serverEndpoint + "/repo"
+		serverEndpoint = serverEndpoint[:len(serverEndpoint)-1]
 	}
 	httpClient := &http.Client{
 		Timeout: time.Second * 10,
@@ -56,7 +54,7 @@ func (r *RepoManagerApiImpl) CloneRepo(orgName string, gitRepoSchema git.GitRepo
 	var payload []byte
 	var request *http.Request
 	payload = []byte(serializer.Serialize(gitRepoSchema))
-	request, err = http.NewRequest("POST", r.serverEndpoint+"/clone/"+orgName, bytes.NewBuffer(payload))
+	request, err = http.NewRequest("POST", r.serverEndpoint+"/repo/clone/"+orgName, bytes.NewBuffer(payload))
 	if err != nil {
 		panic(err)
 	}
@@ -75,7 +73,7 @@ func (r *RepoManagerApiImpl) DeleteRepo(gitRepoSchema git.GitRepoSchema) bool {
 	var payload []byte
 	var request *http.Request
 	payload = []byte(serializer.Serialize(gitRepoSchema))
-	request, err = http.NewRequest("POST", r.serverEndpoint+"/delete", bytes.NewBuffer(payload))
+	request, err = http.NewRequest("POST", r.serverEndpoint+"/repo/delete", bytes.NewBuffer(payload))
 	if err != nil {
 		panic(err)
 	}
@@ -94,7 +92,7 @@ func (r *RepoManagerApiImpl) SyncRepo(gitRepoSchema git.GitRepoSchema) bool {
 	var payload []byte
 	var request *http.Request
 	payload = []byte(serializer.Serialize(gitRepoSchema))
-	request, err = http.NewRequest("POST", r.serverEndpoint+"/sync", bytes.NewBuffer(payload))
+	request, err = http.NewRequest("POST", r.serverEndpoint+"/repo/sync", bytes.NewBuffer(payload))
 	if err != nil {
 		panic(err)
 	}
@@ -113,7 +111,7 @@ func (r *RepoManagerApiImpl) GetFileFromRepo(getFileRequest GetFileRequest, orgN
 	var payload []byte
 	var request *http.Request
 	payload, _ = json.Marshal(getFileRequest)
-	request, err = http.NewRequest("POST", r.serverEndpoint+fmt.Sprintf("/%s/%s/%s", getFileExtension, orgName, teamName), bytes.NewBuffer(payload))
+	request, err = http.NewRequest("POST", r.serverEndpoint+fmt.Sprintf("/data/%s/%s/%s", getFileExtension, orgName, teamName), bytes.NewBuffer(payload))
 	if err != nil {
 		panic(err)
 	}
@@ -128,6 +126,9 @@ func (r *RepoManagerApiImpl) GetFileFromRepo(getFileRequest GetFileRequest, orgN
 	_, err = buf.ReadFrom(resp.Body)
 	if err != nil {
 		panic(err)
+	}
+	if resp.StatusCode != 200 {
+		panic(buf.String())
 	}
 	return buf.String()
 }
