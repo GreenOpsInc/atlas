@@ -56,16 +56,4 @@ public class DataSerializationTest {
                 "  - deploy_to_dev";
         var pipelineObject = objectMapper.readValue(objectMapper.writeValueAsString(yamlObjectMapper.readValue(pipelineData, Object.class)), PipelineData.class);
     }
-
-    @Test
-    void testEventSerialization() throws JsonProcessingException {
-        var pipeline = new PipelineTriggerEvent("org", "team", "pipeline");
-        var stringRep = objectMapper.writeValueAsString(pipeline);
-        var readPipelineObj = objectMapper.readValue(stringRep, PipelineTriggerEvent.class);
-        System.out.println(stringRep);
-        System.out.println(readPipelineObj.getPipelineName());
-        System.out.println(readPipelineObj.getOrgName());
-        System.out.println(readPipelineObj.getTeamName());
-        System.out.println(readPipelineObj.getPipelineUvn());
-    }
 }
