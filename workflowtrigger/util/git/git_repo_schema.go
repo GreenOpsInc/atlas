@@ -2,6 +2,8 @@ package git
 
 import (
 	"encoding/json"
+
+	"gitlab.com/c0b/go-ordered-json"
 )
 
 const (
@@ -63,16 +65,13 @@ func UnmarshallGitRepoSchemaString(str string) GitRepoSchema {
 	return UnmarshallGitRepoSchema(m)
 }
 
-func MarshalGitRepoSchema(schema GitRepoSchema) map[string]interface{} {
-	bytes, err := json.Marshal(schema)
-	if err != nil {
-		panic(err)
-	}
-	var mapObj map[string]interface{}
-	err = json.Unmarshal(bytes, &mapObj)
-	if err != nil {
-		panic(err)
-	}
-	mapObj["gitCred"] = MarshalGitCred(schema.GetGitCred())
+func MarshalGitRepoSchema(schema GitRepoSchema) *ordered.OrderedMap {
+	mapObj := ordered.NewOrderedMap()
+	mapObj.Set("gitRepo", schema.GitRepo)
+	mapObj.Set("pathToRoot", schema.PathToRoot)
+
+	cred := MarshalGitCred(schema.GetGitCred())
+	mapObj.Set("gitCred", cred)
+
 	return mapObj
 }

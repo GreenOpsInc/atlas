@@ -2,6 +2,8 @@ package auditlog
 
 import (
 	"encoding/json"
+
+	"gitlab.com/c0b/go-ordered-json"
 	"greenops.io/workflowtrigger/util/serializerutil"
 )
 
@@ -113,23 +115,38 @@ func UnmarshallString(str string) Log {
 	return Unmarshall(m)
 }
 
-func Marshal(log Log) map[string]interface{} {
+func Marshal(log Log) *ordered.OrderedMap {
+	mapObj := ordered.NewOrderedMap()
 	switch log.(type) {
 	case *RemediationLog:
-		mapObj := serializerutil.GetMapFromStruct(log)
-		mapObj["type"] = serializerutil.RemediationLogType
+		remLog := log.(*RemediationLog)
+		mapObj.Set("pipelineUniqueVersionNumber", remLog.PipelineUniqueVersionNumber)
+		mapObj.Set("uniqueVersionInstance", remLog.UniqueVersionInstance)
+		mapObj.Set("unhealthyResources", remLog.UnhealthyResources)
+		mapObj.Set("remediationStatus", remLog.RemediationStatus)
+		mapObj.Set("type", serializerutil.RemediationLogType)
 		return mapObj
 	default: //Deployment log
-		mapObj := serializerutil.GetMapFromStruct(log)
-		mapObj["type"] = serializerutil.DeploymentLogType
+		depLog := log.(*DeploymentLog)
+		mapObj.Set("pipelineUniqueVersionNumber", depLog.PipelineUniqueVersionNumber)
+		mapObj.Set("rollbackUniqueVersionNumber", depLog.RollbackUniqueVersionNumber)
+		mapObj.Set("uniqueVersionInstance", depLog.UniqueVersionInstance)
+		mapObj.Set("status", depLog.Status)
+		mapObj.Set("deploymentComplete", depLog.DeploymentComplete)
+		mapObj.Set("argoApplicationName", depLog.ArgoApplicationName)
+		mapObj.Set("argoRevisionHash", depLog.ArgoRevisionHash)
+		mapObj.Set("gitCommitVersion", depLog.GitCommitVersion)
+		mapObj.Set("brokenTest", depLog.BrokenTest)
+		mapObj.Set("brokenTestLog", depLog.BrokenTestLog)
+		mapObj.Set("type", serializerutil.DeploymentLogType)
 		return mapObj
 	}
 }
 
-func MarshalList(logList []Log) []interface{} {
-	var mapObj []interface{}
+func MarshalList(logList []Log) []*ordered.OrderedMap {
+	var mapArr []*ordered.OrderedMap
 	for _, val := range logList {
-		mapObj = append(mapObj, Marshal(val))
+		mapArr = append(mapArr, Marshal(val))
 	}
-	return mapObj
+	return mapArr
 }

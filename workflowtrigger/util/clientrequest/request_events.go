@@ -1,7 +1,7 @@
 package clientrequest
 
 import (
-	"encoding/json"
+	"gitlab.com/c0b/go-ordered-json"
 	"greenops.io/workflowtrigger/util/serializerutil"
 )
 
@@ -11,17 +11,11 @@ type ClientRequestPacket struct {
 	ClientRequest ClientRequestEvent `json:"clientRequest"`
 }
 
-func MarshalRequestPacket(packet ClientRequestPacket) map[string]interface{} {
-	bytes, err := json.Marshal(packet)
-	if err != nil {
-		panic(err)
-	}
-	var mapObj map[string]interface{}
-	err = json.Unmarshal(bytes, &mapObj)
-	if err != nil {
-		panic(err)
-	}
-	mapObj["clientRequest"] = MarshalRequestEvent(packet.ClientRequest)
+func MarshalRequestPacket(packet ClientRequestPacket) *ordered.OrderedMap {
+	mapObj := ordered.NewOrderedMap()
+	mapObj.Set("retryCount", packet.RetryCount)
+	mapObj.Set("namespace", packet.Namespace)
+	mapObj.Set("clientRequest", MarshalRequestEvent(packet.ClientRequest))
 	return mapObj
 }
 
@@ -55,15 +49,26 @@ func (r ClientDeployRequest) GetRequestEvent() string {
 	return serializerutil.DeployRequestEventType
 }
 
-func MarshalRequestEvent(event ClientRequestEvent) map[string]interface{} {
+func MarshalRequestEvent(event ClientRequestEvent) *ordered.OrderedMap {
+	mapObj := ordered.NewOrderedMap()
+
 	switch event.(type) {
 	case ClientDeployRequest:
-		mapObj := serializerutil.GetMapFromStruct(event)
-		mapObj["type"] = serializerutil.DeployRequestEventType
-		return mapObj
+		mapObj.Set("orgName", event.(*ClientDeployRequest).OrgName)
+		mapObj.Set("teamName", event.(*ClientDeployRequest).TeamName)
+		mapObj.Set("pipelineName", event.(*ClientDeployRequest).PipelineName)
+		mapObj.Set("pipelineUvn", event.(*ClientDeployRequest).PipelineUvn)
+		mapObj.Set("stepName", event.(*ClientDeployRequest).StepName)
+		mapObj.Set("responseEventType", event.(*ClientDeployRequest).ResponseEventType)
+		mapObj.Set("deployType", event.(*ClientDeployRequest).DeployType)
+		mapObj.Set("revisionHash", event.(*ClientDeployRequest).RevisionHash)
+		mapObj.Set("payload", event.(*ClientDeployRequest).Payload)
+		mapObj.Set("type", serializerutil.DeployRequestEventType)
 	default:
 		panic("Matching notification event type not found")
 	}
+
+	return mapObj
 }
 
 //*****
@@ -93,13 +98,24 @@ func (r ClientMarkNoDeployRequest) GetRequestId() string {
 	return r.RequestId
 }
 
-func MarshalNotificationEvent(event NotificationRequestEvent) map[string]interface{} {
+func MarshalNotificationEvent(event NotificationRequestEvent) *ordered.OrderedMap {
+	mapObj := ordered.NewOrderedMap()
+
 	switch event.(type) {
 	case ClientMarkNoDeployRequest:
-		mapObj := serializerutil.GetMapFromStruct(event)
-		mapObj["type"] = serializerutil.NoDeployNotificationEventType
-		return mapObj
+		mapObj.Set("orgName", event.(*ClientMarkNoDeployRequest).OrgName)
+		mapObj.Set("teamName", event.(*ClientMarkNoDeployRequest).TeamName)
+		mapObj.Set("pipelineName", event.(*ClientMarkNoDeployRequest).PipelineName)
+		mapObj.Set("pipelineUvn", event.(*ClientMarkNoDeployRequest).PipelineUvn)
+		mapObj.Set("stepName", event.(*ClientMarkNoDeployRequest).StepName)
+		mapObj.Set("requestId", event.(*ClientMarkNoDeployRequest).RequestId)
+		mapObj.Set("clusterName", event.(*ClientMarkNoDeployRequest).ClusterName)
+		mapObj.Set("namespace", event.(*ClientMarkNoDeployRequest).Namespace)
+		mapObj.Set("apply", event.(*ClientMarkNoDeployRequest).Apply)
+		mapObj.Set("type", serializerutil.NoDeployNotificationEventType)
 	default:
 		panic("Matching notification event type not found")
 	}
+
+	return mapObj
 }
