@@ -2,6 +2,7 @@ package team
 
 import (
 	"encoding/json"
+
 	"greenops.io/workflowtrigger/util/git"
 	"greenops.io/workflowtrigger/util/pipeline"
 )
@@ -55,10 +56,10 @@ func (p *TeamSchema) RemovePipeline(pipelineName string) {
 }
 
 // TODO: check values properly updated
-func (p *TeamSchema) UpdatePipeline(pipelineName string, schema git.GitRepoSchema) error {
+func (p *TeamSchema) UpdatePipeline(pipelineName string, schema git.GitRepoSchema) {
 	for idx, val := range p.Pipelines {
 		if val.GetPipelineName() == pipelineName {
-			p.Pipelines[idx] = schema
+			p.Pipelines[idx] = pipeline.New(pipelineName, schema)
 		}
 	}
 }

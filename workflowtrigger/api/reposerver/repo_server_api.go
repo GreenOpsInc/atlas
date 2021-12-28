@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"greenops.io/workflowtrigger/util/git"
-	"greenops.io/workflowtrigger/util/serializer"
 	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"greenops.io/workflowtrigger/util/git"
+	"greenops.io/workflowtrigger/util/serializer"
 )
 
 const (
@@ -27,6 +28,7 @@ type GetFileRequest struct {
 type RepoManagerApi interface {
 	CloneRepo(orgName string, gitRepoSchema git.GitRepoSchema) bool
 	DeleteRepo(gitRepoSchema git.GitRepoSchema) bool
+	UpdateRepo(orgName string, oldGitRepoSchema git.GitRepoSchema, newGitRepoSchema git.GitRepoSchema) bool
 	SyncRepo(gitRepoSchema git.GitRepoSchema) bool
 	GetFileFromRepo(getFileRequest GetFileRequest, orgName string, teamName string) string
 }
@@ -87,27 +89,12 @@ func (r *RepoManagerApiImpl) DeleteRepo(gitRepoSchema git.GitRepoSchema) bool {
 	return resp.StatusCode == 200
 }
 
-func (r *RepoManagerApiImpl) UpdateRepo(gitRepoSchema git.GitRepoSchema) bool {
-	// TODO: update repo schema
-	//		we can create an additional endpoint on reposerver
-	//		or just call delete-create endpoints
-
-	var err error
-	var payload []byte
-	var request *http.Request
-	payload = []byte(serializer.Serialize(gitRepoSchema))
-	request, err = http.NewRequest("POST", r.serverEndpoint+"/delete", bytes.NewBuffer(payload))
-	if err != nil {
-		panic(err)
+// TODO: check repo properly updated
+func (r *RepoManagerApiImpl) UpdateRepo(orgName string, oldGitRepoSchema git.GitRepoSchema, newGitRepoSchema git.GitRepoSchema) bool {
+	if deleted := r.DeleteRepo(oldGitRepoSchema); !deleted {
+		return false
 	}
-	request.Header.Set("Content-Type", "application/json")
-	resp, err := r.client.Do(request)
-	if err != nil {
-		panic(err)
-	}
-	defer resp.Body.Close()
-	log.Printf("Sync repo request returned status code %d", resp.StatusCode)
-	return resp.StatusCode == 200
+	return r.CloneRepo(orgName, newGitRepoSchema)
 }
 
 func (r *RepoManagerApiImpl) SyncRepo(gitRepoSchema git.GitRepoSchema) bool {

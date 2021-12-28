@@ -2,6 +2,9 @@ package kubernetesclient
 
 import (
 	"context"
+	"log"
+	"strings"
+
 	"greenops.io/workflowtrigger/util/git"
 	"greenops.io/workflowtrigger/util/serializer"
 	corev1 "k8s.io/api/core/v1"
@@ -10,8 +13,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"log"
-	"strings"
 )
 
 const (
@@ -51,7 +52,12 @@ func New() KubernetesClient {
 }
 
 func (k KubernetesClientDriver) StoreGitCred(gitCred git.GitCred, name string) bool {
-	err := k.storeSecret(gitCred.(interface{}), gitCredNamespace, name)
+	var err error
+	if gitCred == nil {
+		err = k.storeSecret(nil, gitCredNamespace, name)
+	} else {
+		err = k.storeSecret(gitCred.(interface{}), gitCredNamespace, name)
+	}
 	if err != nil {
 		return false
 	}

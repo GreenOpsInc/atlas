@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"time"
+
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	"github.com/argoproj/argo-cd/v2/util/errors"
 	"github.com/argoproj/argo-cd/v2/util/localconfig"
 	"github.com/spf13/cobra"
-	"io"
-	"net/http"
-	"time"
 )
 
 // pipelineSyncCmd represents the pipelineSync command
@@ -114,6 +115,7 @@ Example usage:
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
 
 		client := &http.Client{Timeout: 20 * time.Second}
+		fmt.Println("url: ", url)
 		resp, err := client.Do(req)
 		if err != nil {
 			fmt.Println("Request failed with the following error:", err)

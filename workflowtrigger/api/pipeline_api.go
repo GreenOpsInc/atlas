@@ -184,6 +184,7 @@ func getPipeline(orgName string, teamName string, pipelineName string) *pipeline
 	return pipelineSchema
 }
 
+// TODO: delete PipelineInfo, step Logs, and step Metadata
 func deletePipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
@@ -218,7 +219,50 @@ func deletePipeline(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func updatePipeline(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	orgName := vars[orgNameField]
+	teamName := vars[teamNameField]
+	pipelineName := vars[pipelineNameField]
+	key := db.MakeDbTeamKey(orgName, teamName)
+
+	var gitRepoUpd git.GitRepoSchema
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	gitRepoUpd = git.UnmarshallGitRepoSchemaString(string(buf.Bytes()))
+
+	teamSchema := dbClient.FetchTeamSchema(key)
+	if teamSchema.GetOrgName() == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if teamSchema.GetPipelineSchema(pipelineName) == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, teamSchema.GetPipelineSchema(pipelineName).GetGitRepoSchema().GitRepo, reposerver.RootCommit, string(argoauthenticator.UpdateAction), string(argoauthenticator.ApplicationResource)) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
+	}
+	kubernetesClient.StoreGitCred(nil, db.MakeSecretName(orgName, teamName, pipelineName))
+	gitRepo := teamSchema.GetPipelineSchema(pipelineName).GetGitRepoSchema()
+
+	teamSchema.UpdatePipeline(pipelineName, gitRepoUpd)
+
+	if !repoManagerApi.UpdateRepo(orgName, gitRepo, gitRepoUpd) {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	dbClient.StoreValue(key, teamSchema)
+	w.WriteHeader(http.StatusOK)
+	return
+}
+
 func syncPipeline(w http.ResponseWriter, r *http.Request) {
+	log.Println("in sync")
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	teamName := vars[teamNameField]
@@ -445,6 +489,7 @@ func InitPipelineTeamEndpoints(r *mux.Router) {
 	r.HandleFunc("/team/{orgName}/{teamName}", readTeam).Methods("GET")
 	r.HandleFunc("/team/{orgName}/{teamName}", deleteTeam).Methods("DELETE")
 	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", createPipeline).Methods("POST")
+	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", updatePipeline).Methods("PUT")
 	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", getPipelineEndpoint).Methods("GET")
 	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", deletePipeline).Methods("DELETE")
 	r.HandleFunc("/sync/{orgName}/{teamName}/{pipelineName}", syncPipeline).Methods("POST")
