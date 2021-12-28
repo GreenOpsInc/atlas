@@ -54,6 +54,15 @@ func (p *TeamSchema) RemovePipeline(pipelineName string) {
 	}
 }
 
+// TODO: check values properly updated
+func (p *TeamSchema) UpdatePipeline(pipelineName string, schema git.GitRepoSchema) error {
+	for idx, val := range p.Pipelines {
+		if val.GetPipelineName() == pipelineName {
+			p.Pipelines[idx] = schema
+		}
+	}
+}
+
 func (p *TeamSchema) GetPipelineNames() []string {
 	pipelineNames := make([]string, 0)
 	for _, val := range p.Pipelines {

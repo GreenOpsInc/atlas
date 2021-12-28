@@ -1,4 +1,7 @@
+/.idea/
+/cli/.idea/
 /workflowtrigger/.idea/
+/test_config/.idea/
 /workflowtrigger/.gradle/
 /workflowtrigger/build/
 /commanddelegator/.idea/

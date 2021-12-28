@@ -3,6 +3,10 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"log"
+	"net/http"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"greenops.io/workflowtrigger/api/argoauthenticator"
@@ -19,9 +23,6 @@ import (
 	"greenops.io/workflowtrigger/util/pipeline"
 	"greenops.io/workflowtrigger/util/serializer"
 	"greenops.io/workflowtrigger/util/team"
-	"log"
-	"net/http"
-	"time"
 )
 
 const (
@@ -446,10 +447,7 @@ func InitPipelineTeamEndpoints(r *mux.Router) {
 	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", createPipeline).Methods("POST")
 	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", getPipelineEndpoint).Methods("GET")
 	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", deletePipeline).Methods("DELETE")
-	r.HandleFunc("/sync/{orgName}/{teamName}/{pipelineName}/{revisionHash}", syncPipeline).Methods("POST")
-	r.HandleFunc("/sync/{orgName}/{teamName}/{pipelineName}/{revisionHash}/{stepName}", runSubPipeline).Methods("POST")
-	r.HandleFunc("/force/{orgName}/{teamName}/{pipelineName}/{revisionHash}/{stepName}/{argoRevisionHash}", forceDeploy).Methods("POST")
-	r.HandleFunc("/client/generateNotification/{requestId}", generateNotification).Methods("POST")
+	r.HandleFunc("/sync/{orgName}/{teamName}/{pipelineName}", syncPipeline).Methods("POST")
 	r.HandleFunc("/client/{orgName}/{clusterName}/generateEvent", generateEventEndpoint).Methods("POST")
 }
 

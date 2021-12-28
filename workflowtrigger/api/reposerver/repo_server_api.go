@@ -87,6 +87,29 @@ func (r *RepoManagerApiImpl) DeleteRepo(gitRepoSchema git.GitRepoSchema) bool {
 	return resp.StatusCode == 200
 }
 
+func (r *RepoManagerApiImpl) UpdateRepo(gitRepoSchema git.GitRepoSchema) bool {
+	// TODO: update repo schema
+	//		we can create an additional endpoint on reposerver
+	//		or just call delete-create endpoints
+
+	var err error
+	var payload []byte
+	var request *http.Request
+	payload = []byte(serializer.Serialize(gitRepoSchema))
+	request, err = http.NewRequest("POST", r.serverEndpoint+"/delete", bytes.NewBuffer(payload))
+	if err != nil {
+		panic(err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	resp, err := r.client.Do(request)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	log.Printf("Sync repo request returned status code %d", resp.StatusCode)
+	return resp.StatusCode == 200
+}
+
 func (r *RepoManagerApiImpl) SyncRepo(gitRepoSchema git.GitRepoSchema) bool {
 	var err error
 	var payload []byte
