@@ -3,14 +3,15 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"log"
+	"net/http"
+	"os"
+
 	"github.com/gorilla/mux"
 	"greenops.io/workflowtrigger/api/argoauthenticator"
 	"greenops.io/workflowtrigger/db"
 	"greenops.io/workflowtrigger/util/clientrequest"
 	"greenops.io/workflowtrigger/util/cluster"
-	"log"
-	"net/http"
-	"os"
 )
 
 const (

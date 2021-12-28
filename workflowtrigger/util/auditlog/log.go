@@ -125,7 +125,6 @@ func Marshal(log Log) *ordered.OrderedMap {
 		mapObj.Set("unhealthyResources", remLog.UnhealthyResources)
 		mapObj.Set("remediationStatus", remLog.RemediationStatus)
 		mapObj.Set("type", serializerutil.RemediationLogType)
-		return mapObj
 	default: //Deployment log
 		depLog := log.(*DeploymentLog)
 		mapObj.Set("pipelineUniqueVersionNumber", depLog.PipelineUniqueVersionNumber)
@@ -139,8 +138,9 @@ func Marshal(log Log) *ordered.OrderedMap {
 		mapObj.Set("brokenTest", depLog.BrokenTest)
 		mapObj.Set("brokenTestLog", depLog.BrokenTestLog)
 		mapObj.Set("type", serializerutil.DeploymentLogType)
-		return mapObj
 	}
+
+	return mapObj
 }
 
 func MarshalList(logList []Log) []*ordered.OrderedMap {
