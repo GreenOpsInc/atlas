@@ -78,7 +78,6 @@ func MarshallPipelineStatus(status PipelineStatus) *ordered.OrderedMap {
 	mapObj.Set("progressingSteps", status.ProgressingSteps)
 	mapObj.Set("stable", status.Stable)
 	mapObj.Set("cancelled", status.Cancelled)
-	// TODO: check that inner list is properly marshalled
 	mapObj.Set("failedSteps", failedStepsList)
 	return mapObj
 }
