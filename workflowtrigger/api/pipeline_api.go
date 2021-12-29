@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -184,7 +185,6 @@ func getPipeline(orgName string, teamName string, pipelineName string) *pipeline
 	return pipelineSchema
 }
 
-// TODO: delete PipelineInfo, step Logs, and step Metadata
 func deletePipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
@@ -213,10 +213,19 @@ func deletePipeline(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	if err := clearPipelineData(orgName, teamName, pipelineName); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	dbClient.StoreValue(key, teamSchema)
 	w.WriteHeader(http.StatusOK)
 	return
+}
+
+func clearPipelineData(orgName string, teamName string, pipelineName string) error {
+	prefix := fmt.Sprintf("%s-%s-%s", orgName, teamName, pipelineName)
+	return dbClient.DeleteByPrefix(prefix)
 }
 
 func updatePipeline(w http.ResponseWriter, r *http.Request) {
@@ -262,7 +271,6 @@ func updatePipeline(w http.ResponseWriter, r *http.Request) {
 }
 
 func syncPipeline(w http.ResponseWriter, r *http.Request) {
-	log.Println("in sync")
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	teamName := vars[teamNameField]
@@ -492,7 +500,10 @@ func InitPipelineTeamEndpoints(r *mux.Router) {
 	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", updatePipeline).Methods("PUT")
 	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", getPipelineEndpoint).Methods("GET")
 	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", deletePipeline).Methods("DELETE")
-	r.HandleFunc("/sync/{orgName}/{teamName}/{pipelineName}", syncPipeline).Methods("POST")
+	r.HandleFunc("/sync/{orgName}/{teamName}/{pipelineName}/{revisionHash}", syncPipeline).Methods("POST")
+	r.HandleFunc("/sync/{orgName}/{teamName}/{pipelineName}/{revisionHash}/{stepName}", runSubPipeline).Methods("POST")
+	r.HandleFunc("/force/{orgName}/{teamName}/{pipelineName}/{revisionHash}/{stepName}/{argoRevisionHash}", forceDeploy).Methods("POST")
+	r.HandleFunc("/client/generateNotification/{requestId}", generateNotification).Methods("POST")
 	r.HandleFunc("/client/{orgName}/{clusterName}/generateEvent", generateEventEndpoint).Methods("POST")
 }
 
