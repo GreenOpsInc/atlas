@@ -69,7 +69,6 @@ func getRawArgoClient(apiServerAddress string) (apiclient.Client, bool) {
 }
 
 func (a *ArgoAuthenticatorApiImpl) getConfiguredArgoClient(token string) {
-	log.Println("in getConfiguredArgoClient")
 	argoClient, err := apiclient.NewClient(&apiclient.ClientOptions{
 		Insecure:   true,
 		ServerAddr: a.apiServerAddress,
