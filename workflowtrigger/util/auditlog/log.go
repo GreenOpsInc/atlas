@@ -120,13 +120,14 @@ func Marshal(log Log) *ordered.OrderedMap {
 	switch log.(type) {
 	case *RemediationLog:
 		remLog := log.(*RemediationLog)
+		mapObj.Set("type", serializerutil.RemediationLogType)
 		mapObj.Set("pipelineUniqueVersionNumber", remLog.PipelineUniqueVersionNumber)
 		mapObj.Set("uniqueVersionInstance", remLog.UniqueVersionInstance)
 		mapObj.Set("unhealthyResources", remLog.UnhealthyResources)
 		mapObj.Set("remediationStatus", remLog.RemediationStatus)
-		mapObj.Set("type", serializerutil.RemediationLogType)
 	default: //Deployment log
 		depLog := log.(*DeploymentLog)
+		mapObj.Set("type", serializerutil.DeploymentLogType)
 		mapObj.Set("pipelineUniqueVersionNumber", depLog.PipelineUniqueVersionNumber)
 		mapObj.Set("rollbackUniqueVersionNumber", depLog.RollbackUniqueVersionNumber)
 		mapObj.Set("uniqueVersionInstance", depLog.UniqueVersionInstance)
@@ -137,7 +138,6 @@ func Marshal(log Log) *ordered.OrderedMap {
 		mapObj.Set("gitCommitVersion", depLog.GitCommitVersion)
 		mapObj.Set("brokenTest", depLog.BrokenTest)
 		mapObj.Set("brokenTestLog", depLog.BrokenTestLog)
-		mapObj.Set("type", serializerutil.DeploymentLogType)
 	}
 
 	return mapObj

@@ -2,7 +2,6 @@ package event
 
 import (
 	"github.com/google/uuid"
-	"gitlab.com/c0b/go-ordered-json"
 	"greenops.io/workflowtrigger/util/serializerutil"
 )
 
@@ -49,17 +48,11 @@ func (p *PipelineTriggerEvent) GetUvn() string {
 	return p.Uvn
 }
 
-func MarshalEvent(event Event) *ordered.OrderedMap {
-	mapObj := ordered.NewOrderedMap()
+func MarshalEvent(event Event) map[string]interface{} {
 	switch event.(type) {
 	case *PipelineTriggerEvent:
-		mapObj.Set("orgName", event.(*PipelineTriggerEvent).OrgName)
-		mapObj.Set("teamName", event.(*PipelineTriggerEvent).TeamName)
-		mapObj.Set("pipelineName", event.(*PipelineTriggerEvent).PipelineName)
-		mapObj.Set("pipelineUvn", event.(*PipelineTriggerEvent).Uvn)
-		mapObj.Set("stepName", event.(*PipelineTriggerEvent).StepName)
-		mapObj.Set("revisionHash", event.(*PipelineTriggerEvent).RevisionHash)
-		mapObj.Set("type", serializerutil.PipelineTriggerEventType)
+		mapObj := serializerutil.GetMapFromStruct(event)
+		mapObj["type"] = serializerutil.PipelineTriggerEventType
 		return mapObj
 	default:
 		panic("Matching event type not found")
