@@ -30,13 +30,13 @@ func Serialize(object interface{}) string {
 	case git.GitCred:
 		bytes, err = git.MarshalGitCred(object.(git.GitCred)).MarshalJSON()
 	case event.Event:
-		bytes, err = event.MarshalEvent(object.(event.Event)).MarshalJSON()
+		bytes, err = json.Marshal(event.MarshalEvent(object.(event.Event)))
 	case clientrequest.NotificationRequestEvent:
-		bytes, err = clientrequest.MarshalNotificationEvent(object.(clientrequest.NotificationRequestEvent)).MarshalJSON()
+		bytes, err = json.Marshal(clientrequest.MarshalNotificationEvent(object.(clientrequest.NotificationRequestEvent)))
 	case clientrequest.ClientRequestPacket:
-		bytes, err = clientrequest.MarshalRequestPacket(object.(clientrequest.ClientRequestPacket)).MarshalJSON()
+		bytes, err = json.Marshal(clientrequest.MarshalRequestPacket(object.(clientrequest.ClientRequestPacket)))
 	case clientrequest.ClientRequestEvent:
-		bytes, err = clientrequest.MarshalRequestEvent(object.(clientrequest.ClientRequestEvent)).MarshalJSON()
+		bytes, err = json.Marshal(clientrequest.MarshalRequestEvent(object.(clientrequest.ClientRequestEvent)))
 	case string:
 		return object.(string)
 	default:
