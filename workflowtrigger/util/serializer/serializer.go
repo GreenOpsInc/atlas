@@ -2,6 +2,7 @@ package serializer
 
 import (
 	"encoding/json"
+
 	"greenops.io/workflowtrigger/pipelinestatus"
 	"greenops.io/workflowtrigger/util/auditlog"
 	"greenops.io/workflowtrigger/util/clientrequest"
@@ -17,17 +18,17 @@ func Serialize(object interface{}) string {
 	var bytes []byte
 	switch object.(type) {
 	case pipelinestatus.PipelineStatus:
-		bytes, err = json.Marshal(pipelinestatus.MarshallPipelineStatus(object.(pipelinestatus.PipelineStatus)))
+		bytes, err = pipelinestatus.MarshallPipelineStatus(object.(pipelinestatus.PipelineStatus)).MarshalJSON()
 	case []auditlog.Log:
 		bytes, err = json.Marshal(auditlog.MarshalList(object.([]auditlog.Log)))
 	case auditlog.Log:
-		bytes, err = json.Marshal(auditlog.Marshal(object.(auditlog.Log)))
+		bytes, err = auditlog.Marshal(object.(auditlog.Log)).MarshalJSON()
 	case git.GitRepoSchema:
-		bytes, err = json.Marshal(git.MarshalGitRepoSchema(object.(git.GitRepoSchema)))
+		bytes, err = git.MarshalGitRepoSchema(object.(git.GitRepoSchema)).MarshalJSON()
 	case team.TeamSchema:
-		bytes, err = json.Marshal(team.MarshalTeamSchema(object.(team.TeamSchema)))
+		bytes, err = team.MarshalTeamSchema(object.(team.TeamSchema)).MarshalJSON()
 	case git.GitCred:
-		bytes, err = json.Marshal(git.MarshalGitCred(object.(git.GitCred)))
+		bytes, err = git.MarshalGitCred(object.(git.GitCred)).MarshalJSON()
 	case event.Event:
 		bytes, err = json.Marshal(event.MarshalEvent(object.(event.Event)))
 	case clientrequest.NotificationRequestEvent:

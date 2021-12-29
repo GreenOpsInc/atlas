@@ -1,8 +1,6 @@
 package pipelinestatus
 
-import (
-	"encoding/json"
-)
+import "gitlab.com/c0b/go-ordered-json"
 
 type FailedStep struct {
 	Step             string `json:"step"`
@@ -11,15 +9,11 @@ type FailedStep struct {
 	BrokenTestLog    string `json:"brokenTestLog"`
 }
 
-func MarshallFailedStep(failedStep FailedStep) map[string]interface{} {
-	bytes, err := json.Marshal(failedStep)
-	if err != nil {
-		panic(err)
-	}
-	var mapObj map[string]interface{}
-	err = json.Unmarshal(bytes, &mapObj)
-	if err != nil {
-		panic(err)
-	}
+func MarshallFailedStep(failedStep FailedStep) *ordered.OrderedMap {
+	mapObj := ordered.NewOrderedMap()
+	mapObj.Set("step", failedStep.Step)
+	mapObj.Set("deploymentFailed", failedStep.DeploymentFailed)
+	mapObj.Set("brokenTest", failedStep.BrokenTest)
+	mapObj.Set("brokenTestLog", failedStep.BrokenTestLog)
 	return mapObj
 }

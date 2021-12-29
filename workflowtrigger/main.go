@@ -1,6 +1,11 @@
 package main
 
 import (
+	"log"
+	"net/http"
+	"os"
+	"time"
+
 	"github.com/gorilla/mux"
 	"greenops.io/workflowtrigger/api"
 	"greenops.io/workflowtrigger/api/argoauthenticator"
@@ -10,10 +15,6 @@ import (
 	"greenops.io/workflowtrigger/kafka"
 	"greenops.io/workflowtrigger/kubernetesclient"
 	"greenops.io/workflowtrigger/schemavalidation"
-	"log"
-	"net/http"
-	"os"
-	"time"
 )
 
 func main() {
