@@ -2,6 +2,8 @@ package team
 
 import (
 	"encoding/json"
+
+	"gitlab.com/c0b/go-ordered-json"
 	"greenops.io/workflowtrigger/util/git"
 	"greenops.io/workflowtrigger/util/pipeline"
 )
@@ -97,20 +99,17 @@ func UnmarshallTeamSchemaString(str string) TeamSchema {
 	return UnmarshallTeamSchema(m)
 }
 
-func MarshalTeamSchema(schema TeamSchema) map[string]interface{} {
-	bytes, err := json.Marshal(schema)
-	if err != nil {
-		panic(err)
-	}
-	var mapObj map[string]interface{}
-	err = json.Unmarshal(bytes, &mapObj)
-	if err != nil {
-		panic(err)
-	}
-	var pipelineInterfaceList []interface{}
+func MarshalTeamSchema(schema TeamSchema) *ordered.OrderedMap {
+	mapObj := ordered.NewOrderedMap()
+	mapObj.Set("teamName", schema.TeamName)
+	mapObj.Set("parentTeam", schema.ParentTeamName)
+	mapObj.Set("orgName", schema.OrgName)
+
+	var pipelineInterfaceList []*ordered.OrderedMap
 	for _, val := range schema.GetPipelineSchemas() {
 		pipelineInterfaceList = append(pipelineInterfaceList, pipeline.MarshalPipelineSchema(*val))
 	}
-	mapObj["pipelines"] = pipelineInterfaceList
+	mapObj.Set("pipelines", pipelineInterfaceList)
+
 	return mapObj
 }

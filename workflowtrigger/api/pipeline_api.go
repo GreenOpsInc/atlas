@@ -3,6 +3,10 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"log"
+	"net/http"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"greenops.io/workflowtrigger/api/argoauthenticator"
@@ -19,9 +23,6 @@ import (
 	"greenops.io/workflowtrigger/util/pipeline"
 	"greenops.io/workflowtrigger/util/serializer"
 	"greenops.io/workflowtrigger/util/team"
-	"log"
-	"net/http"
-	"time"
 )
 
 const (

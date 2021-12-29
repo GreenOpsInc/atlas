@@ -1,9 +1,11 @@
 package git
 
 import (
+	"strings"
+
+	"gitlab.com/c0b/go-ordered-json"
 	"greenops.io/workflowtrigger/util/serializerutil"
 	"k8s.io/apimachinery/pkg/util/json"
-	"strings"
 )
 
 const (
@@ -90,19 +92,20 @@ func UnmarshallGitCredString(str string) GitCred {
 	return UnmarshallGitCred(m)
 }
 
-func MarshalGitCred(gitCred GitCred) map[string]interface{} {
+func MarshalGitCred(gitCred GitCred) *ordered.OrderedMap {
+	mapObj := ordered.NewOrderedMap()
+
 	switch gitCred.(type) {
 	case *GitCredMachineUser:
-		mapObj := serializerutil.GetMapFromStruct(gitCred)
-		mapObj["type"] = serializerutil.GitCredMachineUserType
-		return mapObj
+		mapObj.Set("username", gitCred.(*GitCredMachineUser).Username)
+		mapObj.Set("password", gitCred.(*GitCredMachineUser).Password)
+		mapObj.Set("type", serializerutil.GitCredMachineUserType)
 	case *GitCredToken:
-		mapObj := serializerutil.GetMapFromStruct(gitCred)
-		mapObj["type"] = serializerutil.GitCredTokenType
-		return mapObj
+		mapObj.Set("token", gitCred.(*GitCredToken).Token)
+		mapObj.Set("type", serializerutil.GitCredTokenType)
 	default: //Open cred
-		mapObj := serializerutil.GetMapFromStruct(gitCred)
-		mapObj["type"] = serializerutil.GitCredOpenType
-		return mapObj
+		mapObj.Set("type", serializerutil.GitCredOpenType)
 	}
+
+	return mapObj
 }

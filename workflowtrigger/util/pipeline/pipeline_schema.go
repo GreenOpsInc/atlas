@@ -1,7 +1,7 @@
 package pipeline
 
 import (
-	"encoding/json"
+	"gitlab.com/c0b/go-ordered-json"
 	"greenops.io/workflowtrigger/util/git"
 )
 
@@ -41,22 +41,12 @@ func UnmarshallPipelineSchema(m map[string]interface{}) PipelineSchema {
 	}
 }
 
-func UnmarshallPipelineSchemaString(str string) PipelineSchema {
-	var m map[string]interface{}
-	_ = json.Unmarshal([]byte(str), &m)
-	return UnmarshallPipelineSchema(m)
-}
+func MarshalPipelineSchema(schema PipelineSchema) *ordered.OrderedMap {
+	mapObj := ordered.NewOrderedMap()
+	mapObj.Set("pipelineName", schema.PipelineName)
 
-func MarshalPipelineSchema(schema PipelineSchema) map[string]interface{} {
-	bytes, err := json.Marshal(schema)
-	if err != nil {
-		panic(err)
-	}
-	var mapObj map[string]interface{}
-	err = json.Unmarshal(bytes, &mapObj)
-	if err != nil {
-		panic(err)
-	}
-	mapObj["gitRepoSchema"] = git.MarshalGitRepoSchema(schema.GetGitRepoSchema())
+	repo := git.MarshalGitRepoSchema(schema.GetGitRepoSchema())
+	mapObj.Set("gitRepoSchema", repo)
+
 	return mapObj
 }

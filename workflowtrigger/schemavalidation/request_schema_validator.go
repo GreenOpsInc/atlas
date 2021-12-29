@@ -2,6 +2,7 @@ package schemavalidation
 
 import (
 	"fmt"
+
 	"gopkg.in/yaml.v2"
 	"greenops.io/workflowtrigger/api/argoauthenticator"
 	"greenops.io/workflowtrigger/api/reposerver"

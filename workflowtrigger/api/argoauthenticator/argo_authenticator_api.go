@@ -3,14 +3,15 @@ package argoauthenticator
 import (
 	"context"
 	"fmt"
-	"github.com/argoproj/argo-cd/pkg/apiclient"
-	"github.com/argoproj/argo-cd/pkg/apiclient/account"
-	grpcutil "github.com/argoproj/argo-cd/util/grpc"
-	"google.golang.org/grpc/status"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/argoproj/argo-cd/pkg/apiclient"
+	"github.com/argoproj/argo-cd/pkg/apiclient/account"
+	grpcutil "github.com/argoproj/argo-cd/util/grpc"
+	"google.golang.org/grpc/status"
 )
 
 type RbacResource string

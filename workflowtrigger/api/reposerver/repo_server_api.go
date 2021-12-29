@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"greenops.io/workflowtrigger/util/git"
-	"greenops.io/workflowtrigger/util/serializer"
 	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"greenops.io/workflowtrigger/util/git"
+	"greenops.io/workflowtrigger/util/serializer"
 )
 
 const (
