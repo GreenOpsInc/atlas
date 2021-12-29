@@ -1,5 +1,3 @@
-export SHELL=/bin/bash
-
 minikubestatus=$(minikube status | grep host)
 if [[ $minikubestatus != 'host: Running' ]]
 then
