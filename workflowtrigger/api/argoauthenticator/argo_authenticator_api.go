@@ -84,7 +84,6 @@ func (a *ArgoAuthenticatorApiImpl) getConfiguredArgoClient(token string) {
 
 func (a *ArgoAuthenticatorApiImpl) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println("in middleware http.HandlerFunc")
 		token := r.Header.Get("Authorization")
 		splitToken := strings.Split(token, "Bearer ")
 		token = splitToken[1]
@@ -92,7 +91,6 @@ func (a *ArgoAuthenticatorApiImpl) Middleware(next http.Handler) http.Handler {
 
 		defer func() {
 			if err := recover(); err != nil {
-				log.Println("in recover err: ", err)
 				switch err.(type) {
 				case string:
 					if strings.Contains(err.(string), "code = Unauthenticated") {
@@ -110,7 +108,6 @@ func (a *ArgoAuthenticatorApiImpl) Middleware(next http.Handler) http.Handler {
 							http.Error(w, "User is unauthenticated", http.StatusUnauthorized)
 						}
 					} else {
-						log.Println("in the error clause: ", err)
 						log.Printf("Interal error occurred: %s", err.(error).Error())
 						http.Error(w, err.(error).Error(), http.StatusInternalServerError)
 					}
@@ -126,7 +123,6 @@ func (a *ArgoAuthenticatorApiImpl) Middleware(next http.Handler) http.Handler {
 }
 
 func (a *ArgoAuthenticatorApiImpl) CheckRbacPermissions(action RbacAction, resource RbacResource, subresource string) bool {
-	log.Println("in CheckRbacPermissions")
 	closer, client, err := a.configuredClient.NewAccountClient()
 	if err != nil {
 		panic(fmt.Sprintf("account client could not be made for Argo: %s", err))

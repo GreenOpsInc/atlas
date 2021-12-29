@@ -89,7 +89,6 @@ func (r *RepoManagerApiImpl) DeleteRepo(gitRepoSchema git.GitRepoSchema) bool {
 	return resp.StatusCode == 200
 }
 
-// TODO: check repo properly updated
 func (r *RepoManagerApiImpl) UpdateRepo(orgName string, oldGitRepoSchema git.GitRepoSchema, newGitRepoSchema git.GitRepoSchema) bool {
 	if deleted := r.DeleteRepo(oldGitRepoSchema); !deleted {
 		return false
