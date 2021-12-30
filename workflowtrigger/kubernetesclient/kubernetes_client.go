@@ -2,6 +2,16 @@ package kubernetesclient
 
 import (
 	"context"
+	"log"
+	"strings"
+	"time"
+
+	"k8s.io/client-go/tools/cache"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"k8s.io/client-go/dynamic/dynamicinformer"
+
 	"greenops.io/workflowtrigger/util/git"
 	"greenops.io/workflowtrigger/util/serializer"
 	corev1 "k8s.io/api/core/v1"
@@ -10,8 +20,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"log"
-	"strings"
 )
 
 const (
@@ -23,12 +31,21 @@ type KubernetesClient interface {
 	StoreGitCred(gitCred git.GitCred, name string) bool
 	FetchGitCred(name string) git.GitCred
 	FetchSecretData(name string, namespace string) map[string][]byte
+	WatchSecretData(name string, namespace string, handler func(action SecretChangeType, obj interface{}))
 }
 
 type KubernetesClientDriver struct {
 	client        *kubernetes.Clientset
 	dynamicClient dynamic.Interface
 }
+
+type SecretChangeType int8
+
+const (
+	SecretChangeTypeAdd    SecretChangeType = 1
+	SecretChangeTypeUpdate SecretChangeType = 2
+	SecretChangeTypeDelete SecretChangeType = 3
+)
 
 //TODO: ALL functions should have a callee tag on them
 func New() KubernetesClient {
@@ -70,11 +87,47 @@ func (k KubernetesClientDriver) FetchGitCred(name string) git.GitCred {
 }
 
 func (k KubernetesClientDriver) FetchSecretData(name string, namespace string) map[string][]byte {
+	log.Printf("in WatchSecretData, name = %s, namespace = %s\n", name, namespace)
 	secret := k.readSecret(namespace, name)
+	log.Printf("in WatchSecretData, secret = %v\n", secret)
 	if secret != nil {
+		log.Printf("in WatchSecretData, secret.Data = %v\n", secret.Data)
 		return secret.Data
 	}
 	return nil
+}
+
+func (k KubernetesClientDriver) WatchSecretData(name string, namespace string, handler func(action SecretChangeType, obj interface{})) {
+	log.Println("in WatchSecretData")
+	resource := schema.GroupVersionResource{Group: "core", Version: "v1", Resource: "secrets"}
+	factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(k.dynamicClient, time.Second*3, namespace, nil)
+	informer := factory.ForResource(resource).Informer()
+	log.Printf("in WatchSecretData, informer = %v\n", informer)
+
+	// TODO: fix the error:
+	//		reflector.go:127] pkg/mod/k8s.io/client-go@v0.19.6/tools/cache/reflector.go:156:
+	//		Failed to watch *unstructured.Unstructured: failed to list *unstructured.Unstructured: secrets.core is forbidden:
+	//		User "system:serviceaccount:default:default" cannot list resource "secrets" in API group "core" in the namespace "default"
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			log.Printf("in WatchSecretData, informer add handler. obj = %v\n", obj)
+			// TODO: filter by name
+			handler(SecretChangeTypeAdd, obj)
+		},
+		UpdateFunc: func(_, newObj interface{}) {
+			log.Printf("in WatchSecretData, informer update handler. newObj = %v\n", newObj)
+			// TODO: filter by name
+			handler(SecretChangeTypeUpdate, newObj)
+		},
+		DeleteFunc: func(obj interface{}) {
+			log.Printf("in WatchSecretData, informer delete handler. obj = %v\n", obj)
+			// TODO: filter by name
+			handler(SecretChangeTypeDelete, obj)
+		},
+	})
+
+	// TODO: add channel from context and close it from outside
+	informer.Run(make(chan struct{}))
 }
 
 func (k KubernetesClientDriver) storeSecret(object interface{}, namespace string, name string) error {

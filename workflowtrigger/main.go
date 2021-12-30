@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
+	"crypto/tls"
 	"log"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -15,6 +18,7 @@ import (
 	"greenops.io/workflowtrigger/kafka"
 	"greenops.io/workflowtrigger/kubernetesclient"
 	"greenops.io/workflowtrigger/schemavalidation"
+	"greenops.io/workflowtrigger/util/tlsmanager"
 )
 
 func main() {
@@ -25,6 +29,7 @@ func main() {
 	var commandDelegatorApi commanddelegator.CommandDelegatorApi
 	var argoAuthenticatorApi argoauthenticator.ArgoAuthenticatorApi
 	var schemaValidator schemavalidation.RequestSchemaValidator
+	var tlsManager tlsmanager.Manager
 	dbClient = db.New(GetDbClientConfig())
 	kafkaClient = kafka.New(GetKafkaClientConfig())
 	kubernetesClient = kubernetesclient.New()
@@ -32,6 +37,8 @@ func main() {
 	commandDelegatorApi = commanddelegator.New(GetCommandDelegatorServerClientConfig())
 	argoAuthenticatorApi = argoauthenticator.New()
 	schemaValidator = schemavalidation.New(argoAuthenticatorApi, repoManagerApi)
+	tlsManager = tlsmanager.New(kubernetesClient)
+
 	r := mux.NewRouter()
 	r.Use(argoAuthenticatorApi.(*argoauthenticator.ArgoAuthenticatorApiImpl).Middleware)
 	api.InitClients(dbClient, kafkaClient, kubernetesClient, repoManagerApi, commandDelegatorApi, schemaValidator)
@@ -40,14 +47,62 @@ func main() {
 	api.InitStatusEndpoints(r)
 	api.InitClusterEndpoints(r)
 
-	srv := &http.Server{
-		Handler:      r,
+	startAndWatchServer(tlsManager, r)
+}
+
+func startAndWatchServer(tlsManager tlsmanager.Manager, r *mux.Router) {
+	log.Println("in startAndWatchServer")
+	httpServerExitDone := &sync.WaitGroup{}
+	httpServerExitDone.Add(1)
+
+	tlsConfig, err := tlsManager.GetTLSConf()
+	if err != nil {
+		log.Fatal("failed to fetch tls configuration: ", err)
+	}
+
+	log.Println("in startAndWatchServer, before createServer")
+	srv := createServer(tlsConfig, r)
+	log.Println("in startAndWatchServer, before listenAndServe")
+	go listenAndServe(httpServerExitDone, srv)
+
+	tlsManager.WatchTLSConf(func(conf *tls.Config, err error) {
+		log.Printf("in tlsManager.WatchTLSConf, conf = %v, err = %v\n", conf, err)
+		if err != nil {
+			defer httpServerExitDone.Done()
+			log.Fatal(err)
+		}
+
+		httpServerExitDone.Add(1)
+
+		if err := srv.Shutdown(context.Background()); err != nil {
+			log.Printf("in tlsManager.WatchTLSConf, srv.Shutdown. err = %v\n", err)
+			defer httpServerExitDone.Done()
+			log.Fatal(err)
+		}
+		log.Println("in tlsManager.WatchTLSConf, before createServer")
+		srv := createServer(conf, r)
+		log.Println("in tlsManager.WatchTLSConf, before listenAndServe")
+		go listenAndServe(httpServerExitDone, srv)
+	})
+
+	httpServerExitDone.Wait()
+}
+
+func createServer(tlsConf *tls.Config, handler http.Handler) *http.Server {
+	return &http.Server{
+		Handler:      handler,
 		Addr:         ":8080",
+		TLSConfig:    tlsConf,
 		WriteTimeout: 20 * time.Second,
 		ReadTimeout:  20 * time.Second,
 	}
+}
 
-	log.Fatal(srv.ListenAndServe())
+func listenAndServe(wg *sync.WaitGroup, srv *http.Server) {
+	defer wg.Done()
+	if err := srv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+		log.Fatal(err)
+	}
 }
 
 const (
