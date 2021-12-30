@@ -339,6 +339,16 @@ iaB0lKtlhUfML4tbzcYHvhiwPDZqefvIbD/WCt/tajJpG9C8EjHslj+XI0WvSQ6+
 	}
 	rootCAs.AppendCertsFromPEM([]byte(certPEM))
 
+	// TODO: guess it's a good idea to add certificates to the kubernetes secret
+	//		and other servers will have to pull and use this certificate
+	//		curently we are adding a certificate to root pool on each server
+	//		but maybe this certificate should be added by workflowtrigger
+	//		need to investigate more deeply
+	//		in a case we cannot reach root ca pool the certificate should be added to pool on each side
+	//		as in this case we will create a different pool on each side
+	// TODO: main certificate should be added by workflowtrigger
+	//		other servers should listen to secret and only start servers and clients
+	//		when secret is reachable and cert is parsed and added to the pools
 	log.Printf("in generateSelfSignedTLSConf, serverCert = %v\n", serverCert)
 	return &tls.Config{
 		Certificates:             []tls.Certificate{serverCert},

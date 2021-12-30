@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
-	"github.com/argoproj/argo-cd/v2/util/errors"
-	"github.com/argoproj/argo-cd/v2/util/localconfig"
-	"github.com/spf13/cobra"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
+	"github.com/argoproj/argo-cd/v2/util/errors"
+	"github.com/argoproj/argo-cd/v2/util/localconfig"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -62,7 +63,7 @@ Example usage:
 			} else {
 				count = 15
 			}
-			url = fmt.Sprintf("http://%s/status/%s/%s/pipeline/%s/history/%s", atlasURL, orgName, teamName, pipelineName, strconv.Itoa(count))
+			url = fmt.Sprintf("https://%s/status/%s/%s/pipeline/%s/history/%s", atlasURL, orgName, teamName, pipelineName, strconv.Itoa(count))
 		} else if stepFlagSet {
 			stepName, _ := cmd.Flags().GetString("step")
 			countFlagSet := cmd.Flags().Lookup("count").Changed
@@ -72,7 +73,7 @@ Example usage:
 			} else {
 				count = 15
 			}
-			url = fmt.Sprintf("http://%s/status/%s/%s/pipeline/%s/step/%s/%s", atlasURL, orgName, teamName, pipelineName, stepName, strconv.Itoa(count))
+			url = fmt.Sprintf("https://%s/status/%s/%s/pipeline/%s/step/%s/%s", atlasURL, orgName, teamName, pipelineName, stepName, strconv.Itoa(count))
 		} else {
 			var uvn string
 			if uvnFlagSet {
@@ -80,7 +81,7 @@ Example usage:
 			} else {
 				uvn = "LATEST"
 			}
-			url = fmt.Sprintf("http://%s/status/%s/%s/pipeline/%s/%s", atlasURL, orgName, teamName, pipelineName, uvn)
+			url = fmt.Sprintf("https://%s/status/%s/%s/pipeline/%s/%s", atlasURL, orgName, teamName, pipelineName, uvn)
 		}
 
 		defaultLocalConfigPath, err := localconfig.DefaultLocalConfigPath()

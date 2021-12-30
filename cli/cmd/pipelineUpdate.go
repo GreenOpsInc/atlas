@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	"github.com/argoproj/argo-cd/v2/util/errors"
 	"github.com/argoproj/argo-cd/v2/util/localconfig"
 	"github.com/spf13/cobra"
-	"net/http"
-	"time"
 )
 
 // pipelineUpdateCmd represents the pipelineUpdate command
@@ -55,7 +56,7 @@ Example usage:
 		config, _ := localconfig.ReadLocalConfig(defaultLocalConfigPath)
 		context, _ := config.ResolveContext(apiclient.ClientOptions{}.Context)
 
-		url := "http://" + atlasURL + "/pipeline/" + orgName + "/" + teamName + "/" + pipelineName
+		url := "https://" + atlasURL + "/pipeline/" + orgName + "/" + teamName + "/" + pipelineName
 
 		req, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(make([]byte, 0)))
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))

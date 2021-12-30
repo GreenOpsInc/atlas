@@ -3,16 +3,18 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"io/ioutil"
+
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	"github.com/argoproj/argo-cd/v2/util/errors"
 	"github.com/argoproj/argo-cd/v2/util/localconfig"
-	"io/ioutil"
 
 	// "strconv"
 	"fmt"
-	"github.com/spf13/cobra"
 	"net/http"
 	"time"
+
+	"github.com/spf13/cobra"
 )
 
 // clusterCreateCmd represents the clusterCreate command
@@ -25,19 +27,19 @@ Command to create a cluster. Specify the cluster name as the argument, and clust
 Example usage:
 	atlas cluster read cluster_name`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args)!=1 {
+		if len(args) != 1 {
 			fmt.Println("Invalid number of arguments. Run 'atlas cluster read -h' to see usage details")
 			return
 		}
 
-		clusterName:=args[0]
+		clusterName := args[0]
 
 		defaultLocalConfigPath, err := localconfig.DefaultLocalConfigPath()
 		errors.CheckError(err)
 		config, _ := localconfig.ReadLocalConfig(defaultLocalConfigPath)
 		context, _ := config.ResolveContext(apiclient.ClientOptions{}.Context)
 
-		url:= "http://"+atlasURL+"/cluster/"+orgName+"/"+clusterName
+		url := "https://" + atlasURL + "/cluster/" + orgName + "/" + clusterName
 
 		var req *http.Request
 
@@ -48,12 +50,12 @@ Example usage:
 		client := &http.Client{Timeout: 20 * time.Second}
 		resp, err := client.Do(req)
 		if err != nil {
-			fmt.Println("Request failed with the following error:",err)
+			fmt.Println("Request failed with the following error:", err)
 			return
 		}
 		body, err := ioutil.ReadAll(resp.Body)
 		statusCode := resp.StatusCode
-		if statusCode == 200{
+		if statusCode == 200 {
 			var prettyJSON bytes.Buffer
 			error := json.Indent(&prettyJSON, body, "", "\t")
 			if error != nil {
@@ -61,7 +63,7 @@ Example usage:
 				return
 			}
 			fmt.Println(string(prettyJSON.Bytes()))
-		} else{
+		} else {
 			fmt.Println("Error reading cluster")
 		}
 	},

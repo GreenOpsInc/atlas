@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	"github.com/argoproj/argo-cd/v2/util/errors"
 	"github.com/argoproj/argo-cd/v2/util/localconfig"
 	"github.com/spf13/cobra"
-	"net/http"
-	"time"
 )
 
 // teamDeleteCmd represents the teamDelete command
@@ -32,7 +33,7 @@ Example usage:
 		config, _ := localconfig.ReadLocalConfig(defaultLocalConfigPath)
 		context, _ := config.ResolveContext(apiclient.ClientOptions{}.Context)
 
-		url := "http://" + atlasURL + "/team/" + orgName + "/" + teamName
+		url := "https://" + atlasURL + "/team/" + orgName + "/" + teamName
 		req, _ := http.NewRequest("DELETE", url, nil)
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
 

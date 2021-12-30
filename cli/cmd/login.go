@@ -5,13 +5,14 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
-	"github.com/argoproj/argo-cd/v2/util/config"
 	"html"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/argoproj/argo-cd/v2/util/config"
 
 	"github.com/coreos/go-oidc"
 	"github.com/dgrijalva/jwt-go/v4"
@@ -217,7 +218,7 @@ func userDisplayName(claims jwt.MapClaims) string {
 // oauth2Login opens a browser, runs a temporary HTTP server to delegate OAuth2 login flow and
 // returns the JWT token and a refresh token (if supported)
 func oauth2Login(ctx context.Context, port int, oidcSettings *settingspkg.OIDCConfig, oauth2conf *oauth2.Config, provider *oidc.Provider) (string, string) {
-	oauth2conf.RedirectURL = fmt.Sprintf("http://localhost:%d/auth/callback", port)
+	oauth2conf.RedirectURL = fmt.Sprintf("https://localhost:%d/auth/callback", port)
 	oidcConf, err := oidcutil.ParseConfig(provider)
 	errors.CheckError(err)
 	log.Debug("OIDC Configuration:")

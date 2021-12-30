@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"time"
+
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	"github.com/argoproj/argo-cd/v2/util/errors"
 	"github.com/argoproj/argo-cd/v2/util/localconfig"
 	"github.com/spf13/cobra"
-	"io"
-	"net/http"
-	"time"
 )
 
 // pipelineSyncCmd represents the pipelineSync command
@@ -62,9 +63,9 @@ Example usage:
 		var url string
 		if stepFlagSet {
 			stepName, _ := cmd.Flags().GetString("step")
-			url = fmt.Sprintf("http://%s/sync/%s/%s/%s/%s/%s", atlasURL, orgName, teamName, pipelineName, pipelineRevisionHash, stepName)
+			url = fmt.Sprintf("https://%s/sync/%s/%s/%s/%s/%s", atlasURL, orgName, teamName, pipelineName, pipelineRevisionHash, stepName)
 		} else {
-			url = fmt.Sprintf("http://%s/sync/%s/%s/%s/%s", atlasURL, orgName, teamName, pipelineName, pipelineRevisionHash)
+			url = fmt.Sprintf("https://%s/sync/%s/%s/%s/%s", atlasURL, orgName, teamName, pipelineName, pipelineRevisionHash)
 		}
 
 		var req *http.Request

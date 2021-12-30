@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"time"
+
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	"github.com/argoproj/argo-cd/v2/util/errors"
 	"github.com/argoproj/argo-cd/v2/util/localconfig"
 	"github.com/spf13/cobra"
-	"io"
-	"net/http"
-	"time"
 )
 
 // pipelineCreateCmd represents the pipelineCreate command
@@ -56,7 +57,7 @@ Example usage:
 		config, _ := localconfig.ReadLocalConfig(defaultLocalConfigPath)
 		context, _ := config.ResolveContext(apiclient.ClientOptions{}.Context)
 
-		url := "http://" + atlasURL + "/pipeline/" + orgName + "/" + teamName + "/" + pipelineName
+		url := "https://" + atlasURL + "/pipeline/" + orgName + "/" + teamName + "/" + pipelineName
 
 		var req *http.Request
 

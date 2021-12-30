@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"time"
+
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	"github.com/argoproj/argo-cd/v2/util/errors"
 	"github.com/argoproj/argo-cd/v2/util/localconfig"
 	"github.com/spf13/cobra"
-	"io"
-	"net/http"
-	"time"
 )
 
 var (
@@ -62,7 +63,7 @@ Example usage:
 		config, _ := localconfig.ReadLocalConfig(defaultLocalConfigPath)
 		context, _ := config.ResolveContext(apiclient.ClientOptions{}.Context)
 
-		url := fmt.Sprintf("http://%s/force/%s/%s/%s/%s/%s/%s", atlasURL, orgName, teamName, pipelineName, pipelineRevisionHash, stepName, argoRevisionHash)
+		url := fmt.Sprintf("https://%s/force/%s/%s/%s/%s/%s/%s", atlasURL, orgName, teamName, pipelineName, pipelineRevisionHash, stepName, argoRevisionHash)
 
 		var req *http.Request
 

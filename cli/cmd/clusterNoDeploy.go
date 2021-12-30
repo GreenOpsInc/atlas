@@ -3,16 +3,18 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"io"
+
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	"github.com/argoproj/argo-cd/v2/util/errors"
 	"github.com/argoproj/argo-cd/v2/util/localconfig"
-	"io"
 
 	// "strconv"
 	"fmt"
-	"github.com/spf13/cobra"
 	"net/http"
 	"time"
+
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -46,7 +48,7 @@ Example usage:
 		config, _ := localconfig.ReadLocalConfig(defaultLocalConfigPath)
 		context, _ := config.ResolveContext(apiclient.ClientOptions{}.Context)
 
-		url := fmt.Sprintf("http://%s/cluster/%s/%s/noDeploy", atlasURL, orgName, clusterName)
+		url := fmt.Sprintf("https://%s/cluster/%s/%s/noDeploy", atlasURL, orgName, clusterName)
 
 		var req *http.Request
 
