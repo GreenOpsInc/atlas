@@ -32,6 +32,7 @@ type KubernetesClient interface {
 	FetchGitCred(name string) git.GitCred
 	FetchSecretData(name string, namespace string) map[string][]byte
 	WatchSecretData(name string, namespace string, handler func(action SecretChangeType, obj interface{}))
+	StoreTLSCert(cert string, name string, namespace string) bool
 }
 
 type KubernetesClientDriver struct {
@@ -69,6 +70,14 @@ func New() KubernetesClient {
 
 func (k KubernetesClientDriver) StoreGitCred(gitCred git.GitCred, name string) bool {
 	err := k.storeSecret(gitCred.(interface{}), gitCredNamespace, name)
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func (k KubernetesClientDriver) StoreTLSCert(cert string, name string, namespace string) bool {
+	err := k.storeSecret(cert, namespace, name)
 	if err != nil {
 		return false
 	}
