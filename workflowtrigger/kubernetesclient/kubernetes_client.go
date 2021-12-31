@@ -4,13 +4,6 @@ import (
 	"context"
 	"log"
 	"strings"
-	"time"
-
-	"k8s.io/client-go/tools/cache"
-
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"k8s.io/client-go/dynamic/dynamicinformer"
 
 	"greenops.io/workflowtrigger/util/git"
 	"greenops.io/workflowtrigger/util/serializer"
@@ -18,8 +11,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -29,10 +24,10 @@ const (
 
 type KubernetesClient interface {
 	StoreGitCred(gitCred git.GitCred, name string) bool
+	StoreTLSCert(cert string, name string, namespace string) bool
 	FetchGitCred(name string) git.GitCred
 	FetchSecretData(name string, namespace string) map[string][]byte
-	WatchSecretData(name string, namespace string, handler func(action SecretChangeType, obj interface{}))
-	StoreTLSCert(cert string, name string, namespace string) bool
+	WatchSecretData(name string, namespace string, handler WatchSecretHandler)
 }
 
 type KubernetesClientDriver struct {
@@ -47,6 +42,8 @@ const (
 	SecretChangeTypeUpdate SecretChangeType = 2
 	SecretChangeTypeDelete SecretChangeType = 3
 )
+
+type WatchSecretHandler func(action SecretChangeType, secret *corev1.Secret)
 
 //TODO: ALL functions should have a callee tag on them
 func New() KubernetesClient {
@@ -106,37 +103,39 @@ func (k KubernetesClientDriver) FetchSecretData(name string, namespace string) m
 	return nil
 }
 
-func (k KubernetesClientDriver) WatchSecretData(name string, namespace string, handler func(action SecretChangeType, obj interface{})) {
-	log.Println("in WatchSecretData")
-	resource := schema.GroupVersionResource{Group: "core", Version: "v1", Resource: "secrets"}
-	factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(k.dynamicClient, time.Second*3, namespace, nil)
-	informer := factory.ForResource(resource).Informer()
-	log.Printf("in WatchSecretData, informer = %v\n", informer)
+func (k KubernetesClientDriver) WatchSecretData(name string, namespace string, handler WatchSecretHandler) {
+	factory := informers.NewSharedInformerFactoryWithOptions(k.client, 0, informers.WithNamespace(namespace))
+	informer := factory.Core().V1().Secrets().Informer()
 
-	// TODO: fix the error:
-	//		reflector.go:127] pkg/mod/k8s.io/client-go@v0.19.6/tools/cache/reflector.go:156:
-	//		Failed to watch *unstructured.Unstructured: failed to list *unstructured.Unstructured: secrets.core is forbidden:
-	//		User "system:serviceaccount:default:default" cannot list resource "secrets" in API group "core" in the namespace "default"
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			log.Printf("in WatchSecretData, informer add handler. obj = %v\n", obj)
-			// TODO: filter by name
-			handler(SecretChangeTypeAdd, obj)
+			handleSecretInformerEvent(obj, name, SecretChangeTypeAdd, handler)
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			log.Printf("in WatchSecretData, informer update handler. newObj = %v\n", newObj)
-			// TODO: filter by name
-			handler(SecretChangeTypeUpdate, newObj)
+			handleSecretInformerEvent(newObj, name, SecretChangeTypeUpdate, handler)
 		},
 		DeleteFunc: func(obj interface{}) {
-			log.Printf("in WatchSecretData, informer delete handler. obj = %v\n", obj)
-			// TODO: filter by name
-			handler(SecretChangeTypeDelete, obj)
+			handleSecretInformerEvent(obj, name, SecretChangeTypeDelete, handler)
 		},
 	})
-
+	informer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+		log.Println("failed to watch secret values: ", err)
+	})
 	// TODO: add channel from context and close it from outside
 	informer.Run(make(chan struct{}))
+}
+
+func handleSecretInformerEvent(obj interface{}, name string, t SecretChangeType, handler WatchSecretHandler) {
+	secret, ok := obj.(*corev1.Secret)
+	if !ok {
+		log.Println("failed to parse secret data in secret informer")
+		return
+	}
+	if secret.Name != name {
+		return
+	}
+	log.Printf("in WatchSecretData, informer handler. type = %d secret data = %v\n", t, secret.Data)
+	handler(t, secret)
 }
 
 func (k KubernetesClientDriver) storeSecret(object interface{}, namespace string, name string) error {

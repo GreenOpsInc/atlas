@@ -14,6 +14,7 @@ import (
 	"time"
 
 	kclient "greenops.io/workflowtrigger/kubernetesclient"
+	corev1 "k8s.io/api/core/v1"
 )
 
 /* TODO
@@ -41,6 +42,11 @@ const (
 	atlasNamespace     = "default"
 )
 
+const (
+	secretCrtName = "tls.crt"
+	secretKeyName = "tls.key"
+)
+
 func New(k kclient.KubernetesClient) Manager {
 	return &tlsManager{k: k}
 }
@@ -61,23 +67,31 @@ func (m *tlsManager) GetTLSConf() (*tls.Config, error) {
 	return m.getSelfSignedTLSConf()
 }
 
+// TODO: to add a tls cert\key to secrets run:
+//		kubectl create secret tls atlas-server-tls --cert ./cert.pem --key ./key.pem
+// TODO: check that this wather is not trigger server reloading if cert is not changed
+//		it could possibly happend on server start when cert is available and we also receiving secret change event
 func (m *tlsManager) WatchTLSConf(handler func(conf *tls.Config, err error)) {
 	log.Println("in WatchTLSConf")
-	m.k.WatchSecretData(atlasTLSSecretName, atlasNamespace, func(t kclient.SecretChangeType, obj interface{}) {
-		log.Printf("in WatchTLSConf, event %v. data = %s\n", t, obj)
+	m.k.WatchSecretData(atlasTLSSecretName, atlasNamespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
+		log.Printf("in WatchTLSConf, event %v. data = %s\n", t, secret)
 		switch t {
 		case kclient.SecretChangeTypeAdd:
+			fallthrough
 		case kclient.SecretChangeTypeUpdate:
-			secret := obj.(map[string][]byte)
-			log.Printf("in WatchTLSConf, secret = %v\n", secret)
-			conf, err := m.generateTLSConfFromKeyPair(secret["cert"], secret["key"])
+			log.Printf("in WatchTLSConf, secret data = %v\n", secret.Data)
+			conf, err := m.generateTLSConfFromKeyPair(secret.Data[secretCrtName], secret.Data[secretKeyName])
 			log.Printf("in WatchTLSConf, conf = %v\n", conf)
 			if err != nil {
 				handler(nil, err)
 			}
 			handler(conf, nil)
 		case kclient.SecretChangeTypeDelete:
-			handler(m.selfSignedTLSConf, nil)
+			conf, err := m.getSelfSignedTLSConf()
+			if err != nil {
+				handler(nil, err)
+			}
+			handler(conf, nil)
 		}
 	})
 }
@@ -106,7 +120,7 @@ func (m *tlsManager) getTLSConfFromSecrets() (*tls.Config, error) {
 		return nil, nil
 	}
 
-	return m.generateTLSConfFromKeyPair(secret["tls.crt"], secret["tls.key"])
+	return m.generateTLSConfFromKeyPair(secret[secretCrtName], secret[secretKeyName])
 }
 
 func (m *tlsManager) generateTLSConfFromKeyPair(cert []byte, key []byte) (*tls.Config, error) {

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	"github.com/argoproj/argo-cd/v2/util/errors"
@@ -61,7 +60,7 @@ Example usage:
 		req, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(make([]byte, 0)))
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
 
-		client := &http.Client{Timeout: 20 * time.Second}
+		client := getHttpClient()
 		resp, err := client.Do(req)
 		if err != nil || resp.StatusCode != 200 {
 			fmt.Println("Request failed with the following error:", err)
