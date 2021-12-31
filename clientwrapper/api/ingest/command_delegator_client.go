@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/greenopsinc/util/clientrequest"
+	"github.com/greenopsinc/util/serializer"
+	"github.com/greenopsinc/util/serializerutil"
 	"greenops.io/client/argodriver"
-	"greenops.io/client/atlasoperator/requestdatatypes"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -27,7 +29,7 @@ const (
 )
 
 type CommandDelegatorApi interface {
-	GetCommands() (*[]requestdatatypes.RequestEvent, error)
+	GetCommands() (*[]clientrequest.ClientRequestEvent, error)
 	AckHeadOfRequestList() error
 	AckHeadOfNotificationList() error
 	RetryRequest() error
@@ -59,14 +61,14 @@ func Create(argoClient argodriver.ArgoAuthClient) CommandDelegatorApi {
 	return CommandDelegatorImpl{commandDelegatorUrl: commandDelegatorUrl, clusterName: clusterName, orgName: orgName, argoAuthClient: argoClient}
 }
 
-func (c CommandDelegatorImpl) GetCommands() (*[]requestdatatypes.RequestEvent, error) {
+func (c CommandDelegatorImpl) GetCommands() (*[]clientrequest.ClientRequestEvent, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", c.commandDelegatorUrl+fmt.Sprintf("/requests/%s/%s", c.orgName, c.clusterName), nil)
 	if err != nil {
 		log.Printf("Error while making getting commands request: %s", err)
 		return nil, err
 	}
-	req.Header.Add("Authorization", "Bearer " + c.argoAuthClient.GetAuthToken())
+	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", "application/json")
 	resp, err := client.Do(req)
@@ -84,46 +86,7 @@ func (c CommandDelegatorImpl) GetCommands() (*[]requestdatatypes.RequestEvent, e
 		log.Printf("Error while getting commands: %s", string(bodyBytes))
 		return nil, errors.New(string(bodyBytes))
 	}
-
-	var commands []requestdatatypes.RequestEvent
-	var jsonArray []map[string]interface{}
-	json.Unmarshal(bodyBytes, &jsonArray)
-	for _, command := range jsonArray {
-		commandType := command[EventTypeVariable].(string)
-
-		if commandType == requestdatatypes.ClientDeployRequestType {
-			var request requestdatatypes.ClientDeployRequest
-			json.Unmarshal(c.getBytesFromUnstructured(command), &request)
-			commands = append(commands, request)
-		} else if commandType == requestdatatypes.ClientDeleteByConfigRequestType {
-			var request requestdatatypes.ClientDeleteByConfigRequest
-			json.Unmarshal(c.getBytesFromUnstructured(command), &request)
-			commands = append(commands, request)
-		} else if commandType == requestdatatypes.ClientDeleteByGvkRequestType {
-			var request requestdatatypes.ClientDeleteByGvkRequest
-			json.Unmarshal(c.getBytesFromUnstructured(command), &request)
-			commands = append(commands, request)
-		} else if commandType == requestdatatypes.ClientDeployAndWatchRequestType {
-			var request requestdatatypes.ClientDeployAndWatchRequest
-			json.Unmarshal(c.getBytesFromUnstructured(command), &request)
-			commands = append(commands, request)
-		} else if commandType == requestdatatypes.ClientRollbackAndWatchRequestType {
-			var request requestdatatypes.ClientRollbackAndWatchRequest
-			json.Unmarshal(c.getBytesFromUnstructured(command), &request)
-			commands = append(commands, request)
-		} else if commandType == requestdatatypes.ClientSelectiveSyncRequestType {
-			var request requestdatatypes.ClientSelectiveSyncRequest
-			json.Unmarshal(c.getBytesFromUnstructured(command), &request)
-			commands = append(commands, request)
-		} else if commandType == requestdatatypes.ClientMarkNoDeployRequestType {
-			var request requestdatatypes.ClientMarkNoDeployRequest
-			json.Unmarshal(c.getBytesFromUnstructured(command), &request)
-			commands = append(commands, request)
-		} else {
-			log.Printf("Command type %s not supported", commandType)
-		}
-	}
-
+	commands := serializer.Deserialize(string(bodyBytes), serializerutil.ClientRequestListType).([]clientrequest.ClientRequestEvent)
 	return &commands, nil
 }
 
@@ -134,14 +97,14 @@ func (c CommandDelegatorImpl) AckHeadOfRequestList() error {
 		log.Printf("Error while making ack head request: %s", err)
 		return err
 	}
-	req.Header.Add("Authorization", "Bearer " + c.argoAuthClient.GetAuthToken())
+	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("Error while acking head: %s", err)
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode / 100 != 2 {
+	if resp.StatusCode/100 != 2 {
 		return errors.New(resp.Status)
 	}
 	return nil
@@ -154,7 +117,7 @@ func (c CommandDelegatorImpl) AckHeadOfNotificationList() error {
 		log.Printf("Error while making ack head request: %s", err)
 		return err
 	}
-	req.Header.Add("Authorization", "Bearer " + c.argoAuthClient.GetAuthToken())
+	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("Error while acking notifications head: %s", err)
@@ -162,7 +125,7 @@ func (c CommandDelegatorImpl) AckHeadOfNotificationList() error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode / 100 != 2 {
+	if resp.StatusCode/100 != 2 {
 		return errors.New(resp.Status)
 	}
 	return nil
@@ -175,14 +138,14 @@ func (c CommandDelegatorImpl) RetryRequest() error {
 		log.Printf("Error while making retry request: %s", err)
 		return err
 	}
-	req.Header.Add("Authorization", "Bearer " + c.argoAuthClient.GetAuthToken())
+	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("Error while sending retry message: %s", err)
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode / 100 != 2 {
+	if resp.StatusCode/100 != 2 {
 		return errors.New(resp.Status)
 	}
 	return nil

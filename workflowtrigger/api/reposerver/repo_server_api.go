@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"greenops.io/workflowtrigger/util/git"
-	"greenops.io/workflowtrigger/util/serializer"
+	"github.com/greenopsinc/util/git"
+	"greenops.io/workflowtrigger/serializer"
 )
 
 const (

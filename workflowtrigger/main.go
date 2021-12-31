@@ -1,19 +1,19 @@
 package main
 
 import (
+	"github.com/greenopsinc/util/starter"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/greenopsinc/util/db"
+	"github.com/greenopsinc/util/kubernetesclient"
 	"greenops.io/workflowtrigger/api"
 	"greenops.io/workflowtrigger/api/argoauthenticator"
 	"greenops.io/workflowtrigger/api/commanddelegator"
 	"greenops.io/workflowtrigger/api/reposerver"
-	"greenops.io/workflowtrigger/db"
 	"greenops.io/workflowtrigger/kafka"
-	"greenops.io/workflowtrigger/kubernetesclient"
 	"greenops.io/workflowtrigger/schemavalidation"
 )
 
@@ -25,11 +25,11 @@ func main() {
 	var commandDelegatorApi commanddelegator.CommandDelegatorApi
 	var argoAuthenticatorApi argoauthenticator.ArgoAuthenticatorApi
 	var schemaValidator schemavalidation.RequestSchemaValidator
-	dbClient = db.New(GetDbClientConfig())
-	kafkaClient = kafka.New(GetKafkaClientConfig())
+	dbClient = db.New(starter.GetDbClientConfig())
+	kafkaClient = kafka.New(starter.GetKafkaClientConfig())
 	kubernetesClient = kubernetesclient.New()
-	repoManagerApi = reposerver.New(GetRepoServerClientConfig())
-	commandDelegatorApi = commanddelegator.New(GetCommandDelegatorServerClientConfig())
+	repoManagerApi = reposerver.New(starter.GetRepoServerClientConfig())
+	commandDelegatorApi = commanddelegator.New(starter.GetCommandDelegatorServerClientConfig())
 	argoAuthenticatorApi = argoauthenticator.New()
 	schemaValidator = schemavalidation.New(argoAuthenticatorApi, repoManagerApi)
 	r := mux.NewRouter()
@@ -48,56 +48,4 @@ func main() {
 	}
 
 	log.Fatal(srv.ListenAndServe())
-}
-
-const (
-	//EnvVar Names
-	dbAddress                     string = "ATLAS_DB_ADDRESS"
-	dbPassword                    string = "ATLAS_DB_PASSWORD"
-	kafkaAddress                  string = "KAFKA_BOOTSTRAP_SERVERS"
-	repoServerAddress             string = "REPO_SERVER_ENDPOINT"
-	commandDelegatorServerAddress string = "COMMAND_DELEGATOR_SERVER_ENDPOINT"
-
-	//Default Names
-	dbDefaultAddress                     string = "localhost:6379"
-	dbDefaultPassword                    string = ""
-	kafkaDefaultAddress                  string = "localhost:29092"
-	repoServerDefaultAddress             string = "http://localhost:8081"
-	commandDelegatorServerDefaultAddress string = "http://localhost:8080"
-)
-
-func GetDbClientConfig() (string, string) {
-	address := dbDefaultAddress
-	password := dbDefaultPassword
-	if val := os.Getenv(dbAddress); val != "" {
-		address = val
-	}
-	if val := os.Getenv(dbPassword); val != "" {
-		password = val
-	}
-	return address, password
-}
-
-func GetKafkaClientConfig() string {
-	address := kafkaDefaultAddress
-	if val := os.Getenv(kafkaAddress); val != "" {
-		address = val
-	}
-	return address
-}
-
-func GetRepoServerClientConfig() string {
-	address := repoServerDefaultAddress
-	if val := os.Getenv(repoServerAddress); val != "" {
-		address = val
-	}
-	return address
-}
-
-func GetCommandDelegatorServerClientConfig() string {
-	address := commandDelegatorServerDefaultAddress
-	if val := os.Getenv(commandDelegatorServerAddress); val != "" {
-		address = val
-	}
-	return address
 }

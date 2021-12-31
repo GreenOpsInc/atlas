@@ -446,7 +446,7 @@ spec:
     spec:
       containers:
         - env:
-            - name: REDIS_ENDPOINT
+            - name: ATLAS_DB_ADDRESS
               value: redisserver.default.svc.cluster.local:6379
           image: atlascommanddelegator
           imagePullPolicy: Never

@@ -3,8 +3,8 @@ package commanddelegator
 import (
 	"bytes"
 	"fmt"
-	"greenops.io/workflowtrigger/util/clientrequest"
-	"greenops.io/workflowtrigger/util/serializer"
+	"github.com/greenopsinc/util/clientrequest"
+	"greenops.io/workflowtrigger/serializer"
 	"log"
 	"net/http"
 	"strings"

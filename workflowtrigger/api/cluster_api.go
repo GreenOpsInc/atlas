@@ -8,10 +8,10 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
+	"github.com/greenopsinc/util/clientrequest"
+	"github.com/greenopsinc/util/cluster"
+	"github.com/greenopsinc/util/db"
 	"greenops.io/workflowtrigger/api/argoauthenticator"
-	"greenops.io/workflowtrigger/db"
-	"greenops.io/workflowtrigger/util/clientrequest"
-	"greenops.io/workflowtrigger/util/cluster"
 )
 
 const (
@@ -110,7 +110,7 @@ func markNoDeployCluster(w http.ResponseWriter, r *http.Request) {
 	clusterSchema.NoDeploy = &noDeployRequest
 	dbClient.StoreValue(key, clusterSchema)
 
-	requestId := commandDelegatorApi.SendNotification(orgName, clusterSchema.ClusterName, clientrequest.ClientMarkNoDeployRequest{
+	requestId := commandDelegatorApi.SendNotification(orgName, clusterSchema.ClusterName, &clientrequest.ClientMarkNoDeployRequest{
 		ClusterName: clusterName,
 		Namespace:   noDeployRequest.Namespace,
 		Apply:       true,
@@ -154,7 +154,7 @@ func removeNoDeployCluster(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	requestId := commandDelegatorApi.SendNotification(orgName, clusterSchema.ClusterName, clientrequest.ClientMarkNoDeployRequest{
+	requestId := commandDelegatorApi.SendNotification(orgName, clusterSchema.ClusterName, &clientrequest.ClientMarkNoDeployRequest{
 		ClusterName: clusterName,
 		Namespace:   noDeployRequest.Namespace,
 		Apply:       false,
