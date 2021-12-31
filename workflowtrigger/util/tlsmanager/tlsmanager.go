@@ -53,6 +53,7 @@ func (m *tlsManager) GetTLSConf() (*tls.Config, error) {
 		return nil, err
 	}
 	if cert != nil {
+		log.Println("CERT FOUND IN SECRETS")
 		return cert, nil
 	}
 
@@ -143,7 +144,6 @@ func (m *tlsManager) generateSelfSignedTLSConf() (*tls.Config, error) {
 		return nil, err
 	}
 
-	// create a server certificate
 	cert := &x509.Certificate{
 		SerialNumber: certSerialNumber,
 		Subject: pkix.Name{
