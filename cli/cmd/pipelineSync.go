@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"time"
+
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	"github.com/argoproj/argo-cd/v2/util/errors"
 	"github.com/argoproj/argo-cd/v2/util/localconfig"
 	"github.com/spf13/cobra"
-	"io"
-	"net/http"
-	"time"
 )
 
 // pipelineSyncCmd represents the pipelineSync command

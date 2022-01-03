@@ -28,6 +28,7 @@ type GetFileRequest struct {
 type RepoManagerApi interface {
 	CloneRepo(orgName string, gitRepoSchema git.GitRepoSchema) bool
 	DeleteRepo(gitRepoSchema git.GitRepoSchema) bool
+	UpdateRepo(orgName string, oldGitRepoSchema git.GitRepoSchema, newGitRepoSchema git.GitRepoSchema) bool
 	SyncRepo(gitRepoSchema git.GitRepoSchema) bool
 	GetFileFromRepo(getFileRequest GetFileRequest, orgName string, teamName string) string
 }
@@ -86,6 +87,13 @@ func (r *RepoManagerApiImpl) DeleteRepo(gitRepoSchema git.GitRepoSchema) bool {
 	defer resp.Body.Close()
 	log.Printf("Delete repo request returned status code %d", resp.StatusCode)
 	return resp.StatusCode == 200
+}
+
+func (r *RepoManagerApiImpl) UpdateRepo(orgName string, oldGitRepoSchema git.GitRepoSchema, newGitRepoSchema git.GitRepoSchema) bool {
+	if deleted := r.DeleteRepo(oldGitRepoSchema); !deleted {
+		return false
+	}
+	return r.CloneRepo(orgName, newGitRepoSchema)
 }
 
 func (r *RepoManagerApiImpl) SyncRepo(gitRepoSchema git.GitRepoSchema) bool {

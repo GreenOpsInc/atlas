@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	"github.com/argoproj/argo-cd/v2/util/errors"
 	"github.com/argoproj/argo-cd/v2/util/localconfig"
 	"github.com/spf13/cobra"
-	"net/http"
-	"time"
 )
 
 // pipelineUpdateCmd represents the pipelineUpdate command
@@ -55,17 +56,9 @@ Example usage:
 		config, _ := localconfig.ReadLocalConfig(defaultLocalConfigPath)
 		context, _ := config.ResolveContext(apiclient.ClientOptions{}.Context)
 
-		url := "http://" + atlasURL + "/pipeline/" + orgName + "/" + teamName + "/" + pipelineName
-
-		req, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(make([]byte, 0)))
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
-
+		var req *http.Request
 		client := &http.Client{Timeout: 20 * time.Second}
-		resp, err := client.Do(req)
-		if err != nil || resp.StatusCode != 200 {
-			fmt.Println("Request failed with the following error:", err)
-			return
-		}
+		url := "http://" + atlasURL + "/pipeline/" + orgName + "/" + teamName + "/" + pipelineName
 
 		if !tokenFlagSet && !usernameFlagSet {
 			body := GitRepoSchemaOpen{
@@ -76,7 +69,7 @@ Example usage:
 				},
 			}
 			json, _ := json.Marshal(body)
-			req, _ = http.NewRequest("POST", url, bytes.NewBuffer(json))
+			req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(json))
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
 
 		} else if tokenFlagSet {
@@ -91,7 +84,7 @@ Example usage:
 				},
 			}
 			json, _ := json.Marshal(body)
-			req, _ = http.NewRequest("POST", url, bytes.NewBuffer(json))
+			req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(json))
 		} else {
 			username, _ := cmd.Flags().GetString("username")
 			password, _ := cmd.Flags().GetString("password")
@@ -106,12 +99,12 @@ Example usage:
 			}
 
 			json, _ := json.Marshal(body)
-			req, _ = http.NewRequest("POST", url, bytes.NewBuffer(json))
+			req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(json))
 		}
 
 		req.Header.Set("Content-Type", "application/json")
 
-		resp, err = client.Do(req)
+		resp, err := client.Do(req)
 		if err != nil {
 			fmt.Println("Request failed with the following error:", err)
 			return

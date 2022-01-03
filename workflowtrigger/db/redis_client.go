@@ -3,6 +3,10 @@ package db
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log"
+	"time"
+
 	"github.com/gomodule/redigo/redis"
 	"greenops.io/workflowtrigger/util/auditlog"
 	"greenops.io/workflowtrigger/util/clientrequest"
@@ -10,8 +14,6 @@ import (
 	"greenops.io/workflowtrigger/util/serializer"
 	"greenops.io/workflowtrigger/util/serializerutil"
 	"greenops.io/workflowtrigger/util/team"
-	"log"
-	"time"
 )
 
 type ObjectType string
@@ -55,6 +57,7 @@ const (
 	lset    RedisCommand = "LSET"
 	multi   RedisCommand = "MULTI"
 	exec    RedisCommand = "EXEC"
+	keys    RedisCommand = "KEYS"
 )
 
 const (
@@ -74,6 +77,7 @@ type DbClient interface {
 	FetchLogList(key string, increment int) []auditlog.Log
 	FetchLatestLog(key string) auditlog.Log
 	FetchStringList(key string) []string
+	DeleteByPrefix(prefix string)
 }
 
 type RedisClientImpl struct {
@@ -299,6 +303,14 @@ func (r *RedisClientImpl) FetchTransactionless(key string, objectType ObjectType
 	}
 	//TODO: Adding client request
 	panic(errors.New("objectType did not match type"))
+}
+
+func (r *RedisClientImpl) DeleteByPrefix(prefix string) {
+	keys := redisWrapperFunc(r.client.Do(string(keys), fmt.Sprintf("%s*", prefix)))
+	for _, k := range keys.([]interface{}) {
+		key := string(k.([]byte))
+		redisWrapperFunc(r.client.Do(string(del), key))
+	}
 }
 
 func (r *RedisClientImpl) fetch(key string, objectType ObjectType, increment int) interface{} {
