@@ -3,6 +3,11 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"log"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/gorilla/mux"
@@ -11,14 +16,12 @@ import (
 	"greenops.io/client/argodriver"
 	"greenops.io/client/atlasoperator/requestdatatypes"
 	"greenops.io/client/k8sdriver"
+	"greenops.io/client/kubernetesclient"
 	"greenops.io/client/plugins"
 	"greenops.io/client/progressionchecker"
 	"greenops.io/client/progressionchecker/datamodel"
+	"greenops.io/client/tlsmanager"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"log"
-	"net/http"
-	"strings"
-	"time"
 )
 
 const (
@@ -533,9 +536,20 @@ func handleRequests() {
 
 func main() {
 	kubernetesDriver := k8sdriver.New()
+	kubernetesClient := kubernetesclient.New()
+	tm := tlsmanager.New(kubernetesClient)
+
+	if _, err := tm.GetTLSConf(); err != nil {
+		log.Fatal("get tls configuration failed: ", err.Error())
+	}
+
 	argoDriver := argodriver.New(&kubernetesDriver)
 	commandDelegatorApi = ingest.Create(argoDriver.(argodriver.ArgoAuthClient))
-	eventGenerationApi = generation.Create(argoDriver.(argodriver.ArgoAuthClient))
+	eventGenerationApi, err := generation.Create(argoDriver.(argodriver.ArgoAuthClient), kubernetesClient, tm)
+	if err != nil {
+		log.Fatal("event generation API setup failed: ", err.Error())
+	}
+
 	var pluginList plugins.Plugins
 	pluginList = make([]plugins.Plugin, 0)
 	drivers = Drivers{

@@ -106,6 +106,8 @@ func initConfig() {
 
 		cobra.CheckErr(err)
 
+		log.Println(home)
+
 		// Search config in home directory with name ".atlas" (without extension).
 		viper.AddConfigPath(home)
 		viper.SetConfigType("yaml")

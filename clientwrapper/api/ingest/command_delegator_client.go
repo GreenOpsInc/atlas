@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"greenops.io/client/argodriver"
-	"greenops.io/client/atlasoperator/requestdatatypes"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+
+	"greenops.io/client/argodriver"
+	"greenops.io/client/atlasoperator/requestdatatypes"
 )
 
 const (
@@ -66,7 +67,7 @@ func (c CommandDelegatorImpl) GetCommands() (*[]requestdatatypes.RequestEvent, e
 		log.Printf("Error while making getting commands request: %s", err)
 		return nil, err
 	}
-	req.Header.Add("Authorization", "Bearer " + c.argoAuthClient.GetAuthToken())
+	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", "application/json")
 	resp, err := client.Do(req)
@@ -134,14 +135,14 @@ func (c CommandDelegatorImpl) AckHeadOfRequestList() error {
 		log.Printf("Error while making ack head request: %s", err)
 		return err
 	}
-	req.Header.Add("Authorization", "Bearer " + c.argoAuthClient.GetAuthToken())
+	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("Error while acking head: %s", err)
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode / 100 != 2 {
+	if resp.StatusCode/100 != 2 {
 		return errors.New(resp.Status)
 	}
 	return nil
@@ -154,7 +155,7 @@ func (c CommandDelegatorImpl) AckHeadOfNotificationList() error {
 		log.Printf("Error while making ack head request: %s", err)
 		return err
 	}
-	req.Header.Add("Authorization", "Bearer " + c.argoAuthClient.GetAuthToken())
+	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("Error while acking notifications head: %s", err)
@@ -162,7 +163,7 @@ func (c CommandDelegatorImpl) AckHeadOfNotificationList() error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode / 100 != 2 {
+	if resp.StatusCode/100 != 2 {
 		return errors.New(resp.Status)
 	}
 	return nil
@@ -175,14 +176,14 @@ func (c CommandDelegatorImpl) RetryRequest() error {
 		log.Printf("Error while making retry request: %s", err)
 		return err
 	}
-	req.Header.Add("Authorization", "Bearer " + c.argoAuthClient.GetAuthToken())
+	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("Error while sending retry message: %s", err)
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode / 100 != 2 {
+	if resp.StatusCode/100 != 2 {
 		return errors.New(resp.Status)
 	}
 	return nil

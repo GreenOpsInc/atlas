@@ -4,20 +4,26 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"greenops.io/client/api/ingest"
-	"greenops.io/client/argodriver"
-	"greenops.io/client/atlasoperator/requestdatatypes"
-	"greenops.io/client/progressionchecker/datamodel"
 	"log"
 	"net/http"
 	"os"
 	"strings"
-	"time"
+
+	"greenops.io/client/util"
+
+	"greenops.io/client/tlsmanager"
+
+	"greenops.io/client/kubernetesclient"
+
+	"greenops.io/client/api/ingest"
+	"greenops.io/client/argodriver"
+	"greenops.io/client/atlasoperator/requestdatatypes"
+	"greenops.io/client/progressionchecker/datamodel"
 )
 
 const (
 	WorkflowTriggerEnvVar         string = "WORKFLOW_TRIGGER_SERVER_ADDR"
-	DefaultWorkflowTriggerAddress string = "http://workflowtrigger.atlas.svc.cluster.local:8080"
+	DefaultWorkflowTriggerAddress string = "https://workflowtrigger.atlas.svc.cluster.local:8080"
 )
 
 type Notification struct {
@@ -36,9 +42,10 @@ type EventGenerationImpl struct {
 	workflowTriggerAddress string
 	client                 *http.Client
 	argoAuthClient         argodriver.ArgoAuthClient
+	kclient                kubernetesclient.KubernetesClient
 }
 
-func Create(argoClient argodriver.ArgoAuthClient) EventGenerationApi {
+func Create(argoClient argodriver.ArgoAuthClient, kclient kubernetesclient.KubernetesClient, tm tlsmanager.Manager) (EventGenerationApi, error) {
 	workflowTriggerAddress := os.Getenv(WorkflowTriggerEnvVar)
 	if workflowTriggerAddress == "" {
 		workflowTriggerAddress = DefaultWorkflowTriggerAddress
@@ -46,10 +53,8 @@ func Create(argoClient argodriver.ArgoAuthClient) EventGenerationApi {
 	if strings.HasSuffix(workflowTriggerAddress, "/") {
 		workflowTriggerAddress = strings.TrimSuffix(workflowTriggerAddress, "/")
 	}
-	httpClient := &http.Client{
-		Timeout: time.Second * 10,
-	}
-	return EventGenerationImpl{workflowTriggerAddress: workflowTriggerAddress, client: httpClient, argoAuthClient: argoClient}
+	httpClient := util.CreateHttpClient(tm)
+	return EventGenerationImpl{workflowTriggerAddress: workflowTriggerAddress, client: httpClient, argoAuthClient: argoClient, kclient: kclient}, nil
 }
 
 func (c EventGenerationImpl) GenerateEvent(eventInfo datamodel.EventInfo) bool {
@@ -62,7 +67,7 @@ func (c EventGenerationImpl) GenerateEvent(eventInfo datamodel.EventInfo) bool {
 		clusterName = ingest.DefaultClusterName
 	}
 	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/client/%s/%s/generateEvent", c.workflowTriggerAddress, eventInfo.GetEventOrg(), clusterName), bytes.NewBuffer(data))
-	req.Header.Add("Authorization", "Bearer " + c.argoAuthClient.GetAuthToken())
+	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -88,7 +93,7 @@ func (c EventGenerationImpl) GenerateNotification(requestId string, notification
 		return false
 	}
 	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/client/generateNotification/%s", c.workflowTriggerAddress, requestId), bytes.NewBuffer(data))
-	req.Header.Add("Authorization", "Bearer " + c.argoAuthClient.GetAuthToken())
+	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -113,7 +118,7 @@ func (c EventGenerationImpl) GenerateResponseEvent(responseEvent requestdatatype
 		clusterName = ingest.DefaultClusterName
 	}
 	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/client/%s/%s/generateEvent", c.workflowTriggerAddress, responseEvent.GetEventOrg(), clusterName), bytes.NewBuffer(data))
-	req.Header.Add("Authorization", "Bearer " + c.argoAuthClient.GetAuthToken())
+	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.client.Do(req)
 	if err != nil {

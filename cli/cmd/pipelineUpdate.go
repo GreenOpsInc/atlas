@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	"github.com/argoproj/argo-cd/v2/util/errors"
@@ -70,7 +71,6 @@ Example usage:
 			json, _ := json.Marshal(body)
 			req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(json))
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
-
 		} else if tokenFlagSet {
 			token, _ := cmd.Flags().GetString("token")
 
