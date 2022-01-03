@@ -22,9 +22,15 @@ const (
 	gitCredNamespace string = "gitcred"
 )
 
+const (
+	AtlasTLSSecretName = "atlas-server-tls"
+	TLSSecretCrtName   = "tls.crt"
+	TLSSecretKeyName   = "tls.key"
+)
+
 type KubernetesClient interface {
 	StoreGitCred(gitCred git.GitCred, name string) bool
-	StoreTLSCert(cert string, name string, namespace string) bool
+	StoreServerTLSConf(cert string, key string, namespace string) bool
 	FetchGitCred(name string) git.GitCred
 	FetchSecretData(name string, namespace string) map[string][]byte
 	WatchSecretData(name string, namespace string, handler WatchSecretHandler)
@@ -73,10 +79,24 @@ func (k KubernetesClientDriver) StoreGitCred(gitCred git.GitCred, name string) b
 	return true
 }
 
-func (k KubernetesClientDriver) StoreTLSCert(cert string, name string, namespace string) bool {
-	err := k.storeSecret(cert, namespace, name)
-	if err != nil {
-		return false
+// TODO: update method
+//		- get values from secrets
+//		- if values are not changed return
+//		- if one of values changed update them
+//		- if values are not found insert them
+//		- existing functions might not fit as we should use tls version of kubernetes secrets
+func (k KubernetesClientDriver) StoreServerTLSConf(cert string, key string, namespace string) bool {
+	existing := k.readSecret(namespace, AtlasTLSSecretName)
+	if existing == nil {
+		// TODO: update method to support tls type
+		if err := k.createSecret(); err != nil {
+			return false
+		}
+	} else if string(existing.Data[TLSSecretCrtName]) != cert || string(existing.Data[TLSSecretKeyName]) != key {
+		// TODO: update method to support tls type
+		if err := k.updateSecret(); err != nil {
+			return false
+		}
 	}
 	return true
 }
@@ -215,6 +235,7 @@ func (k KubernetesClientDriver) CheckAndCreateNamespace(namespace string) (strin
 	return namespace, err
 }
 
+// TODO: update method to support tls type
 func makeSecret(object interface{}, namespace string, name string) *corev1.Secret {
 	objectBytes := []byte(serializer.Serialize(object))
 	return &corev1.Secret{

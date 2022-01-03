@@ -32,19 +32,15 @@ type Manager interface {
 }
 
 type tlsManager struct {
-	k                 kclient.KubernetesClient
-	selfSignedTLSConf *tls.Config
+	k              kclient.KubernetesClient
+	conf           *tls.Config
+	selfSignedConf *tls.Config
 }
 
 // TODO: currently those values are hardcoded, fetch them from config or somewhere else
 const (
-	atlasTLSSecretName = "atlas-server-tls"
-	atlasNamespace     = "default"
-)
-
-const (
-	secretCrtName = "tls.crt"
-	secretKeyName = "tls.key"
+	AtlasCustomTLSSecretName = "atlas-tls"
+	AtlasNamespace           = "default"
 )
 
 func New(k kclient.KubernetesClient) Manager {
@@ -53,18 +49,37 @@ func New(k kclient.KubernetesClient) Manager {
 
 func (m *tlsManager) GetTLSConf() (*tls.Config, error) {
 	log.Println("in GetTLSConf")
-	cert, err := m.getTLSConfFromSecrets()
-	log.Printf("in GetTLSConf, cert = %v\n", cert)
+	if m.conf != nil {
+		return m.conf, nil
+	}
+
+	conf, err := m.getTLSConfFromSecrets()
+	log.Printf("in GetTLSConf, conf = %v\n", conf)
 	if err != nil {
 		return nil, err
 	}
-	if cert != nil {
+	if conf != nil {
 		log.Println("CERT FOUND IN SECRETS")
-		return cert, nil
+		m.setMainTLSConf(conf)
+		return conf, nil
 	}
 
 	log.Println("in GetTLSConf, before getSelfSignedTLSConf")
-	return m.getSelfSignedTLSConf()
+	conf, err = m.getSelfSignedTLSConf()
+	if err != nil {
+		return nil, err
+	}
+
+	m.setMainTLSConf(conf)
+	return conf, nil
+}
+
+func (m *tlsManager) setMainTLSConf(conf *tls.Config) {
+	m.conf = conf
+}
+
+func (m *tlsManager) setSelfSignedTLSConf(conf *tls.Config) {
+	m.selfSignedConf = conf
 }
 
 // TODO: to add a tls cert\key to secrets run:
@@ -73,33 +88,35 @@ func (m *tlsManager) GetTLSConf() (*tls.Config, error) {
 //		it could possibly happend on server start when cert is available and we also receiving secret change event
 func (m *tlsManager) WatchTLSConf(handler func(conf *tls.Config, err error)) {
 	log.Println("in WatchTLSConf")
-	m.k.WatchSecretData(atlasTLSSecretName, atlasNamespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
+	m.k.WatchSecretData(AtlasCustomTLSSecretName, AtlasNamespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
 		log.Printf("in WatchTLSConf, event %v. data = %s\n", t, secret)
+		var config *tls.Config
+		var err error
+
 		switch t {
 		case kclient.SecretChangeTypeAdd:
 			fallthrough
 		case kclient.SecretChangeTypeUpdate:
 			log.Printf("in WatchTLSConf, secret data = %v\n", secret.Data)
-			conf, err := m.generateTLSConfFromKeyPair(secret.Data[secretCrtName], secret.Data[secretKeyName])
-			log.Printf("in WatchTLSConf, conf = %v\n", conf)
-			if err != nil {
-				handler(nil, err)
-			}
-			handler(conf, nil)
+			config, err = m.generateTLSConfFromKeyPair(secret.Data[kclient.TLSSecretCrtName], secret.Data[kclient.TLSSecretCrtName])
+			log.Printf("in WatchTLSConf, conf = %v\n", config)
 		case kclient.SecretChangeTypeDelete:
-			conf, err := m.getSelfSignedTLSConf()
-			if err != nil {
-				handler(nil, err)
-			}
-			handler(conf, nil)
+			config, err = m.getSelfSignedTLSConf()
 		}
+
+		if err != nil {
+			handler(nil, err)
+			return
+		}
+		m.setMainTLSConf(config)
+		handler(config, nil)
 	})
 }
 
 func (m *tlsManager) getSelfSignedTLSConf() (*tls.Config, error) {
 	log.Println("in getSelfSignedTLSConf")
-	if m.selfSignedTLSConf != nil {
-		return m.selfSignedTLSConf, nil
+	if m.selfSignedConf != nil {
+		return m.selfSignedConf, nil
 	}
 
 	conf, err := m.generateSelfSignedTLSConf()
@@ -108,19 +125,25 @@ func (m *tlsManager) getSelfSignedTLSConf() (*tls.Config, error) {
 	}
 	log.Printf("in getSelfSignedTLSConf, conf = %v\n", conf)
 
-	m.selfSignedTLSConf = conf
+	m.setSelfSignedTLSConf(conf)
 	return conf, nil
 }
 
 func (m *tlsManager) getTLSConfFromSecrets() (*tls.Config, error) {
 	log.Println("in getTLSConfFromSecrets")
-	secret := m.k.FetchSecretData(atlasTLSSecretName, atlasNamespace)
+	secret := m.k.FetchSecretData(AtlasCustomTLSSecretName, AtlasNamespace)
 	log.Println("in getTLSConfFromSecrets, secret: ", secret)
 	if secret == nil {
 		return nil, nil
 	}
 
-	return m.generateTLSConfFromKeyPair(secret[secretCrtName], secret[secretKeyName])
+	conf, err := m.generateTLSConfFromKeyPair(secret[kclient.TLSSecretCrtName], secret[kclient.TLSSecretKeyName])
+	if err != nil {
+		return nil, err
+	}
+
+	m.k.StoreServerTLSConf(string(secret[kclient.TLSSecretCrtName]), string(secret[kclient.TLSSecretKeyName]), AtlasNamespace)
+	return conf, nil
 }
 
 func (m *tlsManager) generateTLSConfFromKeyPair(cert []byte, key []byte) (*tls.Config, error) {
@@ -209,8 +232,6 @@ func (m *tlsManager) generateSelfSignedTLSConf() (*tls.Config, error) {
 	log.Printf("cert PEM = %s\n", certPEM.String())
 	log.Printf("key PEM = %s\n", certPrivateKeyPEM.String())
 
-	m.k.StoreTLSCert(certPEM.String(), "atlas-tls-cert", atlasNamespace)
-
 	serverCert, err := tls.X509KeyPair(certPEM.Bytes(), certPrivateKeyPEM.Bytes())
 	if err != nil {
 		return nil, err
@@ -219,11 +240,27 @@ func (m *tlsManager) generateSelfSignedTLSConf() (*tls.Config, error) {
 	rootCAs := bestEffortSystemCertPool()
 	rootCAs.AppendCertsFromPEM(certPEM.Bytes())
 
+	m.k.StoreServerTLSConf(certPEM.String(), certPrivateKeyPEM.String(), AtlasNamespace)
+
 	// TODO: guess it's a good idea to add certificates to the kubernetes secret
 	//		and other servers will have to pull and use this certificate
 	// TODO: main certificate should be added by workflowtrigger
 	//		other servers should listen to secret and only start servers and clients
 	//		when secret is reachable and cert is parsed and added to the pools
+	// TODO: certificate distribution:
+	//		workflowtrigger - generates and updates cert and key in kuber secret
+	//		workfloworchestrator - should retrieve key and cert from secrets and listen for secret updates
+	//		reposever - should retrieve key and cert from secrets and listen for secret updates
+	//		command delegator - should retrieve key and cert from secrets and listen for secret updates
+	//		client wrapper - should somehow fetch cert from workflow trigger
+	//			could not retrieve cert and key from secrets as it is located in the different clusters
+	//			also should somehow subscribe for cert and key updates
+	//			as an option it could retrieve cert from workflow trigger api
+	//			other option is to create an additional service which will manage tls for all other components
+	//		cli - should receive cert to perform requests to the workflowtrigger server
+	//			as an option it could send http request to the workflowtrigger and fetch cert
+	//			after that cli client could be updated to perform https requests
+	// TODO: do we need to secure communication with dbs? (kafka, redis)
 	log.Printf("in generateSelfSignedTLSConf, serverCert = %v\n", serverCert)
 	return &tls.Config{
 		Certificates:             []tls.Certificate{serverCert},
