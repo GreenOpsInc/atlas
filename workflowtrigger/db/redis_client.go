@@ -57,6 +57,7 @@ const (
 	lset    RedisCommand = "LSET"
 	multi   RedisCommand = "MULTI"
 	exec    RedisCommand = "EXEC"
+	keys    RedisCommand = "KEYS"
 )
 
 const (
@@ -76,7 +77,7 @@ type DbClient interface {
 	FetchLogList(key string, increment int) []auditlog.Log
 	FetchLatestLog(key string) auditlog.Log
 	FetchStringList(key string) []string
-	DeleteByPrefix(prefix string) error
+	DeleteByPrefix(prefix string)
 }
 
 type RedisClientImpl struct {
@@ -304,18 +305,12 @@ func (r *RedisClientImpl) FetchTransactionless(key string, objectType ObjectType
 	panic(errors.New("objectType did not match type"))
 }
 
-func (r *RedisClientImpl) DeleteByPrefix(prefix string) error {
-	keys, err := r.client.Do("KEYS", fmt.Sprintf("%s*", prefix))
-	if err != nil {
-		return err
-	}
+func (r *RedisClientImpl) DeleteByPrefix(prefix string) {
+	keys := redisWrapperFunc(r.client.Do(string(keys), fmt.Sprintf("%s*", prefix)))
 	for _, k := range keys.([]interface{}) {
 		key := string(k.([]byte))
-		if _, err := r.client.Do("DEL", key); err != nil {
-			return err
-		}
+		redisWrapperFunc(r.client.Do(string(del), key))
 	}
-	return nil
 }
 
 func (r *RedisClientImpl) fetch(key string, objectType ObjectType, increment int) interface{} {

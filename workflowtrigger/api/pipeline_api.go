@@ -213,19 +213,16 @@ func deletePipeline(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	if err := clearPipelineData(orgName, teamName, pipelineName); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	clearPipelineData(orgName, teamName, pipelineName)
 
 	dbClient.StoreValue(key, teamSchema)
 	w.WriteHeader(http.StatusOK)
 	return
 }
 
-func clearPipelineData(orgName string, teamName string, pipelineName string) error {
+func clearPipelineData(orgName string, teamName string, pipelineName string) {
 	prefix := fmt.Sprintf("%s-%s-%s", orgName, teamName, pipelineName)
-	return dbClient.DeleteByPrefix(prefix)
+	dbClient.DeleteByPrefix(prefix)
 }
 
 func updatePipeline(w http.ResponseWriter, r *http.Request) {
@@ -256,7 +253,7 @@ func updatePipeline(w http.ResponseWriter, r *http.Request) {
 	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, teamSchema.GetPipelineSchema(pipelineName).GetGitRepoSchema().GitRepo, reposerver.RootCommit, string(argoauthenticator.UpdateAction), string(argoauthenticator.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 	}
-	kubernetesClient.StoreGitCred(nil, db.MakeSecretName(orgName, teamName, pipelineName))
+	kubernetesClient.StoreGitCred(gitRepoUpd.GetGitCred(), db.MakeSecretName(orgName, teamName, pipelineName))
 	gitRepo := teamSchema.GetPipelineSchema(pipelineName).GetGitRepoSchema()
 
 	teamSchema.UpdatePipeline(pipelineName, gitRepoUpd)
