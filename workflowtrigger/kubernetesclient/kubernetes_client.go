@@ -82,7 +82,12 @@ func New() KubernetesClient {
 }
 
 func (k KubernetesClientDriver) StoreGitCred(gitCred git.GitCred, name string) bool {
-	err := k.storeSecret(gitCred.(interface{}), gitCredNamespace, name)
+	var err error
+	if gitCred == nil {
+		err = k.storeSecret(nil, gitCredNamespace, name)
+	} else {
+		err = k.storeSecret(gitCred.(interface{}), gitCredNamespace, name)
+	}
 	if err != nil {
 		return false
 	}

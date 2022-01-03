@@ -77,6 +77,14 @@ func (p *TeamSchema) GetPipelineSchema(pipelineName string) *pipeline.PipelineSc
 	return nil
 }
 
+func (p *TeamSchema) UpdatePipeline(pipelineName string, schema git.GitRepoSchema) {
+	for idx, val := range p.Pipelines {
+		if val.GetPipelineName() == pipelineName {
+			p.Pipelines[idx] = pipeline.New(pipelineName, schema)
+		}
+	}
+}
+
 func UnmarshallTeamSchema(m map[string]interface{}) TeamSchema {
 	var pipelineList []*pipeline.PipelineSchema
 	if pipelineStringList, ok := m["pipelines"]; ok {

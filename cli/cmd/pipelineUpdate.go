@@ -55,17 +55,9 @@ Example usage:
 		config, _ := localconfig.ReadLocalConfig(defaultLocalConfigPath)
 		context, _ := config.ResolveContext(apiclient.ClientOptions{}.Context)
 
+		var req *http.Request
+		client := &http.Client{Timeout: 20 * time.Second}
 		url := "https://" + atlasURL + "/pipeline/" + orgName + "/" + teamName + "/" + pipelineName
-
-		req, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(make([]byte, 0)))
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
-
-		client := getHttpClient()
-		resp, err := client.Do(req)
-		if err != nil || resp.StatusCode != 200 {
-			fmt.Println("Request failed with the following error:", err)
-			return
-		}
 
 		if !tokenFlagSet && !usernameFlagSet {
 			body := GitRepoSchemaOpen{
@@ -76,7 +68,7 @@ Example usage:
 				},
 			}
 			json, _ := json.Marshal(body)
-			req, _ = http.NewRequest("POST", url, bytes.NewBuffer(json))
+			req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(json))
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
 
 		} else if tokenFlagSet {
@@ -91,7 +83,7 @@ Example usage:
 				},
 			}
 			json, _ := json.Marshal(body)
-			req, _ = http.NewRequest("POST", url, bytes.NewBuffer(json))
+			req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(json))
 		} else {
 			username, _ := cmd.Flags().GetString("username")
 			password, _ := cmd.Flags().GetString("password")
@@ -106,12 +98,12 @@ Example usage:
 			}
 
 			json, _ := json.Marshal(body)
-			req, _ = http.NewRequest("POST", url, bytes.NewBuffer(json))
+			req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(json))
 		}
 
 		req.Header.Set("Content-Type", "application/json")
 
-		resp, err = client.Do(req)
+		resp, err := client.Do(req)
 		if err != nil {
 			fmt.Println("Request failed with the following error:", err)
 			return
