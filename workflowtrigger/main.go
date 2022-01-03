@@ -18,7 +18,7 @@ import (
 	"greenops.io/workflowtrigger/kafka"
 	"greenops.io/workflowtrigger/kubernetesclient"
 	"greenops.io/workflowtrigger/schemavalidation"
-	"greenops.io/workflowtrigger/util/tlsmanager"
+	"greenops.io/workflowtrigger/tlsmanager"
 )
 
 func main() {

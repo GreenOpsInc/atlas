@@ -22,6 +22,19 @@ const (
 	gitCredNamespace string = "gitcred"
 )
 
+type KubernetesClient interface {
+	StoreGitCred(gitCred git.GitCred, name string) bool
+	StoreServerTLSConf(cert string, key string, namespace string) bool
+	FetchGitCred(name string) git.GitCred
+	FetchSecretData(name string, namespace string) map[string][]byte
+	WatchSecretData(name string, namespace string, handler WatchSecretHandler)
+}
+
+type KubernetesClientDriver struct {
+	client        *kubernetes.Clientset
+	dynamicClient dynamic.Interface
+}
+
 type SecretChangeType int8
 
 const (
@@ -46,19 +59,6 @@ type WatchSecretHandler func(action SecretChangeType, secret *corev1.Secret)
 type TLSSecretData struct {
 	Crt string `json:"crt"`
 	Key string `json:"key"`
-}
-
-type KubernetesClient interface {
-	StoreGitCred(gitCred git.GitCred, name string) bool
-	StoreServerTLSConf(cert string, key string, namespace string) bool
-	FetchGitCred(name string) git.GitCred
-	FetchSecretData(name string, namespace string) map[string][]byte
-	WatchSecretData(name string, namespace string, handler WatchSecretHandler)
-}
-
-type KubernetesClientDriver struct {
-	client        *kubernetes.Clientset
-	dynamicClient dynamic.Interface
 }
 
 //TODO: ALL functions should have a callee tag on them

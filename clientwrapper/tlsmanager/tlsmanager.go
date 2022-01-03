@@ -26,6 +26,7 @@ import (
 	use kubernetesclient/WatchSecretData function
 */
 
+// TODO: add cert conf for each api client in workflowtrigger to perform secure requests
 type Manager interface {
 	GetTLSConf() (*tls.Config, error)
 	WatchTLSConf(handler func(conf *tls.Config, err error))
@@ -84,7 +85,7 @@ func (m *tlsManager) setSelfSignedTLSConf(conf *tls.Config) {
 
 // TODO: to add a tls cert\key to secrets run:
 //		kubectl create secret tls atlas-server-tls --cert ./cert.pem --key ./key.pem
-// TODO: check that this wather is not trigger server reloading if cert is not changed
+// TODO: check that this watcher is not trigger server reloading if cert is not changed
 //		it could possibly happend on server start when cert is available and we also receiving secret change event
 func (m *tlsManager) WatchTLSConf(handler func(conf *tls.Config, err error)) {
 	log.Println("in WatchTLSConf")
