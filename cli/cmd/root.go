@@ -3,7 +3,6 @@ package cmd
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -137,49 +136,23 @@ func bindFlags() {
 }
 
 func getHttpClient() *http.Client {
-	// TODO: find a way to somehow retrieve this certificate from kubernetes secrets
-	certPEM := []byte(`-----BEGIN CERTIFICATE-----
-MIIFPDCCAySgAwIBAgIRAP8psTlD2mFYWPTTCPL4WFgwDQYJKoZIhvcNAQELBQAw
-JjELMAkGA1UEBhMCVVMxFzAVBgNVBAoTDkdyZWVuT3BzLCBJTkMuMB4XDTIxMTIz
-MTA5MzE0MloXDTMxMTIzMTA5MzE0MlowJjELMAkGA1UEBhMCVVMxFzAVBgNVBAoT
-DkdyZWVuT3BzLCBJTkMuMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA
-7hS0+BrCuKYXTnCLTtRUDhEOKxB0Dohryp0ROeUr2N3ozvX6I2Yhq/wav9Ul6yt3
-mrC397XACy1Ze9eE9zYeapB2VQgApXnQeVodv+1XP9vKz7eEeSE7ctymBQ819vQ9
-MndOO+l/U1Fz9tYVSShAE6sRyepxfllc930m4vESyiY4IrXV7PsH63wmuSnXzEjG
-kHMai7IZIyRa/iahpKo9sv9dcjURLeDrDiFWfv/lp+YcUaIqN0g+yWOKJs3zb4ba
-U2yoW/SnBWrMJIldp3GEsRUIads/oC36kZB8gJ6IcoUthjkIZlNYeisjaVk1/GYJ
-D1pS6CjbNiEZTxH+wEwzmiF1VKvM4+EEqdWIX4Cnh4NTJ41KX60JfonOmGJD3J0V
-6eW6U6xC0gNA43hsjmiaIgpIjk2U1lkBex3D74rXKVrjC/yKAWVd/r3x6/I0ttdN
-EfAChSlB/IXEXT3+3J2oy0zKFQEkAWwneiHYRZJfSfMMfoG7mb84UqAr6EXbNrgF
-YyP7VB8nFSxQySYE7RH4Tnqhoiwuy6Yl1zDM9bXjL1SOiHfNKiBvla67ZeEvpZVw
-XatBTpi9/qUXXaxSPzmLeu5KrcyxtW5oU6FS4Q7NnvPoY7bWnjwzxO03cxqygaI7
-0HExIZvsR5nVjI02Mr9Gu4p8fdoW8FrCCqpBsONHuoECAwEAAaNlMGMwDgYDVR0P
-AQH/BAQDAgWgMBMGA1UdJQQMMAoGCCsGAQUFBwMBMA4GA1UdDgQHBAUBAgMEBjAs
-BgNVHREEJTAjgglsb2NhbGhvc3SHBH8AAAGHEAAAAAAAAAAAAAAAAAAAAAEwDQYJ
-KoZIhvcNAQELBQADggIBAOxhBLmSUv1HgMgWsU0eMLzYiDKyvLMbFMM2zihnDYlq
-5Cuul2jgErVEPfu72fjr1II83o0LcvTi0n9BbE9JhVP7mktuAHGEg8qmt248+XmO
-8yqOuquxyqqfhlBEaXcq9cvnQ4Ac8hHXk2mpUfgPo+lm2w25gEJmhRAhxomflLrK
-BtkCnRY3yp36WZ5mkcULRaLM7S0ZVOM+vjINcN9mqtcieRlCSRG6XcByRpb0XHnA
-w6pY6MtAojmFOpNe7s2cfH9rIROMGaIc1uLGjX8hheBUuP6OBqxK/SBgBQX4HPas
-JyUGshTJBwI5uLBaRIBF4ZQXGwnW8GmFDHnozDMDr8K2rjZcFsR9RpWQ0JJZzMGb
-6lEjNdQJDQh2qeHl0LGdvzlio1r9Vyn+5PjCPy6Ky1xRjMnfwuMLahDvTpuIPfBz
-783dne2UwYl64n1pS/2RDLWV0Y82dkyGk0613kFuTJwX+fqKEVyCDGk+e0mdxGj7
-jyXohZdiiOoLN17HRe/7Sm3wbg7R+xKIcA2BBK6YWxR0dGwmMVixwXR5RIy0stHf
-RsyluS5+YtPXGW+8gKriMYEEu9g3iRLj4/bPSk/u8sTpUN4F1WzShfY2UNYSWfxm
-Lw9sMhgn3OyJQW27joqNxfhZort71qviiGr6ZuE5UXkPbcRpoDKLZ/PDKN+5GTa4
------END CERTIFICATE-----`)
-
-	// TODO: review how argocd imports cert file to clien and change accordingly
-	certpool := bestEffortSystemCertPool()
-	certpool.AppendCertsFromPEM(certPEM)
-	clientTLSConf := &tls.Config{
-		RootCAs: certpool,
+	certPEM, err := getCertPEM()
+	if err != nil {
+		log.Fatal(err)
 	}
-	transport := &http.Transport{
+
+	clientTLSConf := &tls.Config{}
+	if certPEM == nil {
+		clientTLSConf.InsecureSkipVerify = true
+	} else {
+		certpool := bestEffortSystemCertPool()
+		certpool.AppendCertsFromPEM(certPEM)
+		clientTLSConf.RootCAs = certpool
+	}
+
+	return &http.Client{Timeout: 20 * time.Second, Transport: &http.Transport{
 		TLSClientConfig: clientTLSConf,
-	}
-
-	return &http.Client{Timeout: 20 * time.Second, Transport: transport}
+	}}
 }
 
 func bestEffortSystemCertPool() *x509.CertPool {
@@ -190,15 +163,4 @@ func bestEffortSystemCertPool() *x509.CertPool {
 	}
 	log.Println("root ca found")
 	return rootCAs
-}
-
-func getCertFile() (string, error) {
-	certPath := fmt.Sprintf("%s/server/tls/tls.crt", FilePath)
-	if _, err := os.Stat(certPath); err == nil {
-		return certPath, nil
-	} else if errors.Is(err, os.ErrNotExist) {
-		return "", errors.New("argocd server tls configuration does not exist")
-	} else {
-		return "", errors.New(fmt.Sprintf("fetch argocd server tls configuration failed: %s", err.Error()))
-	}
 }
