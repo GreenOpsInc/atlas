@@ -40,7 +40,7 @@ func New(serverEndpoint string, tm tlsmanager.Manager) (CommandDelegatorApi, err
 	} else {
 		serverEndpoint = serverEndpoint + "/notifications"
 	}
-	httpClient, err := client.New(client.ClientCommandDelegator, tm)
+	httpClient, err := client.New(tlsmanager.ClientCommandDelegator, tm)
 	if err != nil {
 		return nil, err
 	}

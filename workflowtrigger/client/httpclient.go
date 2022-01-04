@@ -14,12 +14,12 @@ type HttpClient interface {
 }
 
 type client struct {
-	clientName ClientName
+	clientName tlsmanager.ClientName
 	httpClient *http.Client
 	tm         tlsmanager.Manager
 }
 
-func New(clientName ClientName, tm tlsmanager.Manager) (HttpClient, error) {
+func New(clientName tlsmanager.ClientName, tm tlsmanager.Manager) (HttpClient, error) {
 	c := &client{clientName: clientName, tm: tm}
 	httpClient, err := c.initHttpClient()
 	if err != nil {

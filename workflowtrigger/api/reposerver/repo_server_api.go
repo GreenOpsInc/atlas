@@ -44,7 +44,7 @@ func New(serverEndpoint string, tm tlsmanager.Manager) (RepoManagerApi, error) {
 	if strings.HasSuffix(serverEndpoint, "/") {
 		serverEndpoint = serverEndpoint[:len(serverEndpoint)-1]
 	}
-	httpClient, err := client.New(client.ClientRepoServer, tm)
+	httpClient, err := client.New(tlsmanager.ClientRepoServer, tm)
 	if err != nil {
 		return nil, err
 	}

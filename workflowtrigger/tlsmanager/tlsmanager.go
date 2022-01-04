@@ -14,7 +14,6 @@ import (
 	"net"
 	"time"
 
-	"greenops.io/workflowtrigger/client"
 	kclient "greenops.io/workflowtrigger/kubernetesclient"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -22,19 +21,19 @@ import (
 type Manager interface {
 	BestEffortSystemCertPool() *x509.CertPool
 	GetServerTLSConf() (*tls.Config, error)
-	GetClientTLSConf(clientName client.ClientName) (*tls.Config, error)
-	GetClientCertPEM(clientName client.ClientName) ([]byte, error)
+	GetClientTLSConf(clientName ClientName) (*tls.Config, error)
+	GetClientCertPEM(clientName ClientName) ([]byte, error)
 	WatchServerTLSConf(handler func(conf *tls.Config, err error))
-	WatchClientTLSConf(clientName client.ClientName, handler func(conf *tls.Config, err error)) error
-	WatchClientTLSPEM(clientName client.ClientName, handler func(certPEM []byte, err error)) error
+	WatchClientTLSConf(clientName ClientName, handler func(conf *tls.Config, err error)) error
+	WatchClientTLSPEM(clientName ClientName, handler func(certPEM []byte, err error)) error
 }
 
 type tlsManager struct {
 	k                kclient.KubernetesClient
 	tlsConf          *tls.Config
 	selfSignedConf   *tls.Config
-	tlsClientConfigs map[client.ClientName]*tls.Config
-	tlsClientCertPEM map[client.ClientName][]byte
+	tlsClientConfigs map[ClientName]*tls.Config
+	tlsClientCertPEM map[ClientName][]byte
 }
 
 type TLSSecretName string
@@ -47,6 +46,14 @@ const (
 	CommandDelegatorTLSSecretName TLSSecretName = "commanddelegator-tls"
 	ArgoCDRepoServerTLSSecretName TLSSecretName = "argocd-repo-server-tls"
 	Namespace                     string        = "default"
+)
+
+type ClientName string
+
+const (
+	ClientRepoServer       ClientName = "reposerver"
+	ClientCommandDelegator ClientName = "commanddelegator"
+	ClientArgoCDRepoServer ClientName = "argocdreposerver"
 )
 
 const (
@@ -66,13 +73,13 @@ func (m *tlsManager) initConfigs() error {
 	if _, err := m.GetServerTLSConf(); err != nil {
 		return err
 	}
-	if _, err := m.GetClientTLSConf(client.ClientRepoServer); err != nil {
+	if _, err := m.GetClientTLSConf(ClientRepoServer); err != nil {
 		return err
 	}
-	if _, err := m.GetClientTLSConf(client.ClientCommandDelegator); err != nil {
+	if _, err := m.GetClientTLSConf(ClientCommandDelegator); err != nil {
 		return err
 	}
-	if _, err := m.GetClientTLSConf(client.ClientArgoCDRepoServer); err != nil {
+	if _, err := m.GetClientTLSConf(ClientArgoCDRepoServer); err != nil {
 		return err
 	}
 	return nil
@@ -97,7 +104,7 @@ func (m *tlsManager) GetServerTLSConf() (*tls.Config, error) {
 	return conf, nil
 }
 
-func (m *tlsManager) GetClientTLSConf(clientName client.ClientName) (*tls.Config, error) {
+func (m *tlsManager) GetClientTLSConf(clientName ClientName) (*tls.Config, error) {
 	conf, err := m.getTLSClientConf(clientName)
 	if err != nil {
 		return nil, err
@@ -106,7 +113,7 @@ func (m *tlsManager) GetClientTLSConf(clientName client.ClientName) (*tls.Config
 	return conf, nil
 }
 
-func (m *tlsManager) GetClientCertPEM(clientName client.ClientName) ([]byte, error) {
+func (m *tlsManager) GetClientCertPEM(clientName ClientName) ([]byte, error) {
 	log.Println("in GetClientCertPEM")
 	if m.tlsClientCertPEM[clientName] != nil {
 		return m.tlsClientCertPEM[clientName], nil
@@ -162,7 +169,7 @@ func (m *tlsManager) WatchServerTLSConf(handler func(conf *tls.Config, err error
 
 // TODO: check that this watcher is not trigger server reloading if cert is not changed
 //		it could possibly happend on server start when cert is available and we also receiving secret change event
-func (m *tlsManager) WatchClientTLSConf(clientName client.ClientName, handler func(conf *tls.Config, err error)) error {
+func (m *tlsManager) WatchClientTLSConf(clientName ClientName, handler func(conf *tls.Config, err error)) error {
 	log.Println("in WatchClientTLSConf")
 	secretName, err := clientNameToSecretName(clientName)
 	if err != nil {
@@ -185,7 +192,7 @@ func (m *tlsManager) WatchClientTLSConf(clientName client.ClientName, handler fu
 	return nil
 }
 
-func (m *tlsManager) WatchClientTLSPEM(clientName client.ClientName, handler func(certPEM []byte, err error)) error {
+func (m *tlsManager) WatchClientTLSPEM(clientName ClientName, handler func(certPEM []byte, err error)) error {
 	log.Println("in WatchClientTLSPEM")
 	secretName, err := clientNameToSecretName(clientName)
 	if err != nil {
@@ -234,7 +241,7 @@ func (m *tlsManager) getTLSConf() (*tls.Config, error) {
 	return conf, nil
 }
 
-func (m *tlsManager) getTLSClientConf(clientName client.ClientName) (*tls.Config, error) {
+func (m *tlsManager) getTLSClientConf(clientName ClientName) (*tls.Config, error) {
 	log.Println("in GetServerTLSConf")
 	if m.tlsClientConfigs[clientName] != nil {
 		return m.tlsClientConfigs[clientName], nil
@@ -382,13 +389,13 @@ func generateCertificateSerialNumber() (*big.Int, error) {
 	return rand.Int(rand.Reader, serialNumberLimit)
 }
 
-func clientNameToSecretName(clientName client.ClientName) (TLSSecretName, error) {
+func clientNameToSecretName(clientName ClientName) (TLSSecretName, error) {
 	switch clientName {
-	case client.ClientRepoServer:
+	case ClientRepoServer:
 		return RepoServerTLSSecretName, nil
-	case client.ClientCommandDelegator:
+	case ClientCommandDelegator:
 		return CommandDelegatorTLSSecretName, nil
-	case client.ClientArgoCDRepoServer:
+	case ClientArgoCDRepoServer:
 		return ArgoCDRepoServerTLSSecretName, nil
 	default:
 		return NotValidSecretName, errors.New("wrong client name provided to get client secret")

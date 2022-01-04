@@ -13,7 +13,6 @@ import (
 	"github.com/argoproj/argo-cd/pkg/apiclient/account"
 	grpcutil "github.com/argoproj/argo-cd/util/grpc"
 	"google.golang.org/grpc/status"
-	"greenops.io/workflowtrigger/client"
 	"greenops.io/workflowtrigger/tlsmanager"
 	"greenops.io/workflowtrigger/util/config"
 )
@@ -158,7 +157,7 @@ func (a *argoAuthenticatorApi) initArgoClient() {
 }
 
 func (a *argoAuthenticatorApi) initArgoTLSCert() (string, error) {
-	certPEM, err := a.tm.GetClientCertPEM(client.ClientArgoCDRepoServer)
+	certPEM, err := a.tm.GetClientCertPEM(tlsmanager.ClientArgoCDRepoServer)
 	if err != nil {
 		log.Println("failed to get argocd certificate from secrets: ", err.Error())
 		return "", nil
@@ -208,10 +207,10 @@ func (a *argoAuthenticatorApi) getAPIClientOptions(token string) *apiclient.Clie
 }
 
 func (a *argoAuthenticatorApi) watchArgoTLSUpdates() error {
-	err := a.tm.WatchClientTLSPEM(client.ClientArgoCDRepoServer, func(certPEM []byte, err error) {
+	err := a.tm.WatchClientTLSPEM(tlsmanager.ClientArgoCDRepoServer, func(certPEM []byte, err error) {
 		log.Printf("in watchArgoTLSUpdates, conf = %v, err = %v\n", certPEM, err)
 		if err != nil {
-			log.Fatalf("an error occurred in the watch %s client: %s", client.ClientArgoCDRepoServer, err.Error())
+			log.Fatalf("an error occurred in the watch %s client: %s", tlsmanager.ClientArgoCDRepoServer, err.Error())
 		}
 		if err = a.updateArgoTLSCert(certPEM); err != nil {
 			log.Fatal("an error occurred during argocd client tls config update: ", err)
