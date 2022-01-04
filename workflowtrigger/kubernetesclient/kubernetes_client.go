@@ -30,17 +30,6 @@ const (
 	SecretChangeTypeDelete SecretChangeType = 3
 )
 
-const (
-	OpaqueSecretType corev1.SecretType = "Opaque"
-	TLSSecretType    corev1.SecretType = "kubernetes.io/tls"
-)
-
-const (
-	AtlasTLSSecretName = "atlas-server-tls"
-	TLSSecretCrtName   = "tls.crt"
-	TLSSecretKeyName   = "tls.key"
-)
-
 type WatchSecretHandler func(action SecretChangeType, secret *corev1.Secret)
 
 type TLSSecretData struct {
@@ -50,7 +39,6 @@ type TLSSecretData struct {
 
 type KubernetesClient interface {
 	StoreGitCred(gitCred git.GitCred, name string) bool
-	StoreServerTLSConf(cert string, key string, namespace string) bool
 	FetchGitCred(name string) git.GitCred
 	FetchSecretData(name string, namespace string) map[string][]byte
 	WatchSecretData(name string, namespace string, handler WatchSecretHandler)
@@ -90,22 +78,6 @@ func (k KubernetesClientDriver) StoreGitCred(gitCred git.GitCred, name string) b
 	}
 	if err != nil {
 		return false
-	}
-	return true
-}
-
-func (k KubernetesClientDriver) StoreServerTLSConf(cert string, key string, namespace string) bool {
-	existing := k.readSecret(namespace, AtlasTLSSecretName)
-	data := &TLSSecretData{cert, key}
-
-	if existing == nil {
-		if err := k.createSecret(data, namespace, AtlasTLSSecretName, TLSSecretType); err != nil {
-			return false
-		}
-	} else if string(existing.Data[TLSSecretCrtName]) != cert || string(existing.Data[TLSSecretKeyName]) != key {
-		if err := k.updateSecret(data, namespace, AtlasTLSSecretName, TLSSecretType); err != nil {
-			return false
-		}
 	}
 	return true
 }
@@ -176,14 +148,14 @@ func (k KubernetesClientDriver) storeSecret(object interface{}, namespace string
 	if object == nil {
 		return k.deleteSecret(namespace, name)
 	} else if k.readSecret(namespace, name) == nil {
-		return k.createSecret(object, namespace, name, OpaqueSecretType)
+		return k.createSecret(object, namespace, name)
 	}
-	return k.updateSecret(object, namespace, name, OpaqueSecretType)
+	return k.updateSecret(object, namespace, name)
 }
 
-func (k KubernetesClientDriver) createSecret(object interface{}, namespace string, name string, t corev1.SecretType) error {
+func (k KubernetesClientDriver) createSecret(object interface{}, namespace string, name string) error {
 	var err error
-	secret := makeSecret(object, namespace, name, t)
+	secret := makeSecret(object, namespace, name)
 	_, err = k.client.CoreV1().Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 	if err != nil {
 		log.Printf("Error encountered while reading secret: %s", err)
@@ -191,9 +163,9 @@ func (k KubernetesClientDriver) createSecret(object interface{}, namespace strin
 	return err
 }
 
-func (k KubernetesClientDriver) updateSecret(object interface{}, namespace string, name string, t corev1.SecretType) error {
+func (k KubernetesClientDriver) updateSecret(object interface{}, namespace string, name string) error {
 	var err error
-	secret := makeSecret(object, namespace, name, t)
+	secret := makeSecret(object, namespace, name)
 	_, err = k.client.CoreV1().Secrets(namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 	if err != nil {
 		log.Printf("Error encountered while reading secret: %s", err)
@@ -244,7 +216,7 @@ func (k KubernetesClientDriver) CheckAndCreateNamespace(namespace string) (strin
 	return namespace, err
 }
 
-func makeSecret(object interface{}, namespace string, name string, t corev1.SecretType) *corev1.Secret {
+func makeSecret(object interface{}, namespace string, name string) *corev1.Secret {
 	objectBytes := []byte(serializer.Serialize(object))
 	return &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
@@ -256,6 +228,6 @@ func makeSecret(object interface{}, namespace string, name string, t corev1.Secr
 			Namespace: namespace,
 		},
 		StringData: map[string]string{secretsKeyName: string(objectBytes)},
-		Type:       t,
+		Type:       "Opaque",
 	}
 }

@@ -7,8 +7,10 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"time"
 
+	"greenops.io/workflowtrigger/client"
+
+	"greenops.io/workflowtrigger/tlsmanager"
 	"greenops.io/workflowtrigger/util/git"
 	"greenops.io/workflowtrigger/util/serializer"
 )
@@ -35,20 +37,21 @@ type RepoManagerApi interface {
 
 type RepoManagerApiImpl struct {
 	serverEndpoint string
-	client         *http.Client
+	client         client.HttpClient
 }
 
-func New(serverEndpoint string) RepoManagerApi {
+func New(serverEndpoint string, tm tlsmanager.Manager) (RepoManagerApi, error) {
 	if strings.HasSuffix(serverEndpoint, "/") {
 		serverEndpoint = serverEndpoint[:len(serverEndpoint)-1]
 	}
-	httpClient := &http.Client{
-		Timeout: time.Second * 10,
+	httpClient, err := client.New(client.ClientRepoServer, tm)
+	if err != nil {
+		return nil, err
 	}
 	return &RepoManagerApiImpl{
 		serverEndpoint: serverEndpoint,
 		client:         httpClient,
-	}
+	}, nil
 }
 
 func (r *RepoManagerApiImpl) CloneRepo(orgName string, gitRepoSchema git.GitRepoSchema) bool {

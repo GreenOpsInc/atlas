@@ -14,9 +14,9 @@ import (
 
 // TODO: add certPEM conf for each api client in workflowtrigger to perform secure requests
 type Manager interface {
-	GetTLSConf() (*tls.Config, error)
+	GetTLSServerConf() (*tls.Config, error)
 	GetCertificatePEM() []byte
-	WatchTLSConf(handler func(conf *tls.Config, err error))
+	WatchTLSServerConf(handler func(conf *tls.Config, err error))
 	BestEffortSystemCertPool() *x509.CertPool
 }
 
@@ -39,8 +39,8 @@ func New(k kclient.KubernetesClient) Manager {
 // TODO: currently we are fetching a conf from current cluster
 //		but client could be deployed in the other cluster
 //		in this case we'll need to call workflowtrigger api to get tls keypair
-func (m *tlsManager) GetTLSConf() (*tls.Config, error) {
-	log.Println("in GetTLSConf")
+func (m *tlsManager) GetTLSServerConf() (*tls.Config, error) {
+	log.Println("in GetServerTLSConf")
 	if m.conf != nil {
 		return m.conf, nil
 	}
@@ -56,7 +56,7 @@ func (m *tlsManager) fetchTLSConf() (*tls.Config, error) {
 	go func() {
 		for {
 			conf, certPEM, err := m.getTLSConfFromSecrets()
-			log.Printf("in GetTLSConf, conf = %v\n", conf)
+			log.Printf("in GetServerTLSConf, conf = %v\n", conf)
 			if err != nil {
 				errCh <- err
 				break
@@ -101,13 +101,13 @@ func (m *tlsManager) setTLSConf(conf *tls.Config, cert []byte) {
 // TODO: check that this watcher is not trigger server reloading if certPEM is not changed
 //		it could possibly happend on server start when certPEM is available and we also receiving secret change event
 // TODO: call this function only if we are in the same cluster as wokrflowtigger
-func (m *tlsManager) WatchTLSConf(handler func(conf *tls.Config, err error)) {
-	log.Println("in WatchTLSConf")
+func (m *tlsManager) WatchTLSServerConf(handler func(conf *tls.Config, err error)) {
+	log.Println("in WatchServerTLSConf")
 	m.k.WatchSecretData(AtlasCustomTLSSecretName, AtlasNamespace, func(secret *corev1.Secret) {
-		log.Printf("in WatchTLSConf. data = %s\n", secret)
-		log.Printf("in WatchTLSConf, secret data = %v\n", secret.Data)
+		log.Printf("in WatchServerTLSConf. data = %s\n", secret)
+		log.Printf("in WatchServerTLSConf, secret data = %v\n", secret.Data)
 		config, err := m.generateTLSConfFromKeyPair(secret.Data[kclient.TLSSecretCrtName], secret.Data[kclient.TLSSecretCrtName])
-		log.Printf("in WatchTLSConf, conf = %v\n", config)
+		log.Printf("in WatchServerTLSConf, conf = %v\n", config)
 		if err != nil {
 			handler(nil, err)
 			return

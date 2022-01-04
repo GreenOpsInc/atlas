@@ -3,12 +3,14 @@ package commanddelegator
 import (
 	"bytes"
 	"fmt"
-	"greenops.io/workflowtrigger/util/clientrequest"
-	"greenops.io/workflowtrigger/util/serializer"
 	"log"
 	"net/http"
 	"strings"
-	"time"
+
+	"greenops.io/workflowtrigger/client"
+	"greenops.io/workflowtrigger/tlsmanager"
+	"greenops.io/workflowtrigger/util/clientrequest"
+	"greenops.io/workflowtrigger/util/serializer"
 )
 
 const (
@@ -29,22 +31,23 @@ type CommandDelegatorApi interface {
 
 type CommandDelegatorApiImpl struct {
 	serverEndpoint string
-	client         *http.Client
+	client         client.HttpClient
 }
 
-func New(serverEndpoint string) CommandDelegatorApi {
+func New(serverEndpoint string, tm tlsmanager.Manager) (CommandDelegatorApi, error) {
 	if strings.HasSuffix(serverEndpoint, "/") {
 		serverEndpoint = serverEndpoint + "notifications"
 	} else {
 		serverEndpoint = serverEndpoint + "/notifications"
 	}
-	httpClient := &http.Client{
-		Timeout: time.Second * 10,
+	httpClient, err := client.New(client.ClientCommandDelegator, tm)
+	if err != nil {
+		return nil, err
 	}
 	return &CommandDelegatorApiImpl{
 		serverEndpoint: serverEndpoint,
 		client:         httpClient,
-	}
+	}, nil
 }
 
 func (r *CommandDelegatorApiImpl) SendNotification(orgName string, clusterName string, clientRequest clientrequest.NotificationRequestEvent) string {
@@ -72,4 +75,3 @@ func (r *CommandDelegatorApiImpl) SendNotification(orgName string, clusterName s
 	}
 	return buf.String()
 }
-

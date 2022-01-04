@@ -33,11 +33,20 @@ func main() {
 	dbClient = db.New(GetDbClientConfig())
 	kafkaClient = kafka.New(GetKafkaClientConfig())
 	kubernetesClient = kubernetesclient.New()
-	repoManagerApi = reposerver.New(GetRepoServerClientConfig())
-	commandDelegatorApi = commanddelegator.New(GetCommandDelegatorServerClientConfig())
 	argoAuthenticatorApi = argoauthenticator.New()
 	schemaValidator = schemavalidation.New(argoAuthenticatorApi, repoManagerApi)
-	tlsManager = tlsmanager.New(kubernetesClient)
+	repoManagerApi, err := reposerver.New(GetRepoServerClientConfig(), tlsManager)
+	if err != nil {
+		log.Fatal(err)
+	}
+	commandDelegatorApi, err = commanddelegator.New(GetCommandDelegatorServerClientConfig(), tlsManager)
+	if err != nil {
+		log.Fatal(err)
+	}
+	tlsManager, err = tlsmanager.New(kubernetesClient)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	r := mux.NewRouter()
 	r.Use(argoAuthenticatorApi.(*argoauthenticator.ArgoAuthenticatorApiImpl).Middleware)
@@ -55,7 +64,7 @@ func startAndWatchServer(tlsManager tlsmanager.Manager, r *mux.Router) {
 	httpServerExitDone := &sync.WaitGroup{}
 	httpServerExitDone.Add(1)
 
-	tlsConfig, err := tlsManager.GetTLSConf()
+	tlsConfig, err := tlsManager.GetServerTLSConf()
 	if err != nil {
 		log.Fatal("failed to fetch tls configuration: ", err)
 	}
@@ -65,8 +74,8 @@ func startAndWatchServer(tlsManager tlsmanager.Manager, r *mux.Router) {
 	log.Println("in startAndWatchServer, before listenAndServe")
 	go listenAndServe(httpServerExitDone, srv)
 
-	tlsManager.WatchTLSConf(func(conf *tls.Config, err error) {
-		log.Printf("in tlsManager.WatchTLSConf, conf = %v, err = %v\n", conf, err)
+	tlsManager.WatchServerTLSConf(func(conf *tls.Config, err error) {
+		log.Printf("in tlsManager.WatchServerTLSConf, conf = %v, err = %v\n", conf, err)
 		if err != nil {
 			defer httpServerExitDone.Done()
 			log.Fatal(err)
@@ -75,24 +84,25 @@ func startAndWatchServer(tlsManager tlsmanager.Manager, r *mux.Router) {
 		httpServerExitDone.Add(1)
 
 		if err := srv.Shutdown(context.Background()); err != nil {
-			log.Printf("in tlsManager.WatchTLSConf, srv.Shutdown. err = %v\n", err)
+			log.Printf("in tlsManager.WatchServerTLSConf, srv.Shutdown. err = %v\n", err)
 			defer httpServerExitDone.Done()
 			log.Fatal(err)
 		}
-		log.Println("in tlsManager.WatchTLSConf, before createServer")
+		log.Println("in tlsManager.WatchServerTLSConf, before createServer")
 		srv := createServer(conf, r)
-		log.Println("in tlsManager.WatchTLSConf, before listenAndServe")
+		log.Println("in tlsManager.WatchServerTLSConf, before listenAndServe")
 		go listenAndServe(httpServerExitDone, srv)
 	})
 
 	httpServerExitDone.Wait()
 }
 
-func createServer(tlsConf *tls.Config, handler http.Handler) *http.Server {
+// TODO: add logic to save cert to the atlas config folder
+func createServer(tlsServerConf *tls.Config, handler http.Handler) *http.Server {
 	return &http.Server{
 		Handler:      handler,
 		Addr:         ":8080",
-		TLSConfig:    tlsConf,
+		TLSConfig:    tlsServerConf,
 		WriteTimeout: 20 * time.Second,
 		ReadTimeout:  20 * time.Second,
 	}

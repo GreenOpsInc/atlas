@@ -30,6 +30,11 @@ const (
 	OverrideAction RbacAction = "override"
 )
 
+// TODO: update argocd client to use certificate from secrets
+//		1. get tls conf
+//		2. update client with tls conf
+//		3. watch for secret updates
+//		4. we cannot use httpclient package as argocd uses it's own client
 type ArgoAuthenticatorApi interface {
 	CheckRbacPermissions(action RbacAction, resource RbacResource, subresource string) bool
 }

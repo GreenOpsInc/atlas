@@ -539,7 +539,7 @@ func main() {
 	kubernetesClient := kubernetesclient.New()
 	tm := tlsmanager.New(kubernetesClient)
 
-	if _, err := tm.GetTLSConf(); err != nil {
+	if _, err := tm.GetTLSServerConf(); err != nil {
 		log.Fatal("get tls configuration failed: ", err.Error())
 	}
 
