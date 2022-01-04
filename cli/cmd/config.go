@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	confFileSuffix  string      = "./atlas/.atlas.yaml"
-	certFileSuffix  string      = "./atlas/cert.pem"
+	confFileSuffix  string      = ".atlas/.atlas.yaml"
+	certFileSuffix  string      = ".atlas/cert.pem"
 	userPermissions os.FileMode = 0700
 )
 
@@ -33,21 +33,22 @@ to set the respective configuration value. The default value for these config va
 will be updated for future commands after executing this command.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		home, err := os.UserHomeDir()
-		confFilename := home + confFileSuffix
+		confFilePath := home + confFileSuffix
 		var configStruct conf
 
 		cobra.CheckErr(err)
-		if _, err := os.Stat(confFilename); os.IsNotExist(err) {
-			_, err := os.Create(confFilename)
+		if _, err := os.Stat(confFilePath); os.IsNotExist(err) {
+			_, err := os.Create(confFilePath)
 			if err != nil {
 				fmt.Println("Unable to update atlas config.")
 				return
 			}
 			configStruct.AtlasUrl = "localhost:8081"
 			configStruct.Org = "org"
+			configStruct.TLSEnabled = false
 		}
 
-		yamlFile, err := ioutil.ReadFile(confFilename)
+		yamlFile, err := ioutil.ReadFile(confFilePath)
 		if err != nil {
 			fmt.Println("Unable to update atlas config.")
 			return
@@ -80,7 +81,7 @@ will be updated for future commands after executing this command.`,
 		}
 
 		data, _ := yaml.Marshal(&configStruct)
-		err2 := ioutil.WriteFile(confFilename, data, 0)
+		err2 := ioutil.WriteFile(confFilePath, data, 0)
 		if err2 != nil {
 			fmt.Println("Unable to update atlas config:", err2)
 		}
@@ -104,7 +105,7 @@ func getCertFilePath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return home + "./atlas/cert.pem", nil
+	return home + certFileSuffix, nil
 }
 
 func checkCertFile() (bool, error) {

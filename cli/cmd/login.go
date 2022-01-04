@@ -12,19 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/argoproj/argo-cd/v2/util/config"
-
-	"github.com/coreos/go-oidc"
-	"github.com/dgrijalva/jwt-go/v4"
-	log "github.com/sirupsen/logrus"
-	"github.com/skratchdot/open-golang/open"
-	"github.com/spf13/cobra"
-	"golang.org/x/oauth2"
-
 	argocdclient "github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	sessionpkg "github.com/argoproj/argo-cd/v2/pkg/apiclient/session"
 	settingspkg "github.com/argoproj/argo-cd/v2/pkg/apiclient/settings"
 	"github.com/argoproj/argo-cd/v2/util/cli"
+	"github.com/argoproj/argo-cd/v2/util/config"
 	"github.com/argoproj/argo-cd/v2/util/errors"
 	grpc_util "github.com/argoproj/argo-cd/v2/util/grpc"
 	"github.com/argoproj/argo-cd/v2/util/io"
@@ -32,6 +24,12 @@ import (
 	"github.com/argoproj/argo-cd/v2/util/localconfig"
 	oidcutil "github.com/argoproj/argo-cd/v2/util/oidc"
 	"github.com/argoproj/argo-cd/v2/util/rand"
+	"github.com/coreos/go-oidc"
+	"github.com/dgrijalva/jwt-go/v4"
+	log "github.com/sirupsen/logrus"
+	"github.com/skratchdot/open-golang/open"
+	"github.com/spf13/cobra"
+	"golang.org/x/oauth2"
 )
 
 const (
