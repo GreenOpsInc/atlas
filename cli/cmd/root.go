@@ -3,6 +3,7 @@ package cmd
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -168,6 +169,7 @@ RsyluS5+YtPXGW+8gKriMYEEu9g3iRLj4/bPSk/u8sTpUN4F1WzShfY2UNYSWfxm
 Lw9sMhgn3OyJQW27joqNxfhZort71qviiGr6ZuE5UXkPbcRpoDKLZ/PDKN+5GTa4
 -----END CERTIFICATE-----`)
 
+	// TODO: review how argocd imports cert file to clien and change accordingly
 	certpool := bestEffortSystemCertPool()
 	certpool.AppendCertsFromPEM(certPEM)
 	clientTLSConf := &tls.Config{
@@ -188,4 +190,15 @@ func bestEffortSystemCertPool() *x509.CertPool {
 	}
 	log.Println("root ca found")
 	return rootCAs
+}
+
+func getCertFile() (string, error) {
+	certPath := fmt.Sprintf("%s/server/tls/tls.crt", FilePath)
+	if _, err := os.Stat(certPath); err == nil {
+		return certPath, nil
+	} else if errors.Is(err, os.ErrNotExist) {
+		return "", errors.New("argocd server tls configuration does not exist")
+	} else {
+		return "", errors.New(fmt.Sprintf("fetch argocd server tls configuration failed: %s", err.Error()))
+	}
 }

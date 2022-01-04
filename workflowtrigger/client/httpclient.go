@@ -40,7 +40,7 @@ func (c *client) initHttpClient() (*http.Client, error) {
 	}
 
 	httpClient := c.configureClient(tlsConf)
-	if err := c.watchClient(); err != nil {
+	if err = c.watchClient(); err != nil {
 		return nil, err
 	}
 	return httpClient, nil

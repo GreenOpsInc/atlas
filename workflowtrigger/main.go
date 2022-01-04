@@ -33,7 +33,7 @@ func main() {
 	dbClient = db.New(GetDbClientConfig())
 	kafkaClient = kafka.New(GetKafkaClientConfig())
 	kubernetesClient = kubernetesclient.New()
-	argoAuthenticatorApi = argoauthenticator.New()
+	argoAuthenticatorApi = argoauthenticator.New(tlsManager)
 	schemaValidator = schemavalidation.New(argoAuthenticatorApi, repoManagerApi)
 	repoManagerApi, err := reposerver.New(GetRepoServerClientConfig(), tlsManager)
 	if err != nil {
@@ -49,7 +49,7 @@ func main() {
 	}
 
 	r := mux.NewRouter()
-	r.Use(argoAuthenticatorApi.(*argoauthenticator.ArgoAuthenticatorApiImpl).Middleware)
+	r.Use(argoAuthenticatorApi.Middleware)
 	api.InitClients(dbClient, kafkaClient, kubernetesClient, repoManagerApi, commandDelegatorApi, schemaValidator)
 	api.InitializeLocalCluster()
 	api.InitPipelineTeamEndpoints(r)
@@ -122,6 +122,7 @@ const (
 	kafkaAddress                  string = "KAFKA_BOOTSTRAP_SERVERS"
 	repoServerAddress             string = "REPO_SERVER_ENDPOINT"
 	commandDelegatorServerAddress string = "COMMAND_DELEGATOR_SERVER_ENDPOINT"
+	configPath                    string = "ATLAS_CONFIG_PATH"
 
 	//Default Names
 	dbDefaultAddress                     string = "localhost:6379"
@@ -129,6 +130,7 @@ const (
 	kafkaDefaultAddress                  string = "localhost:29092"
 	repoServerDefaultAddress             string = "http://localhost:8081"
 	commandDelegatorServerDefaultAddress string = "http://localhost:8080"
+	configDefaultPath                    string = "/home/.atlas"
 )
 
 func GetDbClientConfig() (string, string) {

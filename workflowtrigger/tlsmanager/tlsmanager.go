@@ -23,8 +23,10 @@ type Manager interface {
 	BestEffortSystemCertPool() *x509.CertPool
 	GetServerTLSConf() (*tls.Config, error)
 	GetClientTLSConf(clientName client.ClientName) (*tls.Config, error)
+	GetClientCertPEM(clientName client.ClientName) ([]byte, error)
 	WatchServerTLSConf(handler func(conf *tls.Config, err error))
 	WatchClientTLSConf(clientName client.ClientName, handler func(conf *tls.Config, err error)) error
+	WatchClientTLSPEM(clientName client.ClientName, handler func(certPEM []byte, err error)) error
 }
 
 type tlsManager struct {
@@ -32,6 +34,7 @@ type tlsManager struct {
 	tlsConf          *tls.Config
 	selfSignedConf   *tls.Config
 	tlsClientConfigs map[client.ClientName]*tls.Config
+	tlsClientCertPEM map[client.ClientName][]byte
 }
 
 type TLSSecretName string
@@ -103,6 +106,24 @@ func (m *tlsManager) GetClientTLSConf(clientName client.ClientName) (*tls.Config
 	return conf, nil
 }
 
+func (m *tlsManager) GetClientCertPEM(clientName client.ClientName) ([]byte, error) {
+	log.Println("in GetClientCertPEM")
+	if m.tlsClientCertPEM[clientName] != nil {
+		return m.tlsClientCertPEM[clientName], nil
+	}
+
+	secretName, err := clientNameToSecretName(clientName)
+	if err != nil {
+		return nil, err
+	}
+
+	secret := m.k.FetchSecretData(string(secretName), Namespace)
+	if secret == nil {
+		return nil, nil
+	}
+	return secret[TLSSecretCrtName], nil
+}
+
 // TODO: check that this watcher is not trigger server reloading if cert is not changed
 //		it could possibly happend on server start when cert is available and we also receiving secret change event
 func (m *tlsManager) WatchServerTLSConf(handler func(conf *tls.Config, err error)) {
@@ -159,6 +180,27 @@ func (m *tlsManager) WatchClientTLSConf(clientName client.ClientName, handler fu
 			handler(&tls.Config{RootCAs: rootCA}, nil)
 		case kclient.SecretChangeTypeDelete:
 			handler(&tls.Config{InsecureSkipVerify: true}, nil)
+		}
+	})
+	return nil
+}
+
+func (m *tlsManager) WatchClientTLSPEM(clientName client.ClientName, handler func(certPEM []byte, err error)) error {
+	log.Println("in WatchClientTLSPEM")
+	secretName, err := clientNameToSecretName(clientName)
+	if err != nil {
+		return err
+	}
+
+	m.k.WatchSecretData(string(secretName), Namespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
+		log.Printf("in WatchClientTLSPEM, event %v. data = %s\n", t, secret)
+		switch t {
+		case kclient.SecretChangeTypeAdd:
+			fallthrough
+		case kclient.SecretChangeTypeUpdate:
+			handler(secret.Data[TLSSecretCrtName], nil)
+		case kclient.SecretChangeTypeDelete:
+			handler(nil, nil)
 		}
 	})
 	return nil

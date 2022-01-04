@@ -1,6 +1,7 @@
 package argoauthenticator
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
@@ -12,6 +13,9 @@ import (
 	"github.com/argoproj/argo-cd/pkg/apiclient/account"
 	grpcutil "github.com/argoproj/argo-cd/util/grpc"
 	"google.golang.org/grpc/status"
+	"greenops.io/workflowtrigger/client"
+	"greenops.io/workflowtrigger/tlsmanager"
+	"greenops.io/workflowtrigger/util/config"
 )
 
 type RbacResource string
@@ -30,68 +34,41 @@ const (
 	OverrideAction RbacAction = "override"
 )
 
-// TODO: update argocd client to use certificate from secrets
-//		1. get tls conf
-//		2. update client with tls conf
-//		3. watch for secret updates
-//		4. we cannot use httpclient package as argocd uses it's own client
+const (
+	UserAccountEnvVar         string = "ARGOCD_USER_ACCOUNT"
+	UserAccountPasswordEnvVar string = "ARGOCD_USER_PASSWORD"
+	DefaultApiServerAddress   string = "argocd-server.argocd.svc.cluster.local"
+	DefaultUserAccount        string = "admin"
+	ArgoCDTLSCertPathSuffix   string = "/argocd/cert.tls"
+)
+
 type ArgoAuthenticatorApi interface {
 	CheckRbacPermissions(action RbacAction, resource RbacResource, subresource string) bool
+	Middleware(next http.Handler) http.Handler
 }
 
-type ArgoAuthenticatorApiImpl struct {
+type argoAuthenticatorApi struct {
 	apiServerAddress string
-	tls              bool
+	tm               tlsmanager.Manager
+	tlsEnabled       bool
+	tlsCertPath      string
 	rawClient        apiclient.Client
 	configuredClient apiclient.Client
 }
 
-func New() ArgoAuthenticatorApi {
+func New(tm tlsmanager.Manager) ArgoAuthenticatorApi {
 	apiServerAddress := getClientCreationData()
-	argoClient, tls := getRawArgoClient(apiServerAddress)
-
-	var client ArgoAuthenticatorApi
-	client = &ArgoAuthenticatorApiImpl{apiServerAddress: apiServerAddress, tls: tls, rawClient: argoClient, configuredClient: nil}
-	return client
+	argoApi := &argoAuthenticatorApi{apiServerAddress: apiServerAddress, tm: tm}
+	argoApi.initArgoClient()
+	return argoApi
 }
 
-func getRawArgoClient(apiServerAddress string) (apiclient.Client, bool) {
-	tlsTestResult, err := grpcutil.TestTLS(apiServerAddress)
-	if err != nil {
-		panic(fmt.Sprintf("Error when testing TLS: %s", err))
-	}
-
-	argoClient, err := apiclient.NewClient(
-		&apiclient.ClientOptions{
-			ServerAddr: apiServerAddress,
-			Insecure:   true,
-			PlainText:  !tlsTestResult.TLS,
-		})
-	if err != nil {
-		panic(fmt.Sprintf("Error when making new API client: %s", err))
-	}
-	return argoClient, !tlsTestResult.TLS
-}
-
-func (a *ArgoAuthenticatorApiImpl) getConfiguredArgoClient(token string) {
-	argoClient, err := apiclient.NewClient(&apiclient.ClientOptions{
-		Insecure:   true,
-		ServerAddr: a.apiServerAddress,
-		AuthToken:  token,
-		PlainText:  a.tls,
-	})
-	if err != nil {
-		panic(fmt.Sprintf("Error when making properly authenticated client: %s", err))
-	}
-	a.configuredClient = argoClient
-}
-
-func (a *ArgoAuthenticatorApiImpl) Middleware(next http.Handler) http.Handler {
+func (a *argoAuthenticatorApi) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := r.Header.Get("Authorization")
 		splitToken := strings.Split(token, "Bearer ")
 		token = splitToken[1]
-		a.getConfiguredArgoClient(token)
+		a.configureArgoClient(token)
 
 		defer func() {
 			if err := recover(); err != nil {
@@ -126,35 +103,144 @@ func (a *ArgoAuthenticatorApiImpl) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-func (a *ArgoAuthenticatorApiImpl) CheckRbacPermissions(action RbacAction, resource RbacResource, subresource string) bool {
+func (a *argoAuthenticatorApi) CheckRbacPermissions(action RbacAction, resource RbacResource, subresource string) bool {
 	closer, client, err := a.configuredClient.NewAccountClient()
 	if err != nil {
-		panic(fmt.Sprintf("account client could not be made for Argo: %s", err))
+		log.Fatalf("account client could not be made for Argo: %s", err)
 	}
-	defer closer.Close()
+	defer func() {
+		if err = closer.Close(); err != nil {
+			log.Println("failed to close argocd client: ", err.Error())
+		}
+	}()
+
 	canI, err := client.CanI(context.TODO(), &account.CanIRequest{
 		Resource:    string(resource),
 		Action:      string(action),
 		Subresource: subresource,
 	})
 	if err != nil {
-		panic(fmt.Sprintf("Request to Argo server failed: %s", err))
+		log.Fatalf("Request to Argo server failed: %s", err)
 	}
 	return canI.Value == "yes"
 }
-
-const (
-	UserAccountEnvVar         string = "ARGOCD_USER_ACCOUNT"
-	UserAccountPasswordEnvVar string = "ARGOCD_USER_PASSWORD"
-	DefaultApiServerAddress   string = "argocd-server.argocd.svc.cluster.local"
-	DefaultUserAccount        string = "admin"
-)
 
 func getClientCreationData() string {
 	argoCdServer := os.Getenv(apiclient.EnvArgoCDServer)
 	if argoCdServer == "" {
 		argoCdServer = DefaultApiServerAddress
 	}
-
 	return argoCdServer
+}
+
+func (a *argoAuthenticatorApi) initArgoClient() {
+	tlsTestResult, err := grpcutil.TestTLS(a.apiServerAddress)
+	if err != nil {
+		log.Fatalf("Error when testing TLS: %s", err)
+	}
+
+	tlsCertPath, err := a.initArgoTLSCert()
+	if err != nil {
+		log.Println(err.Error())
+	}
+
+	a.tlsEnabled = tlsTestResult.TLS
+	a.tlsCertPath = tlsCertPath
+	argoClient, err := apiclient.NewClient(a.getAPIClientOptions(""))
+	if err != nil {
+		log.Fatalf("Error when making new API client: %s", err)
+	}
+	a.rawClient = argoClient
+
+	if err = a.watchArgoTLSUpdates(); err != nil {
+		log.Fatal("failed to watch argocd tls secret: ", err)
+	}
+}
+
+func (a *argoAuthenticatorApi) initArgoTLSCert() (string, error) {
+	certPEM, err := a.tm.GetClientCertPEM(client.ClientArgoCDRepoServer)
+	if err != nil {
+		log.Println("failed to get argocd certificate from secrets: ", err.Error())
+		return "", nil
+	}
+
+	confPath, err := config.GetConfigPath()
+	if err != nil {
+		return "", err
+	}
+	argoTLSCertPath := fmt.Sprintf("%s/%s", confPath, ArgoCDTLSCertPathSuffix)
+
+	data, err := config.ReadDataFromConfigFile(argoTLSCertPath)
+	if err == nil && bytes.Equal(data, certPEM) {
+		return argoTLSCertPath, nil
+	}
+
+	if err = config.WriteDataToConfigFile(certPEM, argoTLSCertPath); err != nil {
+		return "", err
+	}
+	return argoTLSCertPath, nil
+}
+
+func (a *argoAuthenticatorApi) configureArgoClient(token string) {
+	argoClient, err := apiclient.NewClient(a.getAPIClientOptions(token))
+	if err != nil {
+		log.Fatalf("Error when making properly authenticated client: %s", err)
+	}
+	a.configuredClient = argoClient
+}
+
+func (a *argoAuthenticatorApi) getAPIClientOptions(token string) *apiclient.ClientOptions {
+	options := &apiclient.ClientOptions{
+		ServerAddr: a.apiServerAddress,
+	}
+	if a.tlsCertPath == "" {
+		options.Insecure = true
+		options.PlainText = !a.tlsEnabled
+	} else {
+		options.Insecure = false
+		options.PlainText = false
+		options.CertFile = a.tlsCertPath
+	}
+	if token != "" {
+		options.AuthToken = token
+	}
+	return options
+}
+
+func (a *argoAuthenticatorApi) watchArgoTLSUpdates() error {
+	err := a.tm.WatchClientTLSPEM(client.ClientArgoCDRepoServer, func(certPEM []byte, err error) {
+		log.Printf("in watchArgoTLSUpdates, conf = %v, err = %v\n", certPEM, err)
+		if err != nil {
+			log.Fatalf("an error occurred in the watch %s client: %s", client.ClientArgoCDRepoServer, err.Error())
+		}
+		if err = a.updateArgoTLSCert(certPEM); err != nil {
+			log.Fatal("an error occurred during argocd client tls config update: ", err)
+		}
+	})
+	return err
+}
+
+func (a *argoAuthenticatorApi) updateArgoTLSCert(certPEM []byte) error {
+	confPath, err := config.GetConfigPath()
+	if err != nil {
+		return err
+	}
+	argoTLSCertPath := fmt.Sprintf("%s/%s", confPath, ArgoCDTLSCertPathSuffix)
+
+	if certPEM == nil {
+		if err = config.DeleteConfigFile(argoTLSCertPath); err != nil {
+			return err
+		}
+	}
+
+	data, err := config.ReadDataFromConfigFile(argoTLSCertPath)
+	if err == nil && bytes.Equal(data, certPEM) {
+		return nil
+	}
+
+	if err = config.WriteDataToConfigFile(certPEM, argoTLSCertPath); err != nil {
+		return err
+	}
+	a.tlsCertPath = argoTLSCertPath
+	return nil
 }
