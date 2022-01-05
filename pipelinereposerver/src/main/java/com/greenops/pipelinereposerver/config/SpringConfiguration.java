@@ -19,6 +19,17 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+// TODO: server configuration
+//      1. add bean to:
+//          a. read config from secrets
+//          b. if not available create self signed
+//          c. create keystore
+//          d. use keystore for tomcat
+//      2. create watcher to watch kubernetes secret updates
+//          a. on create/update/delete reload the server
+//          b. after server is reloaded it will pull new config from secrets and create the server
+//          c. the same could be done for kafka (I guess)
+
 @Configuration
 public class SpringConfiguration {
 
