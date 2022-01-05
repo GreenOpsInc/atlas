@@ -2,29 +2,27 @@ package argodriver
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/argoproj/argo-cd/pkg/apiclient"
-	"github.com/argoproj/argo-cd/pkg/apiclient/application"
-	"github.com/argoproj/argo-cd/pkg/apiclient/project"
-	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
-	"github.com/argoproj/argo-cd/util/config"
-	"github.com/argoproj/argo-cd/util/io"
-	"github.com/argoproj/gitops-engine/pkg/health"
-	"github.com/dgrijalva/jwt-go/v4"
-	"greenops.io/client/atlasoperator/requestdatatypes"
-	"greenops.io/client/k8sdriver"
-	"greenops.io/client/progressionchecker/datamodel"
-	"greenops.io/client/util"
-	utilpointer "k8s.io/utils/pointer"
 	"log"
-	"os"
 	"reflect"
 	"regexp"
 	"strings"
 	"time"
 
-	sessionpkg "github.com/argoproj/argo-cd/pkg/apiclient/session"
-	grpcutil "github.com/argoproj/argo-cd/util/grpc"
+	"github.com/argoproj/argo-cd/pkg/apiclient"
+	"github.com/argoproj/argo-cd/pkg/apiclient/application"
+	"github.com/argoproj/argo-cd/pkg/apiclient/project"
+	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
+	"github.com/argoproj/argo-cd/util/config"
+	"github.com/argoproj/gitops-engine/pkg/health"
+	"github.com/dgrijalva/jwt-go/v4"
+	"greenops.io/client/atlasoperator/requestdatatypes"
+	"greenops.io/client/k8sdriver"
+	"greenops.io/client/progressionchecker/datamodel"
+	"greenops.io/client/tlsmanager"
+	"greenops.io/client/util"
+	utilpointer "k8s.io/utils/pointer"
 )
 
 const (
@@ -77,6 +75,10 @@ type ArgoAuthClient interface {
 
 type ArgoClientDriver struct {
 	client           apiclient.Client
+	tm               tlsmanager.Manager
+	tlsCertPath      string
+	tlsEnabled       bool
+	apiServerAddress string
 	kubernetesClient k8sdriver.KubernetesClientNamespaceSecretRestricted
 }
 
@@ -85,56 +87,11 @@ func New(kubernetesDriver *k8sdriver.KubernetesClient) ArgoClient {
 	var kubernetesClient k8sdriver.KubernetesClientNamespaceSecretRestricted
 	kubernetesClient = *kubernetesDriver
 	apiServerAddress, userAccount, userPassword, _ := getClientCreationData(&kubernetesClient)
-	argoClient, err := getArgoClient(apiServerAddress, userAccount, userPassword)
-	util.CheckFatalError(err)
-
-	var client ArgoClient
-	client = &ArgoClientDriver{argoClient, kubernetesClient}
-	return client
-}
-
-func getArgoClient(apiServerAddress string, userAccount string, userPassword string) (apiclient.Client, error) {
-	tlsTestResult, err := grpcutil.TestTLS(apiServerAddress)
-	if err != nil {
-		log.Printf("Error when testing TLS: %s", err)
-		return nil, err
+	driver := &ArgoClientDriver{kubernetesClient: kubernetesClient, apiServerAddress: apiServerAddress}
+	if err := driver.initArgoDriver(userAccount, userPassword); err != nil {
+		util.CheckFatalError(err)
 	}
-
-	argoClient, err := apiclient.NewClient(
-		&apiclient.ClientOptions{
-			ServerAddr: apiServerAddress,
-			Insecure:   true,
-			PlainText:  !tlsTestResult.TLS,
-		})
-	if err != nil {
-		log.Printf("Error when making new API client: %s", err)
-		return nil, err
-	}
-
-	closer, sessionClient, err := argoClient.NewSessionClient()
-	if err != nil {
-		log.Printf("Error when making new session client: %s", err)
-		return nil, err
-	}
-	defer io.Close(closer)
-
-	sessionResponse, err := sessionClient.Create(context.TODO(), &sessionpkg.SessionCreateRequest{Username: userAccount, Password: userPassword})
-	if err != nil {
-		log.Printf("Error when fetching access token: %s", err)
-		return nil, err
-	}
-
-	argoClient, err = apiclient.NewClient(&apiclient.ClientOptions{
-		Insecure:   true,
-		ServerAddr: apiServerAddress,
-		AuthToken:  sessionResponse.Token,
-		PlainText:  !tlsTestResult.TLS,
-	})
-	if err != nil {
-		log.Printf("Error when making properly authenticated client: %s", err)
-		return nil, err
-	}
-	return argoClient, nil
+	return driver
 }
 
 func (a *ArgoClientDriver) CheckForRefresh() error {
@@ -148,15 +105,21 @@ func (a *ArgoClientDriver) CheckForRefresh() error {
 		return err
 	}
 	now := jwt.At(time.Now().UTC())
-	if now.Time.After(claims.ExpiresAt.Time) {
-		log.Printf("Getting new token")
-		apiServerAddress, userAccount, userPassword, _ := getClientCreationData(&a.kubernetesClient)
-		argoClient, err := getArgoClient(apiServerAddress, userAccount, userPassword)
-		if err != nil {
-			return err
-		}
-		a.client = argoClient
+	if !now.Time.After(claims.ExpiresAt.Time) {
+		return nil
 	}
+
+	log.Printf("Getting new token")
+	_, userAccount, userPassword, _ := getClientCreationData(&a.kubernetesClient)
+	token, err := a.generateArgoToken(userAccount, userPassword)
+	if err != nil {
+		return err
+	}
+	argoClient, err := apiclient.NewClient(a.getAPIClientOptions(token))
+	if err != nil {
+		return errors.New(fmt.Sprintf("error when making properly authenticated client: %s", err.Error()))
+	}
+	a.client = argoClient
 	return nil
 }
 
@@ -699,27 +662,4 @@ func makeApplication(configPayload *string) v1alpha1.Application {
 		return v1alpha1.Application{}
 	}
 	return argoApplication
-}
-
-func getClientCreationData(kubernetesDriver *k8sdriver.KubernetesClientNamespaceSecretRestricted) (string, string, string, string) {
-	argoCdServer := os.Getenv(apiclient.EnvArgoCDServer)
-	if argoCdServer == "" {
-		argoCdServer = DefaultApiServerAddress
-	}
-	argoCdUser := os.Getenv(UserAccountEnvVar)
-	if argoCdUser == "" {
-		argoCdUser = DefaultUserAccount
-	}
-	argoCdUserPassword := os.Getenv(UserAccountPasswordEnvVar)
-	if argoCdUserPassword == "" {
-		secretData := (*kubernetesDriver).GetSecret("argocd-initial-admin-secret", "argocd")
-		if secretData != nil {
-			argoCdUserPassword = string(secretData["password"])
-		}
-	}
-	argoCdUserToken := "" //os.Getenv(apiclient.EnvArgoCDAuthToken)
-	//if argoCdUserToken == "" {
-	//	panic("An acces token has to be entered. Not implemented yet.")
-	//}
-	return argoCdServer, argoCdUser, argoCdUserPassword, argoCdUserToken
 }

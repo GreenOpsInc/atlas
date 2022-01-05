@@ -10,6 +10,10 @@ import (
 	"os"
 	"strings"
 
+	"greenops.io/client/tlsmanager"
+
+	"greenops.io/client/client"
+
 	"greenops.io/client/argodriver"
 	"greenops.io/client/atlasoperator/requestdatatypes"
 )
@@ -39,9 +43,11 @@ type CommandDelegatorImpl struct {
 	clusterName         string
 	orgName             string
 	argoAuthClient      argodriver.ArgoAuthClient
+	client              client.HttpClient
 }
 
-func Create(argoClient argodriver.ArgoAuthClient) CommandDelegatorApi {
+// TODO: add argocd tls updates
+func Create(argoClient argodriver.ArgoAuthClient, tm tlsmanager.Manager) (CommandDelegatorApi, error) {
 	commandDelegatorUrl := os.Getenv(EnvCommandDelegatorUrl)
 	if commandDelegatorUrl == "" {
 		commandDelegatorUrl = DefaultCommandDelegatorUrl
@@ -57,11 +63,20 @@ func Create(argoClient argodriver.ArgoAuthClient) CommandDelegatorApi {
 	if orgName == "" {
 		orgName = DefaultOrgName
 	}
-	return CommandDelegatorImpl{commandDelegatorUrl: commandDelegatorUrl, clusterName: clusterName, orgName: orgName, argoAuthClient: argoClient}
+	httpClient, err := client.NewHttpClient(tlsmanager.ClientWorkflowTrigger, tm)
+	if err != nil {
+		return nil, err
+	}
+	return CommandDelegatorImpl{
+		commandDelegatorUrl: commandDelegatorUrl,
+		clusterName:         clusterName,
+		orgName:             orgName,
+		argoAuthClient:      argoClient,
+		client:              httpClient,
+	}, nil
 }
 
 func (c CommandDelegatorImpl) GetCommands() (*[]requestdatatypes.RequestEvent, error) {
-	client := &http.Client{}
 	req, err := http.NewRequest("GET", c.commandDelegatorUrl+fmt.Sprintf("/requests/%s/%s", c.orgName, c.clusterName), nil)
 	if err != nil {
 		log.Printf("Error while making getting commands request: %s", err)
@@ -70,7 +85,7 @@ func (c CommandDelegatorImpl) GetCommands() (*[]requestdatatypes.RequestEvent, e
 	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", "application/json")
-	resp, err := client.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		log.Printf("Error while getting commands: %s", err)
 		return nil, err
@@ -129,14 +144,13 @@ func (c CommandDelegatorImpl) GetCommands() (*[]requestdatatypes.RequestEvent, e
 }
 
 func (c CommandDelegatorImpl) AckHeadOfRequestList() error {
-	client := &http.Client{}
 	req, err := http.NewRequest("DELETE", c.commandDelegatorUrl+fmt.Sprintf("/requests/ackHead/%s/%s", c.orgName, c.clusterName), nil)
 	if err != nil {
 		log.Printf("Error while making ack head request: %s", err)
 		return err
 	}
 	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
-	resp, err := client.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		log.Printf("Error while acking head: %s", err)
 		return err
@@ -149,14 +163,13 @@ func (c CommandDelegatorImpl) AckHeadOfRequestList() error {
 }
 
 func (c CommandDelegatorImpl) AckHeadOfNotificationList() error {
-	client := &http.Client{}
 	req, err := http.NewRequest("DELETE", c.commandDelegatorUrl+fmt.Sprintf("/notifications/ackHead/%s/%s", c.orgName, c.clusterName), nil)
 	if err != nil {
 		log.Printf("Error while making ack head request: %s", err)
 		return err
 	}
 	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
-	resp, err := client.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		log.Printf("Error while acking notifications head: %s", err)
 		return err
@@ -170,14 +183,13 @@ func (c CommandDelegatorImpl) AckHeadOfNotificationList() error {
 }
 
 func (c CommandDelegatorImpl) RetryRequest() error {
-	client := &http.Client{}
 	req, err := http.NewRequest("DELETE", c.commandDelegatorUrl+fmt.Sprintf("/requests/retry/%s/%s", c.orgName, c.clusterName), nil)
 	if err != nil {
 		log.Printf("Error while making retry request: %s", err)
 		return err
 	}
 	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
-	resp, err := client.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		log.Printf("Error while sending retry message: %s", err)
 		return err

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"greenops.io/workflowtrigger/tlsmanager"
+	"greenops.io/client/tlsmanager"
 )
 
 type HttpClient interface {

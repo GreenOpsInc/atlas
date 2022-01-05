@@ -1,154 +1,70 @@
 package tlsmanager
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"log"
-	"time"
 
 	kclient "greenops.io/client/kubernetesclient"
 	corev1 "k8s.io/api/core/v1"
 )
 
-// TODO: add certPEM conf for each api client in workflowtrigger to perform secure requests
 type Manager interface {
-	GetTLSServerConf() (*tls.Config, error)
-	GetCertificatePEM() []byte
-	WatchTLSServerConf(handler func(conf *tls.Config, err error))
 	BestEffortSystemCertPool() *x509.CertPool
+	GetClientTLSConf(clientName ClientName) (*tls.Config, error)
+	GetClientCertPEM(clientName ClientName) ([]byte, error)
+	WatchClientTLSConf(clientName ClientName, handler func(conf *tls.Config, err error)) error
+	WatchClientTLSPEM(clientName ClientName, handler func(certPEM []byte, err error)) error
 }
 
 type tlsManager struct {
-	k       kclient.KubernetesClient
-	conf    *tls.Config
-	certPEM []byte
+	k                kclient.KubernetesClient
+	tlsClientConfigs map[ClientName]*tls.Config
+	tlsClientCertPEM map[ClientName][]byte
 }
+
+type TLSSecretName string
 
 // TODO: currently those values are hardcoded, fetch them from config or somewhere else
 const (
-	AtlasCustomTLSSecretName = "atlas-tls"
-	AtlasNamespace           = "default"
+	NotValidSecretName            TLSSecretName = "not-valid"
+	ClientWrapperTLSSecretName    TLSSecretName = "clientwrapper-tls"
+	WorkflowTriggerTLSSecretName  TLSSecretName = "workflowtrigger-tls"
+	CommandDelegatorTLSSecretName TLSSecretName = "commanddelegator-tls"
+	ArgoCDRepoServerTLSSecretName TLSSecretName = "argocd-repo-server-tls"
+	Namespace                     string        = "default"
 )
 
-func New(k kclient.KubernetesClient) Manager {
-	return &tlsManager{k: k}
-}
+type ClientName string
 
-// TODO: currently we are fetching a conf from current cluster
-//		but client could be deployed in the other cluster
-//		in this case we'll need to call workflowtrigger api to get tls keypair
-func (m *tlsManager) GetTLSServerConf() (*tls.Config, error) {
-	log.Println("in GetServerTLSConf")
-	if m.conf != nil {
-		return m.conf, nil
-	}
-	return m.fetchTLSConf()
-}
+const (
+	ClientWorkflowTrigger  ClientName = "workflowtrigger"
+	ClientCommandDelegator ClientName = "commanddelegator"
+	ClientArgoCDRepoServer ClientName = "argocdreposerver"
+)
 
-func (m *tlsManager) fetchTLSConf() (*tls.Config, error) {
-	successCh := make(chan *tls.Config, 1)
-	errCh := make(chan error, 1)
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-	defer cancel()
+const (
+	TLSSecretCrtName = "tls.crt"
+	TLSSecretKeyName = "tls.key"
+)
 
-	go func() {
-		for {
-			conf, certPEM, err := m.getTLSConfFromSecrets()
-			log.Printf("in GetServerTLSConf, conf = %v\n", conf)
-			if err != nil {
-				errCh <- err
-				break
-			}
-			if conf != nil {
-				log.Println("CERT FOUND IN SECRETS")
-				m.setTLSConf(conf, certPEM)
-				successCh <- conf
-				break
-			}
-
-			select {
-			case <-time.After(time.Second * 2):
-				continue
-			case <-timeoutCtx.Done():
-				break
-			}
-		}
-	}()
-
-	select {
-	case res := <-successCh:
-		return res, nil
-	case err := <-errCh:
-		return nil, err
-	case <-timeoutCtx.Done():
-		return nil, errors.New("tls certificate fetch failed: timeout reached")
-	}
-}
-
-func (m *tlsManager) GetCertificatePEM() []byte {
-	return m.certPEM
-}
-
-func (m *tlsManager) setTLSConf(conf *tls.Config, cert []byte) {
-	m.certPEM = cert
-	m.conf = conf
-}
-
-// TODO: to add a tls certPEM\key to secrets run:
-//		kubectl create secret tls atlas-server-tls --certPEM ./certPEM.pem --key ./key.pem
-// TODO: check that this watcher is not trigger server reloading if certPEM is not changed
-//		it could possibly happend on server start when certPEM is available and we also receiving secret change event
-// TODO: call this function only if we are in the same cluster as wokrflowtigger
-func (m *tlsManager) WatchTLSServerConf(handler func(conf *tls.Config, err error)) {
-	log.Println("in WatchServerTLSConf")
-	m.k.WatchSecretData(AtlasCustomTLSSecretName, AtlasNamespace, func(secret *corev1.Secret) {
-		log.Printf("in WatchServerTLSConf. data = %s\n", secret)
-		log.Printf("in WatchServerTLSConf, secret data = %v\n", secret.Data)
-		config, err := m.generateTLSConfFromKeyPair(secret.Data[kclient.TLSSecretCrtName], secret.Data[kclient.TLSSecretCrtName])
-		log.Printf("in WatchServerTLSConf, conf = %v\n", config)
-		if err != nil {
-			handler(nil, err)
-			return
-		}
-		m.setTLSConf(config, secret.Data[kclient.TLSSecretCrtName])
-		handler(config, nil)
-	})
-}
-
-func (m *tlsManager) getTLSConfFromSecrets() (*tls.Config, []byte, error) {
-	log.Println("in getTLSConfFromSecrets")
-	secret := m.k.FetchSecretData(AtlasCustomTLSSecretName, AtlasNamespace)
-	log.Println("in getTLSConfFromSecrets, secret: ", secret)
-	if secret == nil {
-		return nil, nil, nil
-	}
-
-	conf, err := m.generateTLSConfFromKeyPair(secret[kclient.TLSSecretCrtName], secret[kclient.TLSSecretKeyName])
-	if err != nil {
-		return nil, nil, err
-	}
-
-	m.k.StoreServerTLSConf(string(secret[kclient.TLSSecretCrtName]), string(secret[kclient.TLSSecretKeyName]), AtlasNamespace)
-	return conf, secret[kclient.TLSSecretCrtName], nil
-}
-
-func (m *tlsManager) generateTLSConfFromKeyPair(cert []byte, key []byte) (*tls.Config, error) {
-	log.Printf("in generateTLSConfFromKeyPair certPEM = %s, key = %s\n", string(cert), string(key))
-	c, err := tls.X509KeyPair(cert, key)
-	log.Printf("in generateTLSConfFromKeyPair c = %v\n", c)
-	if err != nil {
+func New(k kclient.KubernetesClient) (Manager, error) {
+	m := &tlsManager{k: k}
+	if err := m.initConfigs(); err != nil {
 		return nil, err
 	}
+	return m, nil
+}
 
-	rootCAs := m.BestEffortSystemCertPool()
-	return &tls.Config{
-		Certificates:             []tls.Certificate{c},
-		MinVersion:               tls.VersionTLS13,
-		PreferServerCipherSuites: true,
-		RootCAs:                  rootCAs,
-	}, nil
+func (m *tlsManager) initConfigs() error {
+	if _, err := m.GetClientTLSConf(ClientWorkflowTrigger); err != nil {
+		return err
+	}
+	if _, err := m.GetClientTLSConf(ClientCommandDelegator); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (m *tlsManager) BestEffortSystemCertPool() *x509.CertPool {
@@ -159,4 +75,111 @@ func (m *tlsManager) BestEffortSystemCertPool() *x509.CertPool {
 	}
 	log.Println("root ca found")
 	return rootCAs
+}
+
+func (m *tlsManager) GetClientTLSConf(clientName ClientName) (*tls.Config, error) {
+	conf, err := m.getTLSClientConf(clientName)
+	if err != nil {
+		return nil, err
+	}
+	m.tlsClientConfigs[clientName] = conf
+	return conf, nil
+}
+
+func (m *tlsManager) GetClientCertPEM(clientName ClientName) ([]byte, error) {
+	log.Println("in GetClientCertPEM")
+	if m.tlsClientCertPEM[clientName] != nil {
+		return m.tlsClientCertPEM[clientName], nil
+	}
+
+	secretName, err := clientNameToSecretName(clientName)
+	if err != nil {
+		return nil, err
+	}
+
+	secret := m.k.FetchSecretData(string(secretName), Namespace)
+	if secret == nil {
+		return nil, nil
+	}
+	return secret[TLSSecretCrtName], nil
+}
+
+// TODO: check that this watcher is not trigger server reloading if cert is not changed
+//		it could possibly happend on server start when cert is available and we also receiving secret change event
+func (m *tlsManager) WatchClientTLSConf(clientName ClientName, handler func(conf *tls.Config, err error)) error {
+	log.Println("in WatchClientTLSConf")
+	secretName, err := clientNameToSecretName(clientName)
+	if err != nil {
+		return err
+	}
+
+	m.k.WatchSecretData(string(secretName), Namespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
+		log.Printf("in WatchClientTLSConf, event %v. data = %s\n", t, secret)
+		switch t {
+		case kclient.SecretChangeTypeAdd:
+			fallthrough
+		case kclient.SecretChangeTypeUpdate:
+			rootCA := m.BestEffortSystemCertPool()
+			rootCA.AppendCertsFromPEM(secret.Data[TLSSecretCrtName])
+			handler(&tls.Config{RootCAs: rootCA}, nil)
+		case kclient.SecretChangeTypeDelete:
+			handler(&tls.Config{InsecureSkipVerify: true}, nil)
+		}
+	})
+	return nil
+}
+
+func (m *tlsManager) WatchClientTLSPEM(clientName ClientName, handler func(certPEM []byte, err error)) error {
+	log.Println("in WatchClientTLSPEM")
+	secretName, err := clientNameToSecretName(clientName)
+	if err != nil {
+		return err
+	}
+
+	m.k.WatchSecretData(string(secretName), Namespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
+		log.Printf("in WatchClientTLSPEM, event %v. data = %s\n", t, secret)
+		switch t {
+		case kclient.SecretChangeTypeAdd:
+			fallthrough
+		case kclient.SecretChangeTypeUpdate:
+			handler(secret.Data[TLSSecretCrtName], nil)
+		case kclient.SecretChangeTypeDelete:
+			handler(nil, nil)
+		}
+	})
+	return nil
+}
+
+func (m *tlsManager) getTLSClientConf(clientName ClientName) (*tls.Config, error) {
+	log.Println("in GetServerTLSConf")
+	if m.tlsClientConfigs[clientName] != nil {
+		return m.tlsClientConfigs[clientName], nil
+	}
+
+	secretName, err := clientNameToSecretName(clientName)
+	if err != nil {
+		return nil, err
+	}
+
+	secret := m.k.FetchSecretData(string(secretName), Namespace)
+	if secret == nil {
+		return &tls.Config{InsecureSkipVerify: true}, nil
+	}
+
+	rootCA := m.BestEffortSystemCertPool()
+	rootCA.AppendCertsFromPEM(secret[TLSSecretCrtName])
+	return &tls.Config{RootCAs: rootCA}, nil
+}
+
+func clientNameToSecretName(clientName ClientName) (TLSSecretName, error) {
+	switch clientName {
+	case ClientWorkflowTrigger:
+		return WorkflowTriggerTLSSecretName, nil
+	case ClientCommandDelegator:
+		return CommandDelegatorTLSSecretName, nil
+	case ClientArgoCDRepoServer:
+		return ArgoCDRepoServerTLSSecretName, nil
+	default:
+		return NotValidSecretName, errors.New("wrong client name provided to get client secret")
+	}
 }

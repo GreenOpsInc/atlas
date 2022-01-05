@@ -537,15 +537,14 @@ func handleRequests() {
 func main() {
 	kubernetesDriver := k8sdriver.New()
 	kubernetesClient := kubernetesclient.New()
-	tm := tlsmanager.New(kubernetesClient)
-
-	if _, err := tm.GetTLSServerConf(); err != nil {
-		log.Fatal("get tls configuration failed: ", err.Error())
+	tm, err := tlsmanager.New(kubernetesClient)
+	if err != nil {
+		log.Fatal("event generation API setup failed: ", err.Error())
 	}
 
 	argoDriver := argodriver.New(&kubernetesDriver)
 	commandDelegatorApi = ingest.Create(argoDriver.(argodriver.ArgoAuthClient))
-	eventGenerationApi, err := generation.Create(argoDriver.(argodriver.ArgoAuthClient), kubernetesClient, tm)
+	eventGenerationApi, err = generation.Create(argoDriver.(argodriver.ArgoAuthClient), kubernetesClient, tm)
 	if err != nil {
 		log.Fatal("event generation API setup failed: ", err.Error())
 	}
