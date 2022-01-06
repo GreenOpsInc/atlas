@@ -4,18 +4,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public abstract class PipelineTriggerEventMixin {
+public abstract class PipelineTriggerEventMixin extends EventMixin {
 
-    @JsonProperty(value = "orgName")
-    String orgName;
-    @JsonProperty(value = "teamName")
-    String teamName;
-    @JsonProperty(value = "pipelineName")
-    String pipelineName;
-    @JsonProperty(value = "pipelineUvn")
-    String uvn;
-    @JsonProperty(value = "stepName")
-    String stepName;
     @JsonProperty(value = "revisionHash")
     String revisionHash;
 
@@ -23,11 +13,8 @@ public abstract class PipelineTriggerEventMixin {
     public PipelineTriggerEventMixin(@JsonProperty(value = "orgName") String orgName,
                                      @JsonProperty(value = "teamName") String teamName,
                                      @JsonProperty(value = "pipelineName") String pipelineName,
-                                     @JsonProperty(value = "pipelineUvn") String uvn,
+                                     @JsonProperty(value = "pipelineUvn") String pipelineUvn,
                                      @JsonProperty(value = "stepName") String stepName,
                                      @JsonProperty(value = "revisionHash") String revisionHash) {
     }
-
-    @JsonIgnore
-    abstract String getPipelineUvn();
 }

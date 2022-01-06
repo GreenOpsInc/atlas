@@ -4,18 +4,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public abstract class TriggerStepEventMixin {
+public abstract class TriggerStepEventMixin extends EventMixin {
 
-    @JsonProperty(value = "orgName")
-    String orgName;
-    @JsonProperty(value = "teamName")
-    String teamName;
-    @JsonProperty(value = "pipelineName")
-    String pipelineName;
-    @JsonProperty(value = "stepName")
-    String stepName;
-    @JsonProperty(value = "pipelineUvn")
-    String pipelineUvn;
     @JsonProperty(value = "gitCommitHash")
     String gitCommitHash;
     @JsonProperty(value = "rollback")
@@ -33,7 +23,4 @@ public abstract class TriggerStepEventMixin {
 
     @JsonIgnore
     abstract boolean isRollback();
-
-    @JsonIgnore
-    abstract String getPipelineUvn();
 }

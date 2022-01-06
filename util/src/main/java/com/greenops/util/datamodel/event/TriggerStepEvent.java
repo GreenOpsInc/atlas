@@ -1,5 +1,9 @@
 package com.greenops.util.datamodel.event;
 
+import org.apache.logging.log4j.util.Strings;
+
+import java.util.List;
+
 public class TriggerStepEvent implements Event {
 
     private String orgName;
@@ -9,6 +13,7 @@ public class TriggerStepEvent implements Event {
     private String pipelineUvn;
     private String gitCommitHash;
     private boolean rollback;
+    private int deliveryAttempt;
 
     public TriggerStepEvent(String orgName, String teamName, String pipelineName, String stepName, String pipelineUvn, String gitCommitHash, boolean rollback) {
         this.orgName = orgName;
@@ -38,6 +43,21 @@ public class TriggerStepEvent implements Event {
     @Override
     public String getStepName() {
         return stepName;
+    }
+
+    @Override
+    public String getMQKey() {
+        return Strings.join(List.of(pipelineUvn, stepName, TriggerStepEvent.class.getName(), getDeliveryAttempt()), '-');
+    }
+
+    @Override
+    public void setDeliveryAttempt(int attempt) {
+        this.deliveryAttempt = attempt;
+    }
+
+    @Override
+    public int getDeliveryAttempt() {
+        return deliveryAttempt;
     }
 
     @Override

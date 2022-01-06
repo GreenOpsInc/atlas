@@ -1,5 +1,7 @@
 package com.greenops.util.datamodel.event;
 
+import org.apache.logging.log4j.util.Strings;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,7 +26,7 @@ public class ClientCompletionEvent implements Event {
     private String orgName;
     private String teamName;
     private String pipelineName;
-    private String uvn;
+    private String pipelineUvn;
     private String stepName;
     private String argoName;
     private String argoNamespace;
@@ -32,15 +34,16 @@ public class ClientCompletionEvent implements Event {
     private String project;
     private String repo;
     private String revisionHash;
+    private int deliveryAttempt;
 
-    public ClientCompletionEvent(String healthStatus, String syncStatus, String orgName, String teamName, String pipelineName, String uvn, String stepName,
+    public ClientCompletionEvent(String healthStatus, String syncStatus, String orgName, String teamName, String pipelineName, String pipelineUvn, String stepName,
                                  String argoName, String argoNamespace, String operation, String project, String repo, String revisionHash, List<ResourceStatus> resourceStatuses) {
         this.healthStatus = healthStatus;
         this.syncStatus = syncStatus;
         this.orgName = orgName;
         this.teamName = teamName;
         this.pipelineName = pipelineName;
-        this.uvn = uvn;
+        this.pipelineUvn = pipelineUvn;
         this.stepName = stepName;
         this.argoName = argoName;
         this.argoNamespace = argoNamespace;
@@ -73,12 +76,28 @@ public class ClientCompletionEvent implements Event {
 
     @Override
     public String getPipelineUvn() {
-        return uvn;
+        return pipelineUvn;
     }
 
     @Override
     public String getStepName() {
         return stepName;
+    }
+
+    //Generally only one client completion event will be generated per step
+    @Override
+    public String getMQKey() {
+        return Strings.join(List.of(pipelineUvn, stepName, argoName, getDeliveryAttempt()), '-');
+    }
+
+    @Override
+    public void setDeliveryAttempt(int attempt) {
+        this.deliveryAttempt = attempt;
+    }
+
+    @Override
+    public int getDeliveryAttempt() {
+        return deliveryAttempt;
     }
 
     public String getHealthStatus() {

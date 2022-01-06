@@ -1,5 +1,8 @@
 package com.greenops.util.datamodel.event;
 
+import org.apache.logging.log4j.util.Strings;
+
+import java.util.List;
 import java.util.UUID;
 
 public class PipelineTriggerEvent implements Event {
@@ -11,15 +14,16 @@ public class PipelineTriggerEvent implements Event {
     private String orgName;
     private String teamName;
     private String pipelineName;
-    private String uvn;
+    private String pipelineUvn;
     private String stepName;
     private String revisionHash;
+    private int deliveryAttempt;
 
     public PipelineTriggerEvent(String orgName, String teamName, String pipelineName, String pipelineUvn, String stepName, String revisionHash) {
         this.orgName = orgName;
         this.teamName = teamName;
         this.pipelineName = pipelineName;
-        this.uvn = pipelineUvn;
+        this.pipelineUvn = pipelineUvn;
         this.stepName = stepName;
         this.revisionHash = revisionHash;
     }
@@ -45,12 +49,27 @@ public class PipelineTriggerEvent implements Event {
 
     @Override
     public String getPipelineUvn() {
-        return uvn;
+        return pipelineUvn;
     }
 
     @Override
     public String getStepName() {
         return stepName;
+    }
+
+    @Override
+    public String getMQKey() {
+        return Strings.join(List.of(pipelineUvn, stepName, PipelineTriggerEvent.class.getName(), getDeliveryAttempt()), '-');
+    }
+
+    @Override
+    public void setDeliveryAttempt(int attempt) {
+        this.deliveryAttempt = attempt;
+    }
+
+    @Override
+    public int getDeliveryAttempt() {
+        return deliveryAttempt;
     }
 
     public String getRevisionHash() {

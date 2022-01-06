@@ -5,8 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.auditlog.Log;
 import com.greenops.util.datamodel.auditlog.PipelineInfo;
 import com.greenops.util.datamodel.auditlog.RemediationLog;
+import com.greenops.util.datamodel.clientmessages.ResourceGvk;
 import com.greenops.util.datamodel.event.*;
-import com.greenops.util.datamodel.git.ArgoRepoSchema;
 import com.greenops.util.datamodel.pipeline.TeamSchema;
 import com.greenops.util.datamodel.request.GetFileRequest;
 import com.greenops.util.dbclient.DbClient;
@@ -14,7 +14,6 @@ import com.greenops.util.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.PipelineData;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.Test;
-import com.greenops.util.datamodel.clientmessages.ResourceGvk;
 import com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManagerApi;
 import com.greenops.workfloworchestrator.ingest.dbclient.DbKey;
 import com.greenops.workfloworchestrator.ingest.kafka.KafkaClient;
@@ -97,6 +96,9 @@ public class EventHandlerImpl implements EventHandler {
         var pipelineData = fetchPipelineData(event, gitRepoUrl, gitCommit);
         if (pipelineData == null) throw new AtlasNonRetryableError("The pipeline doesn't exist");
 
+        if (isDuplicateEvent(event)) {
+            return;
+        }
         if (event instanceof PipelineTriggerEvent) {
             handlePipelineTriggerEvent(pipelineData, gitRepoUrl, (PipelineTriggerEvent) event);
         } else if (event instanceof ClientCompletionEvent) {
@@ -110,6 +112,18 @@ public class EventHandlerImpl implements EventHandler {
         } else if (event instanceof TriggerStepEvent) {
             handleTriggerStep(pipelineData, gitRepoUrl, (TriggerStepEvent) event);
         }
+    }
+
+    private boolean isDuplicateEvent(Event event) {
+        var key = DbKey.makeStepUniqueCacheKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName());
+        var stepEventKeysReceived = dbClient.fetchStringList(key);
+        if (stepEventKeysReceived.contains(event.getMQKey())) {
+            log.info("Event is a duplicate, ignoring...");
+            return true;
+        }
+        stepEventKeysReceived.add(event.getMQKey());
+        dbClient.storeValue(key, stepEventKeysReceived);
+        return false;
     }
 
     private boolean isStaleEvent(Event event) {
@@ -208,7 +222,18 @@ public class EventHandlerImpl implements EventHandler {
     }
 
     private void initializeNewPipelineRun(PipelineTriggerEvent event, String pipelineRepoUrl, PipelineData pipelineData) {
+        log.info("Clearing unique key cache of previous pipeline run, initializing it for new run");
         var pipelineInfoKey = DbKey.makeDbPipelineInfoKey(event.getOrgName(), event.getTeamName(), event.getPipelineName());
+        var pipelineInfo = dbClient.fetchLatestPipelineInfo(pipelineInfoKey);
+        var allStepNames = pipelineInfo.getStepList();
+        allStepNames.add(ROOT_STEP_NAME);
+        for (var stepName : allStepNames) {
+            var uniqueCacheKey = DbKey.makeStepUniqueCacheKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
+            dbClient.storeValue(uniqueCacheKey, null);
+        }
+        //Adds pipeline trigger event key to unique cache
+        dbClient.storeValue(DbKey.makeStepUniqueCacheKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName()), List.of(event.getMQKey()));
+
         log.info("Starting new run for pipeline {}", event.getPipelineName());
         if (event.getStepName().equals(ROOT_STEP_NAME)) {
             dbClient.insertValueInList(pipelineInfoKey, new PipelineInfo(event.getPipelineUvn(), List.of(), pipelineData.getAllStepsOrdered()));
