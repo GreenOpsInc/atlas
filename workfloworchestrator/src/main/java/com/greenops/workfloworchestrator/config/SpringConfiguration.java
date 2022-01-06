@@ -1,6 +1,7 @@
 package com.greenops.workfloworchestrator.config;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonSerializable;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.greenops.util.datamodel.auditlog.DeploymentLog;
@@ -28,23 +29,42 @@ import com.greenops.util.dbclient.DbClient;
 import com.greenops.util.dbclient.redis.RedisDbClient;
 import com.greenops.util.error.AtlasNonRetryableError;
 import com.greenops.util.error.AtlasRetryableError;
+import com.greenops.util.kubernetesclient.KubernetesClient;
+import com.greenops.util.kubernetesclient.KubernetesClientImpl;
+import com.greenops.util.tslmanager.TLSManager;
+import com.greenops.util.tslmanager.TLSManagerImpl;
 import com.greenops.workfloworchestrator.datamodel.mixin.pipelinedata.*;
 import com.greenops.workfloworchestrator.datamodel.mixin.requests.*;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.*;
 import com.greenops.workfloworchestrator.datamodel.requests.*;
 import com.greenops.workfloworchestrator.ingest.kafka.KafkaClient;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.CommonClientConfigs;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.config.SslConfigs;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.core.*;
 import org.springframework.kafka.listener.ContainerAwareErrorHandler;
 import org.springframework.kafka.listener.SeekToCurrentErrorHandler;
+import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.scheduling.config.Task;
 import org.springframework.util.backoff.FixedBackOff;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 @Slf4j
 @Configuration
 public class SpringConfiguration {
+
+    private static final String KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG = System.getenv("KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG");
+    private static final String KAFKA_SSL_KEYSTORE_LOCATION_CONFIG = System.getenv("KAFKA_SSL_KEYSTORE_LOCATION_CONFIG");
 
     @Bean
     @Qualifier("yamlObjectMapper")
@@ -145,5 +165,155 @@ public class SpringConfiguration {
                 }, new FixedBackOff(100L, 5L));
         errorHandler.addNotRetryableException(AtlasNonRetryableError.class);
         return errorHandler;
+    }
+
+    @Bean
+    public ProducerFactory<String, String> producerFactory(
+            String bootstrapServers
+    ) {
+
+        Map<String, Object> configProps = new HashMap<>();
+
+        // TODO: on app start try to get cert and key from secrets
+        //      1. get cert & key from secrets
+        //      2. if secret not found return default producer without ssl enabled
+        //      3. if secret found create keystore and save cert in it
+        //      4. keystore location values should be stored in the env vars
+        //      5. get those env vars and update producer config
+        //      6. add watcher for secret
+        //      7. on app start if secret is not available but keystore exists delete the keystore
+        //      8. on app start event if keystore and secret exists update the keystore
+        //      9. on secret change halt the application and new config should be generated on app start
+
+        KubernetesClient kclient;
+        try {
+            // TODO: somehow get object mapper from beans
+            ObjectMapper objectMapper = new ObjectMapper();
+            kclient = new KubernetesClientImpl(objectMapper);
+        } catch (IOException exc) {
+            // TODO: log and stop server
+            throw new RuntimeException("Could not initialize Kubernetes Client", exc);
+        }
+
+        boolean keystoreExists;
+        try {
+            TLSManager tlsManager = new TLSManagerImpl(kclient, null, null);
+            keystoreExists = tlsManager.updateKafkaKeystore(KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG, KAFKA_SSL_KEYSTORE_LOCATION_CONFIG);
+            if (keystoreExists) {
+                tlsManager.watchKafkaKeystore(KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG,KAFKA_SSL_KEYSTORE_LOCATION_CONFIG);
+            }
+        } catch (Exception exc) {
+            // TODO: log and stop server
+            throw new RuntimeException("Could not configure Kafka with TLS configuration", exc);
+        }
+
+        if (keystoreExists) {
+            configProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL");
+            configProps.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG);
+            configProps.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, KAFKA_SSL_KEYSTORE_LOCATION_CONFIG);
+        }
+        return new DefaultKafkaProducerFactory<>(configProps);
+    }
+
+    @Bean
+    public ConsumerFactory<String, String> consumerFactory() {
+        Map<String, Object> configProps = new HashMap<>();
+
+        // TODO: on app start try to get cert and key from secrets
+        //      1. get cert & key from secrets
+        //      2. if secret not found return default producer without ssl enabled
+        //      3. if secret found create keystore and save cert in it
+        //      4. keystore location values should be stored in the env vars
+        //      5. get those env vars and update producer config
+        //      6. add watcher for secret
+        //      7. on app start if secret is not available but keystore exists delete the keystore
+        //      8. on app start event if keystore and secret exists update the keystore
+        //      9. on secret change halt the application and new config should be generated on app start
+
+        KubernetesClient kclient;
+        try {
+            // TODO: somehow get object mapper from beans
+            ObjectMapper objectMapper = new ObjectMapper();
+            kclient = new KubernetesClientImpl(objectMapper);
+        } catch (IOException exc) {
+            // TODO: log and stop server
+            throw new RuntimeException("Could not initialize Kubernetes Client", exc);
+        }
+
+        boolean keystoreExists;
+        try {
+            TLSManager tlsManager = new TLSManagerImpl(kclient, null, null);
+            keystoreExists = tlsManager.updateKafkaKeystore(KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG, KAFKA_SSL_KEYSTORE_LOCATION_CONFIG);
+        } catch (Exception exc) {
+            // TODO: log and stop server
+            throw new RuntimeException("Could not configure Kafka with TLS configuration", exc);
+        }
+
+        if (keystoreExists) {
+            configProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL");
+            configProps.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG);
+            configProps.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, KAFKA_SSL_KEYSTORE_LOCATION_CONFIG);
+        }
+        return new DefaultKafkaConsumerFactory<>(configProps);
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, String> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(consumerFactory());
+        return factory;
+    }
+
+    @Bean
+    public KafkaTemplate<String, String> kafkaTemplate(
+            @Value("${spring.kafka.producer.bootstrap-servers}") String bootstrapServers,
+            ) {
+        return new KafkaTemplate<>(producerFactory(bootstrapServers));
+    }
+
+    // TODO: add all values from application.yml
+    private Map<String, Object> getKafkaConfigProps() {
+        Map<String, Object> configProps = new HashMap<>();
+
+        // TODO: on app start try to get cert and key from secrets
+        //      1. get cert & key from secrets
+        //      2. if secret not found return default producer without ssl enabled
+        //      3. if secret found create keystore and save cert in it
+        //      4. keystore location values should be stored in the env vars
+        //      5. get those env vars and update producer config
+        //      6. add watcher for secret
+        //      7. on app start if secret is not available but keystore exists delete the keystore
+        //      8. on app start event if keystore and secret exists update the keystore
+        //      9. on secret change halt the application and new config should be generated on app start
+
+        KubernetesClient kclient;
+        try {
+            // TODO: somehow get object mapper from beans
+            ObjectMapper objectMapper = new ObjectMapper();
+            kclient = new KubernetesClientImpl(objectMapper);
+        } catch (IOException exc) {
+            // TODO: log and stop server
+            throw new RuntimeException("Could not initialize Kubernetes Client", exc);
+        }
+
+        boolean keystoreExists;
+        try {
+            TLSManager tlsManager = new TLSManagerImpl(kclient, null, null);
+            keystoreExists = tlsManager.updateKafkaKeystore(KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG, KAFKA_SSL_KEYSTORE_LOCATION_CONFIG);
+            if (keystoreExists) {
+                tlsManager.watchKafkaKeystore(KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG,KAFKA_SSL_KEYSTORE_LOCATION_CONFIG);
+            }
+        } catch (Exception exc) {
+            // TODO: log and stop server
+            throw new RuntimeException("Could not configure Kafka with TLS configuration", exc);
+        }
+
+        if (keystoreExists) {
+            configProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL");
+            configProps.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG);
+            configProps.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, KAFKA_SSL_KEYSTORE_LOCATION_CONFIG);
+        }
+        return configProps;
     }
 }

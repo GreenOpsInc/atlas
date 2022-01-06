@@ -2,17 +2,20 @@ package main
 
 import (
 	"bytes"
+	"net/http"
+
+	"github.com/greenopsinc/util/kubernetesclient"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/greenopsinc/util/clientrequest"
 	"github.com/greenopsinc/util/cluster"
 	"github.com/greenopsinc/util/db"
+	"github.com/greenopsinc/util/httpserver"
 	"github.com/greenopsinc/util/serializer"
 	"github.com/greenopsinc/util/serializerutil"
 	"github.com/greenopsinc/util/starter"
-	"log"
-	"net/http"
-	"time"
+	"github.com/greenopsinc/util/tlsmanager"
 )
 
 const (
@@ -20,8 +23,8 @@ const (
 )
 
 const (
-	orgNameField        string = "orgName"
-	clusterNameField    string = "clusterName"
+	orgNameField     string = "orgName"
+	clusterNameField string = "clusterName"
 )
 
 var dbClient db.DbClient
@@ -161,15 +164,10 @@ func InitEndpoints(r *mux.Router) {
 
 func main() {
 	dbClient = db.New(starter.GetDbClientConfig())
+	kclient := kubernetesclient.New()
+	tlsManager := tlsmanager.New(kclient)
+
 	r := mux.NewRouter()
 	InitEndpoints(r)
-
-	srv := &http.Server{
-		Handler:      r,
-		Addr:         ":8080",
-		WriteTimeout: 20 * time.Second,
-		ReadTimeout:  20 * time.Second,
-	}
-
-	log.Fatal(srv.ListenAndServe())
+	httpserver.CreateAndWatchServer(tlsmanager.ClientWorkflowTrigger, tlsManager, r)
 }

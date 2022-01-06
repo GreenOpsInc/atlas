@@ -388,6 +388,10 @@ spec:
               value: http://atlasclientwrapper.default.svc.cluster.local:9091
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: LOCALHOSTDYNAMICADDRESS:29092
+            - name: KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG
+              value: /etc/security/tls/kafka.client.truststore.jks
+            - name: KAFKA_SSL_KEYSTORE_LOCATION_CONFIG
+              value: /etc/security/tls/kafka.client.keystore.jks
             - name: REDIS_ENDPOINT
               value: redisserver.default.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT

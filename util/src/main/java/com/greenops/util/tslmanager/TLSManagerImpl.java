@@ -61,6 +61,50 @@ public class TLSManagerImpl implements TLSManager {
         });
     }
 
+    @Override
+    public boolean updateKafkaKeystore(String trueStoreLocation, String keystoreLocation) throws Exception {
+        boolean keystoreExists;
+
+        ClientSecretName secretName = secretNameFromClientName(ClientName.CLIENT_KAFKA);
+        V1Secret secret = this.kclient.fetchSecretData(secretName.toString(), NAMESPACE);
+        if (secret == null) {
+            return false;
+        }
+
+        File keyStoreFile = new File(keystoreLocation);
+        if (keyStoreFile.exists()) {
+            keyStoreFile.delete();
+        }
+        File trueStoreFile = new File(trueStoreLocation);
+        if (trueStoreFile.exists()) {
+            trueStoreFile.delete();
+        }
+
+        KeyStore mainKS = getKeyStore();
+
+        KeyPair kp = createKeyPair(secret.getData().get(SECRET_CERT_NAME), secret.getData().get(SECRET_KEY_NAME));
+        X509Certificate cert = createCertificate(kp);
+
+
+        mainKS.store();
+
+
+    }
+
+    //      1. get cert & key from secrets
+    //      2. if secret not found return default producer without ssl enabled
+    //      3. if secret found create keystore and save cert in it
+    //      4. keystore location values should be stored in the env vars
+    //      5. get those env vars and update producer config
+    //      6. add watcher for secret
+    //      7. on app start if secret is not available but keystore exists delete the keystore
+    //      8. on app start event if keystore and secret exists update the keystore
+    //      9. on secret change halt the application and new config should be generated on app start
+    @Override
+    public void watchKafkaKeystore(String trueStoreLocation, String keystoreLocation) {
+
+    }
+
     private SSLHostConfig getTLSConfFromSecrets(ClientName serverName) throws Exception {
         ClientSecretName secretName = secretNameFromClientName(serverName);
         V1Secret secret = this.kclient.fetchSecretData(secretName.toString(), NAMESPACE);
@@ -162,6 +206,8 @@ public class TLSManagerImpl implements TLSManager {
                 return ClientSecretName.COMMAND_DELEGATOR_SECRET_NAME;
             case CLIENT_ARGOCD_REPO_SERVER:
                 return ClientSecretName.ARGOCD_REPO_SERVER_SECRET_NAME;
+            case CLIENT_KAFKA:
+                return ClientSecretName.KAFKA_SECRET_NAME
             default:
                 return ClientSecretName.NOT_VALID_SECRET_NAME;
         }
