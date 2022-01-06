@@ -8,8 +8,9 @@ require (
 	github.com/argoproj/gitops-engine v0.2.2
 	github.com/dgrijalva/jwt-go/v4 v4.0.0-preview1
 	github.com/gorilla/mux v1.8.0
-	k8s.io/api v0.19.6
-	k8s.io/apimachinery v0.19.6
+	github.com/greenopsinc/util v0.0.0-00010101000000-000000000000
+	k8s.io/api v0.23.1
+	k8s.io/apimachinery v0.23.1
 	k8s.io/client-go v11.0.1-0.20190816222228-6d55c1b1f1ca+incompatible
 	k8s.io/kubernetes v1.19.6 // indirect
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920

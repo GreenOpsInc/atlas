@@ -7,6 +7,7 @@ import (
 	"github.com/argoproj/argo-cd/v2/util/errors"
 	"github.com/argoproj/argo-cd/v2/util/localconfig"
 	"github.com/spf13/cobra"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -76,12 +77,11 @@ Example usage:
 			return
 		}
 		statusCode := resp.StatusCode
+		body, _ := io.ReadAll(resp.Body)
 		if statusCode == 200 {
 			fmt.Println("Successfully created team:",teamName, "under parent team:", parentTeamName)
-		} else if statusCode == 400 {
-			fmt.Println("Team creation failed because the request was invalid.\nPlease check if org and parent team names are correct, a team with the specified name doesn't already exist, and the format of the schema file (if provided) is valid.")			
-		} else{
-			fmt.Println("Internal server error: ",err)			
+		} else {
+			fmt.Println("An error occurred: ", body)
 		}
 	},
 }

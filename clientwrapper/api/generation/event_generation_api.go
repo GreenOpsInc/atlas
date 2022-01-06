@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/greenopsinc/util/clientrequest"
 	"greenops.io/client/api/ingest"
 	"greenops.io/client/argodriver"
-	"greenops.io/client/atlasoperator/requestdatatypes"
 	"greenops.io/client/progressionchecker/datamodel"
 	"log"
 	"net/http"
@@ -29,7 +29,7 @@ type EventGenerationApi interface {
 	//TODO: Make these void methods. The only case where the generation should not work is in case of service unavailability, and we should be blocking and retrying if a service is unavaibale.
 	GenerateEvent(eventInfo datamodel.EventInfo) bool
 	GenerateNotification(requestId string, notification Notification) bool
-	GenerateResponseEvent(responseEvent requestdatatypes.ResponseEvent) bool
+	GenerateResponseEvent(responseEvent clientrequest.ResponseEvent) bool
 }
 
 type EventGenerationImpl struct {
@@ -62,7 +62,7 @@ func (c EventGenerationImpl) GenerateEvent(eventInfo datamodel.EventInfo) bool {
 		clusterName = ingest.DefaultClusterName
 	}
 	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/client/%s/%s/generateEvent", c.workflowTriggerAddress, eventInfo.GetEventOrg(), clusterName), bytes.NewBuffer(data))
-	req.Header.Add("Authorization", "Bearer " + c.argoAuthClient.GetAuthToken())
+	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -88,7 +88,7 @@ func (c EventGenerationImpl) GenerateNotification(requestId string, notification
 		return false
 	}
 	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/client/generateNotification/%s", c.workflowTriggerAddress, requestId), bytes.NewBuffer(data))
-	req.Header.Add("Authorization", "Bearer " + c.argoAuthClient.GetAuthToken())
+	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -103,7 +103,7 @@ func (c EventGenerationImpl) GenerateNotification(requestId string, notification
 	return resp.StatusCode/100 == 2
 }
 
-func (c EventGenerationImpl) GenerateResponseEvent(responseEvent requestdatatypes.ResponseEvent) bool {
+func (c EventGenerationImpl) GenerateResponseEvent(responseEvent clientrequest.ResponseEvent) bool {
 	data, err := json.Marshal(responseEvent)
 	if err != nil {
 		return false
@@ -113,7 +113,7 @@ func (c EventGenerationImpl) GenerateResponseEvent(responseEvent requestdatatype
 		clusterName = ingest.DefaultClusterName
 	}
 	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/client/%s/%s/generateEvent", c.workflowTriggerAddress, responseEvent.GetEventOrg(), clusterName), bytes.NewBuffer(data))
-	req.Header.Add("Authorization", "Bearer " + c.argoAuthClient.GetAuthToken())
+	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.client.Do(req)
 	if err != nil {

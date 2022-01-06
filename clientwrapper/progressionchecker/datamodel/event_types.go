@@ -1,7 +1,7 @@
 package datamodel
 
 import (
-	"greenops.io/client/atlasoperator/requestdatatypes"
+	"github.com/greenopsinc/util/clientrequest"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -50,9 +50,9 @@ type TestEventInfo struct {
 
 type FailureEventInfo struct {
 	EventInfoMetaData
-	DeployResponse requestdatatypes.DeployResponse `json:"deployResponse"`
-	StatusCode     string                          `json:"statusCode"`
-	Error          string                          `json:"error"`
+	DeployResponse clientrequest.DeployResponse `json:"deployResponse"`
+	StatusCode     string                       `json:"statusCode"`
+	Error          string                       `json:"error"`
 }
 
 type ResourceStatus struct {
@@ -134,7 +134,7 @@ func (eventInfo FailureEventInfo) GetEventOrg() string {
 	return eventInfo.OrgName
 }
 
-func MakeFailureEventEvent(clientMetadata requestdatatypes.ClientEventMetadata, deployResponse requestdatatypes.DeployResponse, statusCode string, error string) EventInfo {
+func MakeFailureEventEvent(clientMetadata clientrequest.ClientRequestEventMetadata, deployResponse clientrequest.DeployResponse, statusCode string, error string) EventInfo {
 	return FailureEventInfo{
 		EventInfoMetaData: EventInfoMetaData{
 			Type:         FailureEvent,
