@@ -1,8 +1,8 @@
 package pipelinestatus
 
 import (
+	"github.com/greenopsinc/util/auditlog"
 	"gitlab.com/c0b/go-ordered-json"
-	"greenops.io/workflowtrigger/util/auditlog"
 )
 
 type PipelineStatus struct {

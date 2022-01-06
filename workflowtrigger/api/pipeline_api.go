@@ -10,20 +10,20 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/greenopsinc/util/clientrequest"
+	"github.com/greenopsinc/util/cluster"
+	"github.com/greenopsinc/util/db"
+	"github.com/greenopsinc/util/event"
+	"github.com/greenopsinc/util/git"
+	"github.com/greenopsinc/util/kubernetesclient"
+	"github.com/greenopsinc/util/pipeline"
+	"github.com/greenopsinc/util/team"
 	"greenops.io/workflowtrigger/api/argoauthenticator"
 	"greenops.io/workflowtrigger/api/commanddelegator"
 	"greenops.io/workflowtrigger/api/reposerver"
-	"greenops.io/workflowtrigger/db"
 	"greenops.io/workflowtrigger/kafka"
-	"greenops.io/workflowtrigger/kubernetesclient"
 	"greenops.io/workflowtrigger/schemavalidation"
-	"greenops.io/workflowtrigger/util/clientrequest"
-	"greenops.io/workflowtrigger/util/cluster"
-	"greenops.io/workflowtrigger/util/event"
-	"greenops.io/workflowtrigger/util/git"
-	"greenops.io/workflowtrigger/util/pipeline"
-	"greenops.io/workflowtrigger/util/serializer"
-	"greenops.io/workflowtrigger/util/team"
+	"greenops.io/workflowtrigger/serializer"
 )
 
 const (
@@ -376,7 +376,7 @@ func forceDeploy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No deploy is enabled for this cluster, the request will be blocked", http.StatusBadRequest)
 	}
 
-	deployRequest := clientrequest.ClientDeployRequest{
+	deployRequest := &clientrequest.ClientDeployRequest{
 		ClientRequestEventMetadata: clientrequest.ClientRequestEventMetadata{
 			OrgName:      orgName,
 			TeamName:     teamName,

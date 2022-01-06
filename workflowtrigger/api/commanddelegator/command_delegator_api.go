@@ -7,10 +7,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/greenopsinc/util/clientrequest"
+	"greenops.io/workflowtrigger/serializer"
+
 	"greenops.io/workflowtrigger/client"
 	"greenops.io/workflowtrigger/tlsmanager"
-	"greenops.io/workflowtrigger/util/clientrequest"
-	"greenops.io/workflowtrigger/util/serializer"
 )
 
 const (

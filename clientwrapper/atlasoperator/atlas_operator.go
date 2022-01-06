@@ -11,10 +11,11 @@ import (
 	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/gorilla/mux"
+	"github.com/greenopsinc/util/clientrequest"
+	"github.com/greenopsinc/util/serializerutil"
 	"greenops.io/client/api/generation"
 	"greenops.io/client/api/ingest"
 	"greenops.io/client/argodriver"
-	"greenops.io/client/atlasoperator/requestdatatypes"
 	"greenops.io/client/k8sdriver"
 	"greenops.io/client/kubernetesclient"
 	"greenops.io/client/plugins"
@@ -44,7 +45,7 @@ const (
 
 type AtlasError struct {
 	AtlasErrorType   AtlasErrorType
-	ResourceMetadata requestdatatypes.DeployResponse //This field is required for an AtlasNonRetryableError
+	ResourceMetadata clientrequest.DeployResponse //This field is required for an AtlasNonRetryableError
 	Err              error
 }
 
@@ -60,7 +61,7 @@ var channel chan string
 var commandDelegatorApi ingest.CommandDelegatorApi
 var eventGenerationApi generation.EventGenerationApi
 
-func deploy(request *requestdatatypes.ClientDeployRequest) (requestdatatypes.DeployResponse, error) {
+func deploy(request *clientrequest.ClientDeployRequest) (clientrequest.DeployResponse, error) {
 	deployType := request.DeployType
 	revision := request.RevisionHash
 	stringReqBody := request.Payload
@@ -68,9 +69,9 @@ func deploy(request *requestdatatypes.ClientDeployRequest) (requestdatatypes.Dep
 	var appNamespace string
 	var revisionHash string
 	var err error
-	if deployType == requestdatatypes.DeployArgoRequest {
+	if deployType == clientrequest.DeployArgoRequest {
 		resourceName, appNamespace, revisionHash, err = drivers.argoDriver.Deploy(&stringReqBody, revision)
-	} else if deployType == requestdatatypes.DeployTestRequest {
+	} else if deployType == clientrequest.DeployTestRequest {
 		return deployTaskOrTest(&stringReqBody)
 	} else {
 		resources := strings.Split(stringReqBody, "---")
@@ -84,12 +85,12 @@ func deploy(request *requestdatatypes.ClientDeployRequest) (requestdatatypes.Dep
 	}
 
 	if err != nil {
-		return requestdatatypes.DeployResponse{}, AtlasError{
+		return clientrequest.DeployResponse{}, AtlasError{
 			AtlasErrorType: AtlasRetryableError,
 			Err:            err,
 		}
 	} else {
-		return requestdatatypes.DeployResponse{
+		return clientrequest.DeployResponse{
 			Success:      true,
 			ResourceName: resourceName,
 			AppNamespace: appNamespace,
@@ -98,12 +99,12 @@ func deploy(request *requestdatatypes.ClientDeployRequest) (requestdatatypes.Dep
 	}
 }
 
-func deployTaskOrTest(stringReqBody *string) (requestdatatypes.DeployResponse, error) {
+func deployTaskOrTest(stringReqBody *string) (clientrequest.DeployResponse, error) {
 	var resourceName string
 	var appNamespace string
 	var revisionHash string
 	var err error
-	var kubernetesCreationRequest requestdatatypes.KubernetesCreationRequest
+	var kubernetesCreationRequest clientrequest.KubernetesCreationRequest
 	err = json.NewDecoder(strings.NewReader(*stringReqBody)).Decode(&kubernetesCreationRequest)
 	if err != nil {
 		resourceName, appNamespace, revisionHash = "", "", NotApplicable
@@ -112,7 +113,7 @@ func deployTaskOrTest(stringReqBody *string) (requestdatatypes.DeployResponse, e
 			var plugin plugins.Plugin
 			plugin, err = drivers.pluginList.GetPlugin(plugins.ArgoWorkflow)
 			if err != nil {
-				return requestdatatypes.DeployResponse{}, AtlasError{
+				return clientrequest.DeployResponse{}, AtlasError{
 					AtlasErrorType: AtlasRetryableError,
 					Err:            err,
 				}
@@ -136,12 +137,12 @@ func deployTaskOrTest(stringReqBody *string) (requestdatatypes.DeployResponse, e
 	}
 
 	if err != nil {
-		return requestdatatypes.DeployResponse{}, AtlasError{
+		return clientrequest.DeployResponse{}, AtlasError{
 			AtlasErrorType: AtlasRetryableError,
 			Err:            err,
 		}
 	} else {
-		return requestdatatypes.DeployResponse{
+		return clientrequest.DeployResponse{
 			Success:      true,
 			ResourceName: resourceName,
 			AppNamespace: appNamespace,
@@ -169,7 +170,7 @@ func deployTaskOrTest(stringReqBody *string) (requestdatatypes.DeployResponse, e
 //	)
 //}
 
-func selectiveSyncArgoApp(request *requestdatatypes.ClientSelectiveSyncRequest) error {
+func selectiveSyncArgoApp(request *clientrequest.ClientSelectiveSyncRequest) error {
 	resourceName, appNamespace, _, err := drivers.argoDriver.SelectiveSync(request.AppName, request.RevisionHash, request.GvkResourceList)
 	if err == nil {
 		key := makeWatchKeyFromRequest(
@@ -195,17 +196,17 @@ func selectiveSyncArgoApp(request *requestdatatypes.ClientSelectiveSyncRequest) 
 	}
 }
 
-func rollbackArgoApp(request *requestdatatypes.RollbackRequest) (requestdatatypes.DeployResponse, error) {
+func rollbackArgoApp(request *clientrequest.RollbackRequest) (clientrequest.DeployResponse, error) {
 	var revisionHash string
 	resourceName, appNamespace, revisionHash, err := drivers.argoDriver.Rollback(request.AppName, request.RevisionId)
 
 	if err != nil {
-		return requestdatatypes.DeployResponse{}, AtlasError{
+		return clientrequest.DeployResponse{}, AtlasError{
 			AtlasErrorType: AtlasRetryableError,
 			Err:            err,
 		}
 	}
-	return requestdatatypes.DeployResponse{
+	return clientrequest.DeployResponse{
 		Success:      true,
 		ResourceName: resourceName,
 		AppNamespace: appNamespace,
@@ -230,7 +231,7 @@ func deleteResource(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(success)
 }
 
-func deleteResourceFromConfig(request *requestdatatypes.ClientDeleteByConfigRequest) error {
+func deleteResourceFromConfig(request *clientrequest.ClientDeleteByConfigRequest) error {
 	resources := strings.Split(request.ConfigPayload, "---")
 	var err error
 	for _, resource := range resources {
@@ -245,7 +246,7 @@ func deleteResourceFromConfig(request *requestdatatypes.ClientDeleteByConfigRequ
 	return nil
 }
 
-func deleteApplicationByGvk(request *requestdatatypes.ClientDeleteByGvkRequest) error {
+func deleteApplicationByGvk(request *clientrequest.ClientDeleteByGvkRequest) error {
 	groupVersionKind := schema.GroupVersionKind{
 		Group:   request.Group,
 		Version: request.Version,
@@ -270,7 +271,7 @@ func deleteApplicationByGvk(request *requestdatatypes.ClientDeleteByGvkRequest) 
 
 func markNoDeploy(request interface{}) (interface{}, error) {
 	//request needs to be of type requestdatatypes.ClientMarkNoDeployRequest
-	strongTypeRequest := request.(requestdatatypes.ClientMarkNoDeployRequest)
+	strongTypeRequest := request.(*clientrequest.ClientMarkNoDeployRequest)
 	err := drivers.argoDriver.MarkNoDeploy(strongTypeRequest.ClusterName, strongTypeRequest.Namespace, strongTypeRequest.Apply)
 	if err != nil {
 		return false, err
@@ -296,7 +297,7 @@ func checkStatus(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(success)
 }
 
-func watch(request *requestdatatypes.WatchRequest) {
+func watch(request *clientrequest.WatchRequest) {
 	var watchKeyType datamodel.WatchKeyType
 	if request.Type == string(datamodel.WatchTestKey) {
 		watchKeyType = datamodel.WatchTestKey
@@ -346,12 +347,12 @@ func makeWatchKeyFromRequest(watchKeyType datamodel.WatchKeyType, orgName string
 	}
 }
 
-func deployAndWatch(request *requestdatatypes.ClientDeployAndWatchRequest) error {
-	deployRequest := requestdatatypes.ClientDeployRequest{
-		ClientEventMetadata: request.ClientEventMetadata,
-		DeployType:          request.DeployType,
-		RevisionHash:        request.RevisionHash,
-		Payload:             request.Payload,
+func deployAndWatch(request *clientrequest.ClientDeployAndWatchRequest) error {
+	deployRequest := clientrequest.ClientDeployRequest{
+		ClientRequestEventMetadata: request.ClientRequestEventMetadata,
+		DeployType:                 request.DeployType,
+		RevisionHash:               request.RevisionHash,
+		Payload:                    request.Payload,
 	}
 	deployResponse, err := deploy(&deployRequest)
 	if err != nil {
@@ -365,20 +366,20 @@ func deployAndWatch(request *requestdatatypes.ClientDeployAndWatchRequest) error
 			}
 		}
 	}
-	watchRequest := requestdatatypes.WatchRequest{
-		ClientEventMetadata: request.ClientEventMetadata,
-		Type:                request.WatchType,
-		Name:                deployResponse.ResourceName,
-		Namespace:           deployResponse.AppNamespace,
-		PipelineUvn:         request.PipelineUvn,
-		TestNumber:          request.TestNumber,
+	watchRequest := clientrequest.WatchRequest{
+		ClientRequestEventMetadata: request.ClientRequestEventMetadata,
+		Type:                       request.WatchType,
+		Name:                       deployResponse.ResourceName,
+		Namespace:                  deployResponse.AppNamespace,
+		PipelineUvn:                request.PipelineUvn,
+		TestNumber:                 request.TestNumber,
 	}
 	watch(&watchRequest)
 	return nil
 }
 
-func rollbackAndWatch(request *requestdatatypes.ClientRollbackAndWatchRequest) error {
-	rollbackRequest := requestdatatypes.RollbackRequest{
+func rollbackAndWatch(request *clientrequest.ClientRollbackAndWatchRequest) error {
+	rollbackRequest := clientrequest.RollbackRequest{
 		AppName:    request.AppName,
 		RevisionId: request.RevisionHash,
 	}
@@ -394,13 +395,13 @@ func rollbackAndWatch(request *requestdatatypes.ClientRollbackAndWatchRequest) e
 			}
 		}
 	}
-	watchRequest := requestdatatypes.WatchRequest{
-		ClientEventMetadata: request.ClientEventMetadata,
-		Type:                request.WatchType,
-		Name:                deployResponse.ResourceName,
-		Namespace:           deployResponse.AppNamespace,
-		PipelineUvn:         request.PipelineUvn,
-		TestNumber:          -1,
+	watchRequest := clientrequest.WatchRequest{
+		ClientRequestEventMetadata: request.ClientRequestEventMetadata,
+		Type:                       request.WatchType,
+		Name:                       deployResponse.ResourceName,
+		Namespace:                  deployResponse.AppNamespace,
+		PipelineUvn:                request.PipelineUvn,
+		TestNumber:                 -1,
 	}
 	watch(&watchRequest)
 	return nil
@@ -455,40 +456,40 @@ func handleRequests() {
 		for _, command := range *commands {
 			err = nil
 			log.Printf("Handling event type %s", command.GetEvent())
-			if command.GetEvent() == requestdatatypes.ClientDeployRequestType {
-				var request requestdatatypes.ClientDeployRequest
-				request = command.(requestdatatypes.ClientDeployRequest)
-				var deployResponse requestdatatypes.DeployResponse
-				deployResponse, err = deploy(&request)
+			if command.GetEvent() == serializerutil.ClientDeployRequestType {
+				var request *clientrequest.ClientDeployRequest
+				request = command.(*clientrequest.ClientDeployRequest)
+				var deployResponse clientrequest.DeployResponse
+				deployResponse, err = deploy(request)
 				if err == nil && deployResponse.Success {
 					//If there is no response event (in case of a force deploy), this if will simply pass over event generation
-					if request.ResponseEventType != "" && !eventGenerationApi.GenerateResponseEvent(request.ResponseEventType.MakeResponseEvent(&deployResponse, &request)) {
+					if request.ResponseEventType != "" && !eventGenerationApi.GenerateResponseEvent(request.ResponseEventType.MakeResponseEvent(&deployResponse, request)) {
 						err = AtlasError{AtlasErrorType: AtlasRetryableError, Err: errors.New("response event not generated correctly")}
 					}
 				}
-			} else if command.GetEvent() == requestdatatypes.ClientDeployAndWatchRequestType {
-				var request requestdatatypes.ClientDeployAndWatchRequest
-				request = command.(requestdatatypes.ClientDeployAndWatchRequest)
-				err = deployAndWatch(&request)
-			} else if command.GetEvent() == requestdatatypes.ClientRollbackAndWatchRequestType {
-				var request requestdatatypes.ClientRollbackAndWatchRequest
-				request = command.(requestdatatypes.ClientRollbackAndWatchRequest)
-				err = rollbackAndWatch(&request)
-			} else if command.GetEvent() == requestdatatypes.ClientDeleteByGvkRequestType {
-				var request requestdatatypes.ClientDeleteByGvkRequest
-				request = command.(requestdatatypes.ClientDeleteByGvkRequest)
-				err = deleteApplicationByGvk(&request)
-			} else if command.GetEvent() == requestdatatypes.ClientDeleteByConfigRequestType {
-				var request requestdatatypes.ClientDeleteByConfigRequest
-				request = command.(requestdatatypes.ClientDeleteByConfigRequest)
-				err = deleteResourceFromConfig(&request)
-			} else if command.GetEvent() == requestdatatypes.ClientSelectiveSyncRequestType {
-				var request requestdatatypes.ClientSelectiveSyncRequest
-				request = command.(requestdatatypes.ClientSelectiveSyncRequest)
-				err = selectiveSyncArgoApp(&request)
-			} else if command.GetEvent() == requestdatatypes.ClientMarkNoDeployRequestType {
-				var request requestdatatypes.ClientMarkNoDeployRequest
-				request = command.(requestdatatypes.ClientMarkNoDeployRequest)
+			} else if command.GetEvent() == serializerutil.ClientDeployAndWatchRequestType {
+				var request *clientrequest.ClientDeployAndWatchRequest
+				request = command.(*clientrequest.ClientDeployAndWatchRequest)
+				err = deployAndWatch(request)
+			} else if command.GetEvent() == serializerutil.ClientRollbackAndWatchRequestType {
+				var request *clientrequest.ClientRollbackAndWatchRequest
+				request = command.(*clientrequest.ClientRollbackAndWatchRequest)
+				err = rollbackAndWatch(request)
+			} else if command.GetEvent() == serializerutil.ClientDeleteByGvkRequestType {
+				var request *clientrequest.ClientDeleteByGvkRequest
+				request = command.(*clientrequest.ClientDeleteByGvkRequest)
+				err = deleteApplicationByGvk(request)
+			} else if command.GetEvent() == serializerutil.ClientDeleteByConfigRequestType {
+				var request *clientrequest.ClientDeleteByConfigRequest
+				request = command.(*clientrequest.ClientDeleteByConfigRequest)
+				err = deleteResourceFromConfig(request)
+			} else if command.GetEvent() == serializerutil.ClientSelectiveSyncRequestType {
+				var request *clientrequest.ClientSelectiveSyncRequest
+				request = command.(*clientrequest.ClientSelectiveSyncRequest)
+				err = selectiveSyncArgoApp(request)
+			} else if command.GetEvent() == serializerutil.ClientMarkNoDeployRequestType {
+				var request *clientrequest.ClientMarkNoDeployRequest
+				request = command.(*clientrequest.ClientMarkNoDeployRequest)
 				handleNotificationRequest(request.RequestId, markNoDeploy, request)
 				continue
 			}
@@ -510,7 +511,7 @@ func handleRequests() {
 						break
 					} else {
 						log.Printf("Caught non-retryable error with message %s", atlasError)
-						failureEvent := datamodel.MakeFailureEventEvent(command.GetClientMetadata(), requestdatatypes.DeployResponse{}, "", atlasError.Error())
+						failureEvent := datamodel.MakeFailureEventEvent(command.GetClientMetadata(), clientrequest.DeployResponse{}, "", atlasError.Error())
 
 						generationSuccess = eventGenerationApi.GenerateEvent(failureEvent)
 						if !generationSuccess {

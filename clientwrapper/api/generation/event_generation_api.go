@@ -9,12 +9,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/greenopsinc/util/clientrequest"
 	"greenops.io/client/api/ingest"
 	"greenops.io/client/argodriver"
-	"greenops.io/client/atlasoperator/requestdatatypes"
+	"greenops.io/client/progressionchecker/datamodel"
+
 	"greenops.io/client/client"
 	"greenops.io/client/kubernetesclient"
-	"greenops.io/client/progressionchecker/datamodel"
 	"greenops.io/client/tlsmanager"
 )
 
@@ -32,7 +33,7 @@ type EventGenerationApi interface {
 	//TODO: Make these void methods. The only case where the generation should not work is in case of service unavailability, and we should be blocking and retrying if a service is unavaibale.
 	GenerateEvent(eventInfo datamodel.EventInfo) bool
 	GenerateNotification(requestId string, notification Notification) bool
-	GenerateResponseEvent(responseEvent requestdatatypes.ResponseEvent) bool
+	GenerateResponseEvent(responseEvent clientrequest.ResponseEvent) bool
 }
 
 type EventGenerationImpl struct {
@@ -108,7 +109,7 @@ func (c EventGenerationImpl) GenerateNotification(requestId string, notification
 	return resp.StatusCode/100 == 2
 }
 
-func (c EventGenerationImpl) GenerateResponseEvent(responseEvent requestdatatypes.ResponseEvent) bool {
+func (c EventGenerationImpl) GenerateResponseEvent(responseEvent clientrequest.ResponseEvent) bool {
 	data, err := json.Marshal(responseEvent)
 	if err != nil {
 		return false

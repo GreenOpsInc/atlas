@@ -10,9 +10,9 @@ import (
 
 	"greenops.io/workflowtrigger/client"
 
+	"github.com/greenopsinc/util/git"
+	"greenops.io/workflowtrigger/serializer"
 	"greenops.io/workflowtrigger/tlsmanager"
-	"greenops.io/workflowtrigger/util/git"
-	"greenops.io/workflowtrigger/util/serializer"
 )
 
 const (

@@ -10,12 +10,12 @@ import (
 	"os"
 	"strings"
 
-	"greenops.io/client/tlsmanager"
-
-	"greenops.io/client/client"
-
+	"github.com/greenopsinc/util/clientrequest"
+	"github.com/greenopsinc/util/serializer"
+	"github.com/greenopsinc/util/serializerutil"
 	"greenops.io/client/argodriver"
-	"greenops.io/client/atlasoperator/requestdatatypes"
+	"greenops.io/client/client"
+	"greenops.io/client/tlsmanager"
 )
 
 const (
@@ -32,7 +32,7 @@ const (
 )
 
 type CommandDelegatorApi interface {
-	GetCommands() (*[]requestdatatypes.RequestEvent, error)
+	GetCommands() (*[]clientrequest.ClientRequestEvent, error)
 	AckHeadOfRequestList() error
 	AckHeadOfNotificationList() error
 	RetryRequest() error
@@ -76,7 +76,7 @@ func Create(argoClient argodriver.ArgoAuthClient, tm tlsmanager.Manager) (Comman
 	}, nil
 }
 
-func (c CommandDelegatorImpl) GetCommands() (*[]requestdatatypes.RequestEvent, error) {
+func (c CommandDelegatorImpl) GetCommands() (*[]clientrequest.ClientRequestEvent, error) {
 	req, err := http.NewRequest("GET", c.commandDelegatorUrl+fmt.Sprintf("/requests/%s/%s", c.orgName, c.clusterName), nil)
 	if err != nil {
 		log.Printf("Error while making getting commands request: %s", err)
@@ -100,46 +100,7 @@ func (c CommandDelegatorImpl) GetCommands() (*[]requestdatatypes.RequestEvent, e
 		log.Printf("Error while getting commands: %s", string(bodyBytes))
 		return nil, errors.New(string(bodyBytes))
 	}
-
-	var commands []requestdatatypes.RequestEvent
-	var jsonArray []map[string]interface{}
-	json.Unmarshal(bodyBytes, &jsonArray)
-	for _, command := range jsonArray {
-		commandType := command[EventTypeVariable].(string)
-
-		if commandType == requestdatatypes.ClientDeployRequestType {
-			var request requestdatatypes.ClientDeployRequest
-			json.Unmarshal(c.getBytesFromUnstructured(command), &request)
-			commands = append(commands, request)
-		} else if commandType == requestdatatypes.ClientDeleteByConfigRequestType {
-			var request requestdatatypes.ClientDeleteByConfigRequest
-			json.Unmarshal(c.getBytesFromUnstructured(command), &request)
-			commands = append(commands, request)
-		} else if commandType == requestdatatypes.ClientDeleteByGvkRequestType {
-			var request requestdatatypes.ClientDeleteByGvkRequest
-			json.Unmarshal(c.getBytesFromUnstructured(command), &request)
-			commands = append(commands, request)
-		} else if commandType == requestdatatypes.ClientDeployAndWatchRequestType {
-			var request requestdatatypes.ClientDeployAndWatchRequest
-			json.Unmarshal(c.getBytesFromUnstructured(command), &request)
-			commands = append(commands, request)
-		} else if commandType == requestdatatypes.ClientRollbackAndWatchRequestType {
-			var request requestdatatypes.ClientRollbackAndWatchRequest
-			json.Unmarshal(c.getBytesFromUnstructured(command), &request)
-			commands = append(commands, request)
-		} else if commandType == requestdatatypes.ClientSelectiveSyncRequestType {
-			var request requestdatatypes.ClientSelectiveSyncRequest
-			json.Unmarshal(c.getBytesFromUnstructured(command), &request)
-			commands = append(commands, request)
-		} else if commandType == requestdatatypes.ClientMarkNoDeployRequestType {
-			var request requestdatatypes.ClientMarkNoDeployRequest
-			json.Unmarshal(c.getBytesFromUnstructured(command), &request)
-			commands = append(commands, request)
-		} else {
-			log.Printf("Command type %s not supported", commandType)
-		}
-	}
-
+	commands := serializer.Deserialize(string(bodyBytes), serializerutil.ClientRequestListType).([]clientrequest.ClientRequestEvent)
 	return &commands, nil
 }
 

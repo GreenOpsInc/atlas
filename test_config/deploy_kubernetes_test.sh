@@ -14,6 +14,10 @@ cd ../workflowtrigger
 env GOOS=linux go build -v .
 docker build -f test/Dockerfile -t atlasworkflowtrigger .
 minikube image load atlasworkflowtrigger
+cd ../commanddelegatorgo
+env GOOS=linux go build -v ./command_delegator_api.go
+docker build -f test/Dockerfile -t atlascommanddelegator .
+minikube image load atlascommanddelegator
 cd ../clientwrapper
 env GOOS=linux go build -v ./atlasoperator/atlas_operator.go
 docker build -f test/Dockerfile -t atlasclientwrapper .
@@ -23,7 +27,5 @@ cd ../PipelineRepoServer/
 ./gradlew jibDockerBuild --image=atlasreposerver
 cd ../WorkflowOrchestrator/
 ./gradlew jibDockerBuild --image=atlasworkfloworchestrator
-cd ../commanddelegator/
-./gradlew jibDockerBuild --image=atlascommanddelegator
 cd ../test_config
 perl -p -e "s/LOCALHOSTDYNAMICADDRESS/$localhostip/g" atlasinfrastructure.yaml | kubectl apply -f -

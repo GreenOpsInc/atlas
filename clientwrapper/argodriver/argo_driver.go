@@ -17,7 +17,7 @@ import (
 	"github.com/argoproj/argo-cd/util/config"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/dgrijalva/jwt-go/v4"
-	"greenops.io/client/atlasoperator/requestdatatypes"
+	"github.com/greenopsinc/util/clientrequest"
 	"greenops.io/client/k8sdriver"
 	"greenops.io/client/progressionchecker/datamodel"
 	"greenops.io/client/tlsmanager"
@@ -57,7 +57,7 @@ type ArgoGetRestrictedClient interface {
 type ArgoClient interface {
 	Deploy(configPayload *string, revisionHash string) (string, string, string, error)
 	Sync(applicationName string) (string, string, string, error)
-	SelectiveSync(applicationName string, revisionHash string, gvkGroup requestdatatypes.GvkGroupRequest) (string, string, string, error)
+	SelectiveSync(applicationName string, revisionHash string, gvkGroup clientrequest.GvkGroupRequest) (string, string, string, error)
 	GetAppResourcesStatus(applicationName string) ([]datamodel.ResourceStatus, error)
 	GetOperationSuccess(applicationName string) (bool, bool, string, error)
 	GetCurrentRevisionHash(applicationName string) (string, error)
@@ -337,7 +337,7 @@ func (a *ArgoClientDriver) Sync(applicationName string) (string, string, string,
 	return argoApplication.Name, argoApplication.Namespace, argoApplication.Operation.Sync.Revision, nil
 }
 
-func (a *ArgoClientDriver) SelectiveSync(applicationName string, revisionHash string, gvkGroup requestdatatypes.GvkGroupRequest) (string, string, string, error) {
+func (a *ArgoClientDriver) SelectiveSync(applicationName string, revisionHash string, gvkGroup clientrequest.GvkGroupRequest) (string, string, string, error) {
 	err := a.CheckForRefresh()
 	if err != nil {
 		return "", "", "", err
@@ -602,8 +602,9 @@ func (a *ArgoClientDriver) MarkNoDeploy(clusterName string, namespace string, ap
 				windowExists := false
 				windowIdx := 0
 				for idx, window := range appProject.Spec.SyncWindows {
+					//Checking for application list length to be 0 as application level nodeploy is not supported yet
 					if window.Kind == "deny" && window.Schedule == "* * * * *" && window.Duration == "720h" &&
-						reflect.DeepEqual(window.Applications, []string{}) && reflect.DeepEqual(window.Namespaces, namespaceList) &&
+						len(window.Applications) == 0 && reflect.DeepEqual(window.Namespaces, namespaceList) &&
 						reflect.DeepEqual(window.Clusters, clusterList) && window.ManualSync == false {
 						windowExists = true
 						windowIdx = idx

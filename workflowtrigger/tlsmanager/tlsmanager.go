@@ -14,7 +14,7 @@ import (
 	"net"
 	"time"
 
-	kclient "greenops.io/workflowtrigger/kubernetesclient"
+	kclient "github.com/greenopsinc/util/kubernetesclient"
 	corev1 "k8s.io/api/core/v1"
 )
 
