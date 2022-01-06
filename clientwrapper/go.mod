@@ -17,6 +17,7 @@ require (
 )
 
 replace (
+	github.com/greenopsinc/util => ../utilgo
 	github.com/go-openapi/spec => github.com/go-openapi/spec v0.19.8
 	k8s.io/api => k8s.io/api v0.19.6
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.19.6
