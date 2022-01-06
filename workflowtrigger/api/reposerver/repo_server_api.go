@@ -8,11 +8,10 @@ import (
 	"net/http"
 	"strings"
 
-	"greenops.io/workflowtrigger/client"
-
 	"github.com/greenopsinc/util/git"
+	"github.com/greenopsinc/util/httpclient"
+	"github.com/greenopsinc/util/tlsmanager"
 	"greenops.io/workflowtrigger/serializer"
-	"greenops.io/workflowtrigger/tlsmanager"
 )
 
 const (
@@ -37,14 +36,14 @@ type RepoManagerApi interface {
 
 type RepoManagerApiImpl struct {
 	serverEndpoint string
-	client         client.HttpClient
+	client         httpclient.HttpClient
 }
 
 func New(serverEndpoint string, tm tlsmanager.Manager) (RepoManagerApi, error) {
 	if strings.HasSuffix(serverEndpoint, "/") {
 		serverEndpoint = serverEndpoint[:len(serverEndpoint)-1]
 	}
-	httpClient, err := client.NewHttpClient(tlsmanager.ClientRepoServer, tm)
+	httpClient, err := httpclient.NewHttpClient(tlsmanager.ClientRepoServer, tm)
 	if err != nil {
 		return nil, err
 	}

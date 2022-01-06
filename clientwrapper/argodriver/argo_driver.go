@@ -18,9 +18,9 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/dgrijalva/jwt-go/v4"
 	"github.com/greenopsinc/util/clientrequest"
+	"github.com/greenopsinc/util/tlsmanager"
 	"greenops.io/client/k8sdriver"
 	"greenops.io/client/progressionchecker/datamodel"
-	"greenops.io/client/tlsmanager"
 	"greenops.io/client/util"
 	utilpointer "k8s.io/utils/pointer"
 )

@@ -25,6 +25,7 @@ dependencies {
     implementation 'io.lettuce:lettuce-core:6.1.2.RELEASE'
     implementation 'org.projectlombok:lombok:1.18.20'
     annotationProcessor 'org.projectlombok:lombok:1.18.20'
+    implementation 'io.kubernetes:client-java:5.0.0'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'org.springframework.boot:spring-boot-starter-web'

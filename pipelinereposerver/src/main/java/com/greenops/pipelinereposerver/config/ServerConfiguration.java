@@ -1,10 +1,11 @@
 package com.greenops.pipelinereposerver.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.greenops.pipelinereposerver.kubernetesclient.KubernetesClient;
-import com.greenops.pipelinereposerver.kubernetesclient.KubernetesClientImpl;
-import com.greenops.pipelinereposerver.tslmanager.TLSManager;
-import com.greenops.pipelinereposerver.tslmanager.TLSManagerImpl;
+import com.greenops.util.kubernetesclient.KubernetesClient;
+import com.greenops.util.kubernetesclient.KubernetesClientImpl;
+import com.greenops.util.tslmanager.ClientName;
+import com.greenops.util.tslmanager.TLSManager;
+import com.greenops.util.tslmanager.TLSManagerImpl;
 import org.apache.catalina.Context;
 import org.apache.catalina.connector.Connector;
 import org.apache.tomcat.util.descriptor.web.SecurityCollection;
@@ -16,17 +17,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.io.IOException;
-
-// TODO: server configuration
-//      1. add bean to:
-//          a. read config from secrets
-//          b. if not available create self signed
-//          c. create keystore
-//          d. use keystore for tomcat
-//      2. create watcher to watch kubernetes secret updates
-//          a. on create/update/delete reload the server
-//          b. after server is reloaded it will pull new config from secrets and create the server
-//          c. the same could be done for kafka (I guess)
 
 @Configuration
 public class ServerConfiguration {
@@ -68,9 +58,9 @@ public class ServerConfiguration {
 
         SSLHostConfig conf;
         try {
-            TLSManager tlsManager = new TLSManagerImpl(kclient);
-            conf = tlsManager.getSSLHostConfig();
-            tlsManager.watchHostSSLConfig();
+            TLSManager tlsManager = new TLSManagerImpl(kclient, "pipelinereposerver_tls_cert", "keystore.pipelinereposerver_tls_cert");
+            conf = tlsManager.getSSLHostConfig(ClientName.CLIENT_CLIENT_WRAPPER);
+            tlsManager.watchHostSSLConfig(ClientName.CLIENT_CLIENT_WRAPPER);
         } catch (Exception exc) {
             // TODO: log and stop server
             throw new RuntimeException("Could not configure server with TLS configuration", exc);

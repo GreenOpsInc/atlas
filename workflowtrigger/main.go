@@ -8,18 +8,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/greenopsinc/util/starter"
-
 	"github.com/gorilla/mux"
 	"github.com/greenopsinc/util/db"
 	"github.com/greenopsinc/util/kubernetesclient"
+	"github.com/greenopsinc/util/starter"
+	"github.com/greenopsinc/util/tlsmanager"
 	"greenops.io/workflowtrigger/api"
 	"greenops.io/workflowtrigger/api/argoauthenticator"
 	"greenops.io/workflowtrigger/api/commanddelegator"
 	"greenops.io/workflowtrigger/api/reposerver"
 	"greenops.io/workflowtrigger/kafka"
 	"greenops.io/workflowtrigger/schemavalidation"
-	"greenops.io/workflowtrigger/tlsmanager"
 )
 
 func main() {
@@ -45,11 +44,7 @@ func main() {
 	}
 	argoAuthenticatorApi = argoauthenticator.New(tlsManager)
 	schemaValidator = schemavalidation.New(argoAuthenticatorApi, repoManagerApi)
-	tlsManager, err = tlsmanager.New(kubernetesClient)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	tlsManager = tlsmanager.New(kubernetesClient)
 	r := mux.NewRouter()
 	r.Use(argoAuthenticatorApi.Middleware)
 	api.InitClients(dbClient, kafkaClient, kubernetesClient, repoManagerApi, commandDelegatorApi, schemaValidator)
@@ -66,7 +61,7 @@ func startAndWatchServer(tlsManager tlsmanager.Manager, r *mux.Router) {
 	httpServerExitDone := &sync.WaitGroup{}
 	httpServerExitDone.Add(1)
 
-	tlsConfig, err := tlsManager.GetServerTLSConf()
+	tlsConfig, err := tlsManager.GetServerTLSConf(tlsmanager.ClientWorkflowTrigger)
 	if err != nil {
 		log.Fatal("failed to fetch tls configuration: ", err)
 	}
@@ -76,7 +71,7 @@ func startAndWatchServer(tlsManager tlsmanager.Manager, r *mux.Router) {
 	log.Println("in startAndWatchServer, before listenAndServe")
 	go listenAndServe(httpServerExitDone, srv)
 
-	tlsManager.WatchServerTLSConf(func(conf *tls.Config, err error) {
+	err = tlsManager.WatchServerTLSConf(tlsmanager.ClientWorkflowTrigger, func(conf *tls.Config, err error) {
 		log.Printf("in tlsManager.WatchServerTLSConf, conf = %v, err = %v\n", conf, err)
 		if err != nil {
 			defer httpServerExitDone.Done()
@@ -95,6 +90,9 @@ func startAndWatchServer(tlsManager tlsmanager.Manager, r *mux.Router) {
 		log.Println("in tlsManager.WatchServerTLSConf, before listenAndServe")
 		go listenAndServe(httpServerExitDone, srv)
 	})
+	if err != nil {
+		log.Fatal("failed to watch server tls configuration: ", err)
+	}
 
 	httpServerExitDone.Wait()
 }

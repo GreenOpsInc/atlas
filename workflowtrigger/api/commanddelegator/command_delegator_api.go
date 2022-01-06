@@ -10,8 +10,8 @@ import (
 	"github.com/greenopsinc/util/clientrequest"
 	"greenops.io/workflowtrigger/serializer"
 
-	"greenops.io/workflowtrigger/client"
-	"greenops.io/workflowtrigger/tlsmanager"
+	"github.com/greenopsinc/util/httpclient"
+	"github.com/greenopsinc/util/tlsmanager"
 )
 
 const (
@@ -32,7 +32,7 @@ type CommandDelegatorApi interface {
 
 type CommandDelegatorApiImpl struct {
 	serverEndpoint string
-	client         client.HttpClient
+	client         httpclient.HttpClient
 }
 
 func New(serverEndpoint string, tm tlsmanager.Manager) (CommandDelegatorApi, error) {
@@ -41,7 +41,7 @@ func New(serverEndpoint string, tm tlsmanager.Manager) (CommandDelegatorApi, err
 	} else {
 		serverEndpoint = serverEndpoint + "/notifications"
 	}
-	httpClient, err := client.NewHttpClient(tlsmanager.ClientCommandDelegator, tm)
+	httpClient, err := httpclient.NewHttpClient(tlsmanager.ClientCommandDelegator, tm)
 	if err != nil {
 		return nil, err
 	}

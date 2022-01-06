@@ -11,9 +11,9 @@ import (
 	sessionpkg "github.com/argoproj/argo-cd/pkg/apiclient/session"
 	grpcutil "github.com/argoproj/argo-cd/util/grpc"
 	"github.com/argoproj/argo-cd/util/io"
+	"github.com/greenopsinc/util/config"
+	"github.com/greenopsinc/util/tlsmanager"
 	"greenops.io/client/k8sdriver"
-	"greenops.io/client/tlsmanager"
-	"greenops.io/client/util/config"
 )
 
 const (

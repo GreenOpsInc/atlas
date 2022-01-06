@@ -10,13 +10,12 @@ import (
 	"strings"
 
 	"github.com/greenopsinc/util/clientrequest"
+	"github.com/greenopsinc/util/httpclient"
+	"github.com/greenopsinc/util/kubernetesclient"
+	"github.com/greenopsinc/util/tlsmanager"
 	"greenops.io/client/api/ingest"
 	"greenops.io/client/argodriver"
 	"greenops.io/client/progressionchecker/datamodel"
-
-	"greenops.io/client/client"
-	"greenops.io/client/kubernetesclient"
-	"greenops.io/client/tlsmanager"
 )
 
 const (
@@ -38,7 +37,7 @@ type EventGenerationApi interface {
 
 type EventGenerationImpl struct {
 	workflowTriggerAddress string
-	client                 client.HttpClient
+	client                 httpclient.HttpClient
 	argoAuthClient         argodriver.ArgoAuthClient
 	kclient                kubernetesclient.KubernetesClient
 }
@@ -51,7 +50,7 @@ func Create(argoClient argodriver.ArgoAuthClient, kclient kubernetesclient.Kuber
 	if strings.HasSuffix(workflowTriggerAddress, "/") {
 		workflowTriggerAddress = strings.TrimSuffix(workflowTriggerAddress, "/")
 	}
-	httpClient, err := client.NewHttpClient(tlsmanager.ClientWorkflowTrigger, tm)
+	httpClient, err := httpclient.NewHttpClient(tlsmanager.ClientWorkflowTrigger, tm)
 	if err != nil {
 		return nil, err
 	}

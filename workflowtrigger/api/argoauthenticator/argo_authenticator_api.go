@@ -12,9 +12,9 @@ import (
 	"github.com/argoproj/argo-cd/pkg/apiclient"
 	"github.com/argoproj/argo-cd/pkg/apiclient/account"
 	grpcutil "github.com/argoproj/argo-cd/util/grpc"
+	"github.com/greenopsinc/util/config"
+	"github.com/greenopsinc/util/tlsmanager"
 	"google.golang.org/grpc/status"
-	"greenops.io/workflowtrigger/tlsmanager"
-	"greenops.io/workflowtrigger/util/config"
 )
 
 type RbacResource string

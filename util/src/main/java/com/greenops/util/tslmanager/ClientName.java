@@ -1,0 +1,9 @@
+package com.greenops.util.tslmanager;
+
+public enum ClientName {
+    CLIENT_REPO_SERVER,
+    CLIENT_WORKFLOW_TRIGGER,
+    CLIENT_CLIENT_WRAPPER,
+    CLIENT_COMMAND_DELEGATOR,
+    CLIENT_ARGOCD_REPO_SERVER
+}

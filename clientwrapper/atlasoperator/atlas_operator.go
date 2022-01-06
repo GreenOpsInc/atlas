@@ -12,16 +12,16 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/gorilla/mux"
 	"github.com/greenopsinc/util/clientrequest"
+	"github.com/greenopsinc/util/kubernetesclient"
 	"github.com/greenopsinc/util/serializerutil"
+	"github.com/greenopsinc/util/tlsmanager"
 	"greenops.io/client/api/generation"
 	"greenops.io/client/api/ingest"
 	"greenops.io/client/argodriver"
 	"greenops.io/client/k8sdriver"
-	"greenops.io/client/kubernetesclient"
 	"greenops.io/client/plugins"
 	"greenops.io/client/progressionchecker"
 	"greenops.io/client/progressionchecker/datamodel"
-	"greenops.io/client/tlsmanager"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -536,15 +536,15 @@ func handleRequests() {
 }
 
 func main() {
+	var err error
 	kubernetesDriver := k8sdriver.New()
 	kubernetesClient := kubernetesclient.New()
-	tm, err := tlsmanager.New(kubernetesClient)
-	if err != nil {
-		log.Fatal("event generation API setup failed: ", err.Error())
-	}
-
+	tm := tlsmanager.New(kubernetesClient)
 	argoDriver := argodriver.New(&kubernetesDriver)
-	commandDelegatorApi = ingest.Create(argoDriver.(argodriver.ArgoAuthClient))
+	commandDelegatorApi, err = ingest.Create(argoDriver.(argodriver.ArgoAuthClient), tm)
+	if err != nil {
+		log.Fatal("command delegator API setup failed: ", err.Error())
+	}
 	eventGenerationApi, err = generation.Create(argoDriver.(argodriver.ArgoAuthClient), kubernetesClient, tm)
 	if err != nil {
 		log.Fatal("event generation API setup failed: ", err.Error())

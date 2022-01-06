@@ -11,11 +11,11 @@ import (
 	"strings"
 
 	"github.com/greenopsinc/util/clientrequest"
+	"github.com/greenopsinc/util/httpclient"
 	"github.com/greenopsinc/util/serializer"
 	"github.com/greenopsinc/util/serializerutil"
+	"github.com/greenopsinc/util/tlsmanager"
 	"greenops.io/client/argodriver"
-	"greenops.io/client/client"
-	"greenops.io/client/tlsmanager"
 )
 
 const (
@@ -43,7 +43,7 @@ type CommandDelegatorImpl struct {
 	clusterName         string
 	orgName             string
 	argoAuthClient      argodriver.ArgoAuthClient
-	client              client.HttpClient
+	client              httpclient.HttpClient
 }
 
 // TODO: add argocd tls updates
@@ -63,7 +63,7 @@ func Create(argoClient argodriver.ArgoAuthClient, tm tlsmanager.Manager) (Comman
 	if orgName == "" {
 		orgName = DefaultOrgName
 	}
-	httpClient, err := client.NewHttpClient(tlsmanager.ClientWorkflowTrigger, tm)
+	httpClient, err := httpclient.NewHttpClient(tlsmanager.ClientWorkflowTrigger, tm)
 	if err != nil {
 		return nil, err
 	}
