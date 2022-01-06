@@ -1,12 +1,15 @@
 package com.greenops.pipelinereposerver.kubernetesclient;
 
 import com.greenops.util.datamodel.git.GitCred;
+import io.kubernetes.client.models.V1Secret;
 
 public interface KubernetesClient {
 
-    public boolean storeGitCred(GitCred gitCred, String name);
+    boolean storeGitCred(GitCred gitCred, String name);
 
-    public GitCred fetchGitCred(String name);
+    GitCred fetchGitCred(String name);
+
+    V1Secret fetchSecretData(String name, String namespace);
+
+    void watchSecretData(String name, String namespace, WatchSecretHandler handler);
 }
-
-

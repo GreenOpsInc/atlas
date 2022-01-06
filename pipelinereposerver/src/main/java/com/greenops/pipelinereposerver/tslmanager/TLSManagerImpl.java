@@ -1,258 +1,148 @@
 package com.greenops.pipelinereposerver.tslmanager;
 
 import com.greenops.pipelinereposerver.kubernetesclient.KubernetesClient;
+import io.kubernetes.client.models.V1Secret;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.tomcat.util.net.SSLHostConfig;
+import org.apache.tomcat.util.net.SSLHostConfigCertificate;
+import org.bouncycastle.jce.X509Principal;
+import org.bouncycastle.x509.X509V3CertificateGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.math.BigInteger;
+import java.security.*;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Date;
 
 @Slf4j
 @Component
 public class TLSManagerImpl implements TLSManager {
 
+    private static final String CERTIFICATE_ALIAS = "pipelinereposerver_tls_cert";
+    private static final String CERTIFICATE_ALGORITHM = "RSA";
+    private static final String CERTIFICATE_DN = "CN=Atlas, O=Atlas, ST=SF, C=US";
+    private static final String CERTIFICATE_NAME = "keystore.pipelinereposerver_tls_cert";
+    private static final int CERTIFICATE_BITS = 1024;
+    private static final String REPO_SERVER_SECRET_NAME = "pipelinereposerver-tls";
+    private static final String NAMESPACE = "default";
+    private static final String SECRET_CERT_NAME = "tls.crt";
+    private static final String SECRET_KEY_NAME = "tls.key";
     private final KubernetesClient kclient;
-    private final String REPO_SERVER_SECRET_NAME = "pipelinereposerver-tls";
-    private final String NAMESPACE = "default";
-
-    private String /*tls.Config*/ tlsConf;
-    private String /*tls.Config*/ selfSignedConf;
-    private String /*map[ClientName]*tls.Config*/ tlsClientConfigs;
-    private String /*map[ClientName][]byte*/ tlsClientCertPEM;
 
     @Autowired
     public TLSManagerImpl(KubernetesClient kclient) {
         this.kclient = kclient;
-
-        this.getServerTLSConf();
     }
 
     @Override
-    public void bestEffortSystemCertPool() {
-        rootCAs, _ := x509.SystemCertPool()
-        if rootCAs == nil {
-            log.Println("root ca not found, returning new...")
-            return x509.NewCertPool()
+    public SSLHostConfig getSSLHostConfig() throws Exception {
+        SSLHostConfig conf = getTLSConfFromSecrets();
+        if (conf != null) {
+            return conf;
         }
-        log.Println("root ca found")
-        return rootCAs
+        return getSelfSignedSSLHostConf();
     }
 
     @Override
-    public void getServerTLSConf() {
-        conf, err := m.getTLSConf()
-        if err != nil {
-            return nil, err
+    public void watchHostSSLConfig() {
+        this.kclient.watchSecretData(REPO_SERVER_SECRET_NAME, NAMESPACE, data -> {
+            // TODO: log message about certificate changes and app reloading
+            System.exit(0);
+        });
+    }
+    
+    private SSLHostConfig getTLSConfFromSecrets() throws Exception {
+        V1Secret secret = this.kclient.fetchSecretData(REPO_SERVER_SECRET_NAME, NAMESPACE);
+        if (secret == null) {
+            return null;
         }
-        m.tlsConf = conf
-        return conf, nil
+        return generateSSLHostConfFromKeyPair(secret.getData().get(SECRET_CERT_NAME), secret.getData().get(SECRET_KEY_NAME));
     }
 
-    @Override
-    public void watchServerTLSConf(String handler) {
-        log.Println("in WatchServerTLSConf")
-        m.k.WatchSecretData(string(WorkflowTriggerTLSSecretName), Namespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
-            log.Printf("in WatchServerTLSConf, event %v. data = %s\n", t, secret)
-            var (
-                    config   *tls.Config
-                    err      error
-                    insecure bool
-            )
+    private SSLHostConfig generateSSLHostConfFromKeyPair(byte[] pub, byte[] key) throws Exception {
+        KeyStore keyStore = getKeyStore();
 
-            switch t {
-                case kclient.SecretChangeTypeAdd:
-                    fallthrough
-                case kclient.SecretChangeTypeUpdate:
-                    log.Printf("in WatchServerTLSConf, secret data = %v\n", secret.Data)
-                    config, err = m.generateTLSConfFromKeyPair(secret.Data[TLSSecretCrtName], secret.Data[TLSSecretCrtName])
-                    log.Printf("in WatchServerTLSConf, tlsConf = %v\n", config)
-                    insecure = false
-                case kclient.SecretChangeTypeDelete:
-                    config, err = m.getSelfSignedTLSConf()
-                    insecure = true
-            }
+        KeyPair keyPair = createKeyPair(pub, key);
+        X509Certificate cert = createCertificate(keyPair);
+        saveCert(cert, keyPair.getPrivate(), keyStore);
 
-            if err != nil {
-                handler(nil, err)
-                return
-            }
-
-            config.InsecureSkipVerify = insecure
-            m.tlsConf = config
-            handler(config, nil)
-        })
+        SSLHostConfig sslHostConfig = new SSLHostConfig();
+        SSLHostConfigCertificate certificate = new SSLHostConfigCertificate(
+                sslHostConfig, SSLHostConfigCertificate.Type.RSA);
+        certificate.setCertificateKeystore(keyStore);
+        sslHostConfig.addCertificate(certificate);
+        return sslHostConfig;
     }
 
-    // TODO: need to create a general method for get to get delegator, repo server and wrapper secrets
-    private String /* *tls.Config*/ getTLSConf() {
-        log.Println("in GetServerTLSConf")
-        if m.tlsConf != nil {
-            return m.tlsConf, nil
-        }
+    private SSLHostConfig getSelfSignedSSLHostConf() throws Exception {
+        KeyStore keyStore = getKeyStore();
 
-        conf, err := m.getTLSConfFromSecrets()
-        log.Printf("in GetServerTLSConf, tlsConf = %v\n", conf)
-        if err != nil {
-            return nil, err
-        }
-        if conf != nil {
-            log.Println("CERT FOUND IN SECRETS")
-            conf.InsecureSkipVerify = false
-            return conf, nil
-        }
+        KeyPair keyPair = generateKeyPair();
+        X509Certificate cert = createCertificate(keyPair);
+        saveCert(cert, keyPair.getPrivate(), keyStore);
 
-        log.Println("in GetServerTLSConf, before getSelfSignedTLSConf")
-        conf, err = m.getSelfSignedTLSConf()
-        if err != nil {
-            return nil, err
-        }
-
-        conf.InsecureSkipVerify = true
-        return conf, nil
+        SSLHostConfig sslHostConfig = new SSLHostConfig();
+        SSLHostConfigCertificate certificate = new SSLHostConfigCertificate(
+                sslHostConfig, SSLHostConfigCertificate.Type.RSA);
+        certificate.setCertificateKeystore(keyStore);
+        sslHostConfig.addCertificate(certificate);
+        sslHostConfig.setInsecureRenegotiation(true);
+        return sslHostConfig;
     }
 
-    private /* *tls.Config*/ String getSelfSignedTLSConf() {
-        log.Println("in getSelfSignedTLSConf")
-        if m.selfSignedConf != nil {
-            return m.selfSignedConf, nil
-        }
-
-        conf, err := m.generateSelfSignedTLSConf()
-        if err != nil {
-            return nil, err
-        }
-        log.Printf("in getSelfSignedTLSConf, tlsConf = %v\n", conf)
-
-        m.selfSignedConf = conf
-        return conf, nil
+    private KeyPair createKeyPair(byte[] pub, byte[] key) throws NoSuchAlgorithmException, InvalidKeySpecException {
+        PublicKey pubKey = publicKeyFromString(pub);
+        PrivateKey privKey = privateKeyFromString(key);
+        return new KeyPair(pubKey, privKey);
     }
 
-    private  /* *tls.Config*/ String getTLSConfFromSecrets() {
-        log.Println("in getTLSConfFromSecrets")
-        secret := m.k.FetchSecretData(string(WorkflowTriggerTLSSecretName), Namespace)
-        log.Println("in getTLSConfFromSecrets, secret: ", secret)
-        if secret == nil {
-            return nil, nil
-        }
-
-        conf, err := m.generateTLSConfFromKeyPair(secret[TLSSecretCrtName], secret[TLSSecretKeyName])
-        if err != nil {
-            return nil, err
-        }
-        return conf, nil
+    private PublicKey publicKeyFromString(byte[] val) throws NoSuchAlgorithmException, InvalidKeySpecException {
+        X509EncodedKeySpec x509publicKey = new X509EncodedKeySpec(val);
+        KeyFactory kf = KeyFactory.getInstance("RSA");
+        return kf.generatePublic(x509publicKey);
     }
 
-    private  /* *tls.Config*/ String generateTLSConfFromKeyPair(byte[] cert , byte[] key) {
-        log.Printf("in generateTLSConfFromKeyPair cert = %s, key = %s\n", string(cert), string(key))
-        c, err := tls.X509KeyPair(cert, key)
-        log.Printf("in generateTLSConfFromKeyPair c = %v\n", c)
-        if err != nil {
-            return nil, err
-        }
-
-        rootCAs := m.BestEffortSystemCertPool()
-        return &tls.Config{
-            Certificates:             []tls.Certificate{c},
-            MinVersion:               tls.VersionTLS13,
-                    PreferServerCipherSuites: true,
-                    RootCAs:                  rootCAs,
-        }, nil
+    private PrivateKey privateKeyFromString(byte[] val) throws NoSuchAlgorithmException, InvalidKeySpecException {
+        X509EncodedKeySpec x509privateKey = new X509EncodedKeySpec(val);
+        KeyFactory kf = KeyFactory.getInstance("RSA");
+        return kf.generatePrivate(x509privateKey);
     }
 
-    private  /* *tls.Config*/ String generateSelfSignedTLSConf() {
-        // JAVA
-        X509Certificate cert = null;
+    private KeyPair generateKeyPair() throws Exception {
         KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(CERTIFICATE_ALGORITHM);
         keyPairGenerator.initialize(CERTIFICATE_BITS, new SecureRandom());
-        KeyPair keyPair = keyPairGenerator.generateKeyPair();
+        return keyPairGenerator.generateKeyPair();
+    }
 
-        // GENERATE THE X509 CERTIFICATE
-        X509V3CertificateGenerator v3CertGen =  new X509V3CertificateGenerator();
+    @SuppressWarnings("deprecation")
+    private X509Certificate createCertificate(KeyPair keyPair) throws InvalidKeyException, SignatureException {
+        X509V3CertificateGenerator v3CertGen = new X509V3CertificateGenerator();
         v3CertGen.setSerialNumber(BigInteger.valueOf(System.currentTimeMillis()));
         v3CertGen.setIssuerDN(new X509Principal(CERTIFICATE_DN));
         v3CertGen.setNotBefore(new Date(System.currentTimeMillis() - 1000L * 60 * 60 * 24));
-        v3CertGen.setNotAfter(new Date(System.currentTimeMillis() + (1000L * 60 * 60 * 24 * 365*10)));
+        v3CertGen.setNotAfter(new Date(System.currentTimeMillis() + (1000L * 60 * 60 * 24 * 365 * 10)));
         v3CertGen.setSubjectDN(new X509Principal(CERTIFICATE_DN));
         v3CertGen.setPublicKey(keyPair.getPublic());
         v3CertGen.setSignatureAlgorithm("SHA256WithRSAEncryption");
-        cert = v3CertGen.generateX509Certificate(keyPair.getPrivate());
-        saveCert(cert,keyPair.getPrivate());
-        return cert;
-
-        // GO
-        certSerialNumber, err := generateCertificateSerialNumber()
-        if err != nil {
-            return nil, err
-        }
-
-        cert := &x509.Certificate{
-            SerialNumber: certSerialNumber,
-                    Subject: pkix.Name{
-                Organization: []string{"GreenOps, INC."},
-                Country:      []string{"US"},
-            },
-            DNSNames:     []string{"localhost"},
-            IPAddresses:  []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
-            NotBefore:    time.Now(),
-                    NotAfter:     time.Now().AddDate(10, 0, 0),
-                    SubjectKeyId: []byte{1, 2, 3, 4, 6},
-            ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-            KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-        }
-        log.Printf("in generateSelfSignedTLSConf, cert = %v\n", cert)
-
-        certPrivateKey, err := rsa.GenerateKey(rand.Reader, 4096)
-        if err != nil {
-            return nil, err
-        }
-        log.Printf("in generateSelfSignedTLSConf, certPrivateKey = %v\n", certPrivateKey)
-
-        certBytes, err := x509.CreateCertificate(rand.Reader, cert, cert, &certPrivateKey.PublicKey, certPrivateKey)
-        if err != nil {
-            return nil, err
-        }
-        log.Printf("in generateSelfSignedTLSConf, certBytes = %v\n", certBytes)
-
-        certPEM := new(bytes.Buffer)
-                err = pem.Encode(certPEM, &pem.Block{
-            Type:  "CERTIFICATE",
-                    Bytes: certBytes,
-        })
-        if err != nil {
-            return nil, err
-        }
-        log.Printf("in generateSelfSignedTLSConf, certPEM = %v\n", certPEM)
-
-        certPrivateKeyPEM := new(bytes.Buffer)
-                err = pem.Encode(certPrivateKeyPEM, &pem.Block{
-            Type:  "RSA PRIVATE KEY",
-                    Bytes: x509.MarshalPKCS1PrivateKey(certPrivateKey),
-        })
-        if err != nil {
-            return nil, err
-        }
-        log.Printf("in generateSelfSignedTLSConf, certPrivateKeyPEM = %v\n", certPrivateKeyPEM)
-
-        log.Printf("cert PEM = %s\n", certPEM.String())
-        log.Printf("key PEM = %s\n", certPrivateKeyPEM.String())
-
-        serverCert, err := tls.X509KeyPair(certPEM.Bytes(), certPrivateKeyPEM.Bytes())
-        if err != nil {
-            return nil, err
-        }
-
-        rootCAs := m.BestEffortSystemCertPool()
-        rootCAs.AppendCertsFromPEM(certPEM.Bytes())
-
-        log.Printf("in generateSelfSignedTLSConf, serverCert = %v\n", serverCert)
-        return &tls.Config{
-            Certificates:             []tls.Certificate{serverCert},
-            MinVersion:               tls.VersionTLS13,
-                    PreferServerCipherSuites: true,
-                    RootCAs:                  rootCAs,
-        }, nil
+        return v3CertGen.generateX509Certificate(keyPair.getPrivate());
     }
 
-    private int generateCertificateSerialNumber(){
-        serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
-        return rand.Int(rand.Reader, serialNumberLimit)
+    private void saveCert(X509Certificate cert, PrivateKey key, KeyStore keyStore) throws KeyStoreException, NoSuchAlgorithmException, IOException, CertificateException {
+        keyStore.setKeyEntry(CERTIFICATE_ALIAS, key, "YOUR_PASSWORD".toCharArray(), new java.security.cert.Certificate[]{cert});
+        File file = new File(".", CERTIFICATE_NAME);
+        keyStore.store(new FileOutputStream(file), "YOUR_PASSWORD".toCharArray());
+    }
+
+    private KeyStore getKeyStore() throws Exception {
+        KeyStore keyStore = KeyStore.getInstance("PKCS12");
+        keyStore.load(null, null);
+        return keyStore;
     }
 }

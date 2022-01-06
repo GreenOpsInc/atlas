@@ -2,21 +2,24 @@ package com.greenops.pipelinereposerver.kubernetesclient;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import com.greenops.util.datamodel.git.GitCred;
 import io.kubernetes.client.ApiException;
 import io.kubernetes.client.Configuration;
 import io.kubernetes.client.apis.CoreV1Api;
+import io.kubernetes.client.informer.ResourceEventHandler;
+import io.kubernetes.client.informer.SharedIndexInformer;
+import io.kubernetes.client.informer.SharedInformerFactory;
 import io.kubernetes.client.models.V1Namespace;
 import io.kubernetes.client.models.V1ObjectMeta;
 import io.kubernetes.client.models.V1Secret;
+import io.kubernetes.client.models.V1SecretList;
+import io.kubernetes.client.util.CallGeneratorParams;
 import io.kubernetes.client.util.ClientBuilder;
-
-import java.io.IOException;
-
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import java.io.IOException;
 
 @Slf4j
 @Component
@@ -52,6 +55,49 @@ public class KubernetesClientImpl implements KubernetesClient {
         } catch (IOException e) {
             throw new RuntimeException("Could not deserialize gitCred.", e);
         }
+    }
+
+    @Override
+    public V1Secret fetchSecretData(String name, String namespace) {
+        return readSecret(name, namespace);
+    }
+
+    @Override
+    public void watchSecretData(String name, String namespace, WatchSecretHandler handler) {
+        SharedInformerFactory factory = new SharedInformerFactory();
+        CoreV1Api coreV1Api = new CoreV1Api();
+
+        SharedIndexInformer<V1Secret> informer = factory.sharedIndexInformerFor(
+                (CallGeneratorParams params) -> {
+                    try {
+                        return coreV1Api.readNamespacedSecretCall(name, namespace, null, null, null, null, null);
+                    } catch (ApiException e) {
+                        e.printStackTrace();
+                        throw new RuntimeException("Could not initialize Kubernetes Client Secret watcher", e);
+                    }
+                },
+                V1Secret.class,
+                V1SecretList.class);
+
+        informer.addEventHandler(
+                new ResourceEventHandler<>() {
+                    @Override
+                    public void onAdd(V1Secret secret) {
+                        handler.handle(secret);
+                    }
+
+                    @Override
+                    public void onUpdate(V1Secret oldSecret, V1Secret newSecret) {
+                        handler.handle(newSecret);
+                    }
+
+                    @Override
+                    public void onDelete(V1Secret secret, boolean deletedFinalStateUnknown) {
+                        handler.handle(null);
+                    }
+                });
+
+        factory.startAllRegisteredInformers();
     }
 
     public boolean storeSecret(Object object, String namespace, String name) {
