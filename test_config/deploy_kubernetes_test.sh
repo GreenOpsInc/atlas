@@ -14,7 +14,7 @@ cd ../workflowtrigger
 env GOOS=linux go build -v .
 docker build -f test/Dockerfile -t atlasworkflowtrigger .
 minikube image load atlasworkflowtrigger
-cd ../commanddelegatorgo
+cd ../commanddelegator
 env GOOS=linux go build -v ./command_delegator_api.go
 docker build -f test/Dockerfile -t atlascommanddelegator .
 minikube image load atlascommanddelegator
