@@ -7,7 +7,7 @@ public interface TLSManager {
 
     void watchHostSSLConfig(ClientName serverName);
 
-    boolean updateKafkaKeystore(String trueStoreLocation, String keystoreLocation) throws Exception;
+    boolean updateKafkaKeystore(String keystoreLocation, String trueStoreLocation) throws Exception;
 
-    void watchKafkaKeystore(String trueStoreLocation, String keystoreLocation);
+    void watchKafkaKeystore(String keystoreLocation, String trueStoreLocation);
 }

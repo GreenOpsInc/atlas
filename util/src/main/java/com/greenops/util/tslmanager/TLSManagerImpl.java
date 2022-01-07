@@ -56,21 +56,13 @@ public class TLSManagerImpl implements TLSManager {
     public void watchHostSSLConfig(ClientName serverName) {
         ClientSecretName secretName = secretNameFromClientName(serverName);
         this.kclient.watchSecretData(secretName.toString(), NAMESPACE, data -> {
-            // TODO: log message about certificate changes and app reloading
+            System.out.println("Exiting due to Server certificate change.");
             System.exit(0);
         });
     }
 
     @Override
-    public boolean updateKafkaKeystore(String trueStoreLocation, String keystoreLocation) throws Exception {
-        boolean keystoreExists;
-
-        ClientSecretName secretName = secretNameFromClientName(ClientName.CLIENT_KAFKA);
-        V1Secret secret = this.kclient.fetchSecretData(secretName.toString(), NAMESPACE);
-        if (secret == null) {
-            return false;
-        }
-
+    public boolean updateKafkaKeystore(String keystoreLocation, String trueStoreLocation) throws Exception {
         File keyStoreFile = new File(keystoreLocation);
         if (keyStoreFile.exists()) {
             keyStoreFile.delete();
@@ -80,29 +72,37 @@ public class TLSManagerImpl implements TLSManager {
             trueStoreFile.delete();
         }
 
-        KeyStore mainKS = getKeyStore();
+        ClientSecretName secretName = secretNameFromClientName(ClientName.CLIENT_KAFKA);
+        V1Secret secret = this.kclient.fetchSecretData(secretName.toString(), NAMESPACE);
+        if (secret == null) {
+            return false;
+        }
 
         KeyPair kp = createKeyPair(secret.getData().get(SECRET_CERT_NAME), secret.getData().get(SECRET_KEY_NAME));
         X509Certificate cert = createCertificate(kp);
 
+        KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+        keystore.setCertificateEntry("kafka.client.keystore", cert);
+        keyStoreFile = new File(keystoreLocation);
+        keyStoreFile.createNewFile();
+        keystore.store(new FileOutputStream(keyStoreFile), null);
 
-        mainKS.store();
+        KeyStore truestore = KeyStore.getInstance(KeyStore.getDefaultType());
+        truestore.setCertificateEntry("kafka.client.truestore", cert);
+        trueStoreFile = new File(keystoreLocation);
+        trueStoreFile.createNewFile();
+        keystore.store(new FileOutputStream(trueStoreFile), null);
 
-
+        return true;
     }
 
-    //      1. get cert & key from secrets
-    //      2. if secret not found return default producer without ssl enabled
-    //      3. if secret found create keystore and save cert in it
-    //      4. keystore location values should be stored in the env vars
-    //      5. get those env vars and update producer config
-    //      6. add watcher for secret
-    //      7. on app start if secret is not available but keystore exists delete the keystore
-    //      8. on app start event if keystore and secret exists update the keystore
-    //      9. on secret change halt the application and new config should be generated on app start
     @Override
-    public void watchKafkaKeystore(String trueStoreLocation, String keystoreLocation) {
-
+    public void watchKafkaKeystore(String keystoreLocation, String trueStoreLocation) {
+        ClientSecretName secretName = secretNameFromClientName(ClientName.CLIENT_KAFKA);
+        this.kclient.watchSecretData(secretName.toString(), NAMESPACE, data -> {
+            System.out.println("Exiting due to Kafka certificate change.");
+            System.exit(0);
+        });
     }
 
     private SSLHostConfig getTLSConfFromSecrets(ClientName serverName) throws Exception {
@@ -207,7 +207,7 @@ public class TLSManagerImpl implements TLSManager {
             case CLIENT_ARGOCD_REPO_SERVER:
                 return ClientSecretName.ARGOCD_REPO_SERVER_SECRET_NAME;
             case CLIENT_KAFKA:
-                return ClientSecretName.KAFKA_SECRET_NAME
+                return ClientSecretName.KAFKA_SECRET_NAME;
             default:
                 return ClientSecretName.NOT_VALID_SECRET_NAME;
         }

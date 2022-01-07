@@ -1,7 +1,6 @@
 package com.greenops.workfloworchestrator.config;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonSerializable;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.greenops.util.datamodel.auditlog.DeploymentLog;
@@ -28,7 +27,6 @@ import com.greenops.util.datamodel.request.*;
 import com.greenops.util.dbclient.DbClient;
 import com.greenops.util.dbclient.redis.RedisDbClient;
 import com.greenops.util.error.AtlasNonRetryableError;
-import com.greenops.util.error.AtlasRetryableError;
 import com.greenops.util.kubernetesclient.KubernetesClient;
 import com.greenops.util.kubernetesclient.KubernetesClientImpl;
 import com.greenops.util.tslmanager.TLSManager;
@@ -41,8 +39,8 @@ import com.greenops.workfloworchestrator.ingest.kafka.KafkaClient;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.config.SslConfigs;
-import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -51,8 +49,6 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.listener.ContainerAwareErrorHandler;
 import org.springframework.kafka.listener.SeekToCurrentErrorHandler;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
-import org.springframework.scheduling.config.Task;
 import org.springframework.util.backoff.FixedBackOff;
 
 import java.io.IOException;
@@ -63,8 +59,7 @@ import java.util.Map;
 @Configuration
 public class SpringConfiguration {
 
-    private static final String KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG = System.getenv("KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG");
-    private static final String KAFKA_SSL_KEYSTORE_LOCATION_CONFIG = System.getenv("KAFKA_SSL_KEYSTORE_LOCATION_CONFIG");
+    private boolean kafkaWatcherStarted = false;
 
     @Bean
     @Qualifier("yamlObjectMapper")
@@ -168,152 +163,101 @@ public class SpringConfiguration {
     }
 
     @Bean
-    public ProducerFactory<String, String> producerFactory(
-            String bootstrapServers
+    public KafkaTemplate<String, String> kafkaTemplate(
+            @Value("${spring.kafka.producer.bootstrap-servers}") String bootstrapServers,
+            @Value("${spring.kafka.producer.key-serializer}") String keySerializer,
+            @Value("${spring.kafka.producer.value-serializer}") String valueSerializer,
+            @Value("${spring.kafka.ssl.keystore.location}") String keystoreLocation,
+            @Value("${spring.kafka.ssl.truestore.location}") String truststoreLocation
     ) {
-
-        Map<String, Object> configProps = new HashMap<>();
-
-        // TODO: on app start try to get cert and key from secrets
-        //      1. get cert & key from secrets
-        //      2. if secret not found return default producer without ssl enabled
-        //      3. if secret found create keystore and save cert in it
-        //      4. keystore location values should be stored in the env vars
-        //      5. get those env vars and update producer config
-        //      6. add watcher for secret
-        //      7. on app start if secret is not available but keystore exists delete the keystore
-        //      8. on app start event if keystore and secret exists update the keystore
-        //      9. on secret change halt the application and new config should be generated on app start
-
-        KubernetesClient kclient;
-        try {
-            // TODO: somehow get object mapper from beans
-            ObjectMapper objectMapper = new ObjectMapper();
-            kclient = new KubernetesClientImpl(objectMapper);
-        } catch (IOException exc) {
-            // TODO: log and stop server
-            throw new RuntimeException("Could not initialize Kubernetes Client", exc);
-        }
-
-        boolean keystoreExists;
-        try {
-            TLSManager tlsManager = new TLSManagerImpl(kclient, null, null);
-            keystoreExists = tlsManager.updateKafkaKeystore(KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG, KAFKA_SSL_KEYSTORE_LOCATION_CONFIG);
-            if (keystoreExists) {
-                tlsManager.watchKafkaKeystore(KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG,KAFKA_SSL_KEYSTORE_LOCATION_CONFIG);
-            }
-        } catch (Exception exc) {
-            // TODO: log and stop server
-            throw new RuntimeException("Could not configure Kafka with TLS configuration", exc);
-        }
-
-        if (keystoreExists) {
-            configProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL");
-            configProps.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG);
-            configProps.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, KAFKA_SSL_KEYSTORE_LOCATION_CONFIG);
-        }
-        return new DefaultKafkaProducerFactory<>(configProps);
+        ProducerFactory<String, String> factory = producerFactory(bootstrapServers, keySerializer, valueSerializer, keystoreLocation, truststoreLocation);
+        return new KafkaTemplate<>(factory);
     }
 
     @Bean
-    public ConsumerFactory<String, String> consumerFactory() {
-        Map<String, Object> configProps = new HashMap<>();
-
-        // TODO: on app start try to get cert and key from secrets
-        //      1. get cert & key from secrets
-        //      2. if secret not found return default producer without ssl enabled
-        //      3. if secret found create keystore and save cert in it
-        //      4. keystore location values should be stored in the env vars
-        //      5. get those env vars and update producer config
-        //      6. add watcher for secret
-        //      7. on app start if secret is not available but keystore exists delete the keystore
-        //      8. on app start event if keystore and secret exists update the keystore
-        //      9. on secret change halt the application and new config should be generated on app start
-
-        KubernetesClient kclient;
-        try {
-            // TODO: somehow get object mapper from beans
-            ObjectMapper objectMapper = new ObjectMapper();
-            kclient = new KubernetesClientImpl(objectMapper);
-        } catch (IOException exc) {
-            // TODO: log and stop server
-            throw new RuntimeException("Could not initialize Kubernetes Client", exc);
-        }
-
-        boolean keystoreExists;
-        try {
-            TLSManager tlsManager = new TLSManagerImpl(kclient, null, null);
-            keystoreExists = tlsManager.updateKafkaKeystore(KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG, KAFKA_SSL_KEYSTORE_LOCATION_CONFIG);
-        } catch (Exception exc) {
-            // TODO: log and stop server
-            throw new RuntimeException("Could not configure Kafka with TLS configuration", exc);
-        }
-
-        if (keystoreExists) {
-            configProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL");
-            configProps.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG);
-            configProps.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, KAFKA_SSL_KEYSTORE_LOCATION_CONFIG);
-        }
-        return new DefaultKafkaConsumerFactory<>(configProps);
-    }
-
-    @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory() {
+    public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory(
+            @Value("${spring.kafka.consumer.group-id}") String groupId,
+            @Value("${spring.kafka.consumer.auto-offset-reset}") String autoOffsetReset,
+            @Value("${spring.kafka.consumer.enable-auto-commit}") String enableAutoCommit,
+            @Value("${spring.kafka.consumer.bootstrap-servers}") String bootstrapServers,
+            @Value("${spring.kafka.consumer.key-deserializer}") String keyDeserializer,
+            @Value("${spring.kafka.consumer.value-deserializer}") String valueDeserializer,
+            @Value("${spring.kafka.ssl.keystore.location}") String keystoreLocation,
+            @Value("${spring.kafka.ssl.truestore.location}") String truststoreLocation
+    ) {
         ConcurrentKafkaListenerContainerFactory<String, String> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(consumerFactory());
+        ConsumerFactory<String, String> consumerFactory = consumerFactory(groupId, autoOffsetReset, enableAutoCommit, bootstrapServers, keyDeserializer, valueDeserializer, keystoreLocation, truststoreLocation);
+        factory.setConsumerFactory(consumerFactory);
         return factory;
     }
 
     @Bean
-    public KafkaTemplate<String, String> kafkaTemplate(
-            @Value("${spring.kafka.producer.bootstrap-servers}") String bootstrapServers,
-            ) {
-        return new KafkaTemplate<>(producerFactory(bootstrapServers));
+    public ProducerFactory<String, String> producerFactory(String bootstrapServers, String keySerializer, String valueSerializer, String keystoreLocation, String truststoreLocation) {
+        return new DefaultKafkaProducerFactory<>(getKafkaProducerConfigProps(bootstrapServers, keySerializer, valueSerializer, keystoreLocation, truststoreLocation));
     }
 
-    // TODO: add all values from application.yml
-    private Map<String, Object> getKafkaConfigProps() {
+    @Bean
+    public ConsumerFactory<String, String> consumerFactory(String groupId, String autoOffsetReset, String enableAutoCommit, String bootstrapServers, String keyDeserializer, String valueDeserializer, String keystoreLocation, String truststoreLocation) {
+        return new DefaultKafkaConsumerFactory<>(getKafkaConsumerConfigProps(groupId, autoOffsetReset, enableAutoCommit, bootstrapServers, keyDeserializer, valueDeserializer, keystoreLocation, truststoreLocation));
+    }
+
+    private Map<String, Object> getKafkaProducerConfigProps(String bootstrapServers, String keySerializer, String valueSerializer, String keystoreLocation, String truststoreLocation) {
         Map<String, Object> configProps = new HashMap<>();
+        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, keySerializer);
+        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, valueSerializer);
 
-        // TODO: on app start try to get cert and key from secrets
-        //      1. get cert & key from secrets
-        //      2. if secret not found return default producer without ssl enabled
-        //      3. if secret found create keystore and save cert in it
-        //      4. keystore location values should be stored in the env vars
-        //      5. get those env vars and update producer config
-        //      6. add watcher for secret
-        //      7. on app start if secret is not available but keystore exists delete the keystore
-        //      8. on app start event if keystore and secret exists update the keystore
-        //      9. on secret change halt the application and new config should be generated on app start
+        Map<String, Object> sslConfigProps = getKafkaSSLConfigProps(keystoreLocation, truststoreLocation);
+        configProps.putAll(sslConfigProps);
+        return configProps;
+    }
 
+    private Map<String, Object> getKafkaConsumerConfigProps(String groupId, String autoOffsetReset, String enableAutoCommit, String bootstrapServers, String keyDeserializer, String valueDeserializer, String keystoreLocation, String truststoreLocation) {
+        Map<String, Object> configProps = new HashMap<>();
+        configProps.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, autoOffsetReset);
+        configProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, enableAutoCommit);
+        configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, keyDeserializer);
+        configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, valueDeserializer);
+
+        Map<String, Object> sslConfigProps = getKafkaSSLConfigProps(keystoreLocation, truststoreLocation);
+        configProps.putAll(sslConfigProps);
+        return configProps;
+    }
+
+    private Map<String, Object> getKafkaSSLConfigProps(String keystoreLocation, String truststoreLocation) {
+        Map<String, Object> configProps = new HashMap<>();
+        boolean keystoreExists = setupKafkaSSLConfigAndWatcher(keystoreLocation, truststoreLocation);
+        if (keystoreExists) {
+            configProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL");
+            configProps.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, keystoreLocation);
+            configProps.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, truststoreLocation);
+        }
+        return configProps;
+    }
+
+    private boolean setupKafkaSSLConfigAndWatcher(String keystoreLocation, String truststoreLocation) {
         KubernetesClient kclient;
         try {
-            // TODO: somehow get object mapper from beans
             ObjectMapper objectMapper = new ObjectMapper();
             kclient = new KubernetesClientImpl(objectMapper);
         } catch (IOException exc) {
-            // TODO: log and stop server
             throw new RuntimeException("Could not initialize Kubernetes Client", exc);
         }
 
         boolean keystoreExists;
         try {
             TLSManager tlsManager = new TLSManagerImpl(kclient, null, null);
-            keystoreExists = tlsManager.updateKafkaKeystore(KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG, KAFKA_SSL_KEYSTORE_LOCATION_CONFIG);
-            if (keystoreExists) {
-                tlsManager.watchKafkaKeystore(KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG,KAFKA_SSL_KEYSTORE_LOCATION_CONFIG);
+            keystoreExists = tlsManager.updateKafkaKeystore(keystoreLocation, truststoreLocation);
+            if (keystoreExists && !kafkaWatcherStarted) {
+                kafkaWatcherStarted = true;
+                tlsManager.watchKafkaKeystore(keystoreLocation, truststoreLocation);
             }
         } catch (Exception exc) {
-            // TODO: log and stop server
             throw new RuntimeException("Could not configure Kafka with TLS configuration", exc);
         }
-
-        if (keystoreExists) {
-            configProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL");
-            configProps.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, KAFKA_SSL_TRUSTSTORE_LOCATION_CONFIG);
-            configProps.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, KAFKA_SSL_KEYSTORE_LOCATION_CONFIG);
-        }
-        return configProps;
+        return keystoreExists;
     }
 }
