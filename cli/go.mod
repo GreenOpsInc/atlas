@@ -3,9 +3,12 @@ module atlas
 go 1.16
 
 require (
+	github.com/argoproj/argo-cd v1.8.7 // indirect
 	github.com/argoproj/argo-cd/v2 v2.1.7
 	github.com/coreos/go-oidc v2.1.0+incompatible
 	github.com/dgrijalva/jwt-go/v4 v4.0.0-preview1
+	github.com/google/uuid v1.3.0 // indirect
+	github.com/greenopsinc/util v0.0.0-00010101000000-000000000000
 	github.com/sirupsen/logrus v1.7.0
 	github.com/skratchdot/open-golang v0.0.0-20160302144031-75fb7ed4208c
 	github.com/spf13/cobra v1.2.1
@@ -13,11 +16,13 @@ require (
 	github.com/spf13/viper v1.8.1
 	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914
 	gopkg.in/yaml.v2 v2.4.0
+	k8s.io/client-go v11.0.1-0.20190816222228-6d55c1b1f1ca+incompatible
 )
 
 replace (
 	github.com/golang/protobuf => github.com/golang/protobuf v1.4.2
 	github.com/gorilla/websocket => github.com/gorilla/websocket v1.4.2
+	github.com/greenopsinc/util => ../utilgo
 	github.com/grpc-ecosystem/grpc-gateway => github.com/grpc-ecosystem/grpc-gateway v1.16.0
 	github.com/improbable-eng/grpc-web => github.com/improbable-eng/grpc-web v0.0.0-20181111100011-16092bd1d58a
 	go.opentelemetry.io/otel => go.opentelemetry.io/otel v0.13.0
