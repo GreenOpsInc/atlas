@@ -50,7 +50,7 @@ func Create(argoClient argodriver.ArgoAuthClient, kclient kubernetesclient.Kuber
 	if strings.HasSuffix(workflowTriggerAddress, "/") {
 		workflowTriggerAddress = strings.TrimSuffix(workflowTriggerAddress, "/")
 	}
-	httpClient, err := httpclient.NewHttpClient(tlsmanager.ClientWorkflowTrigger, tm)
+	httpClient, err := httpclient.New(tlsmanager.ClientWorkflowTrigger, tm)
 	if err != nil {
 		return nil, err
 	}

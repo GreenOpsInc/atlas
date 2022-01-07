@@ -19,7 +19,7 @@ type client struct {
 	tm         tlsmanager.Manager
 }
 
-func NewHttpClient(clientName tlsmanager.ClientName, tm tlsmanager.Manager) (HttpClient, error) {
+func New(clientName tlsmanager.ClientName, tm tlsmanager.Manager) (HttpClient, error) {
 	c := &client{clientName: clientName, tm: tm}
 	httpClient, err := c.initHttpClient()
 	if err != nil {

@@ -3,7 +3,7 @@ package kubernetesclient
 import (
 	"context"
 	"log"
-    "strings"
+	"strings"
 
 	"github.com/greenopsinc/util/git"
 	"github.com/greenopsinc/util/serializer"
@@ -41,7 +41,7 @@ type KubernetesClient interface {
 	StoreGitCred(gitCred git.GitCred, name string) bool
 	FetchGitCred(name string) git.GitCred
 	FetchSecretData(name string, namespace string) map[string][]byte
-	WatchSecretData(name string, namespace string, handler WatchSecretHandler)
+	WatchSecretData(ctx context.Context, name string, namespace string, handler WatchSecretHandler) error
 }
 
 type KubernetesClientDriver struct {
@@ -104,7 +104,7 @@ func (k KubernetesClientDriver) FetchSecretData(name string, namespace string) m
 	return nil
 }
 
-func (k KubernetesClientDriver) WatchSecretData(name string, namespace string, handler WatchSecretHandler) {
+func (k KubernetesClientDriver) WatchSecretData(ctx context.Context, name string, namespace string, handler WatchSecretHandler) error {
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client, 0, informers.WithNamespace(namespace))
 	informer := factory.Core().V1().Secrets().Informer()
 
@@ -119,11 +119,14 @@ func (k KubernetesClientDriver) WatchSecretData(name string, namespace string, h
 			handleSecretInformerEvent(obj, name, SecretChangeTypeDelete, handler)
 		},
 	})
-	informer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+	err := informer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		log.Println("failed to watch secret values: ", err)
 	})
-	// TODO: add channel from context and close it from outside
-	informer.Run(make(chan struct{}))
+	if err != nil {
+		return err
+	}
+	informer.Run(ctx.Done())
+	return nil
 }
 
 func handleSecretInformerEvent(obj interface{}, name string, t SecretChangeType, handler WatchSecretHandler) {

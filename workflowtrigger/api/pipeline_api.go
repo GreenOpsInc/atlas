@@ -15,13 +15,13 @@ import (
 	"github.com/greenopsinc/util/db"
 	"github.com/greenopsinc/util/event"
 	"github.com/greenopsinc/util/git"
+	"github.com/greenopsinc/util/kafkaclient"
 	"github.com/greenopsinc/util/kubernetesclient"
 	"github.com/greenopsinc/util/pipeline"
 	"github.com/greenopsinc/util/team"
 	"greenops.io/workflowtrigger/api/argoauthenticator"
 	"greenops.io/workflowtrigger/api/commanddelegator"
 	"greenops.io/workflowtrigger/api/reposerver"
-	"greenops.io/workflowtrigger/kafka"
 	"greenops.io/workflowtrigger/schemavalidation"
 	"greenops.io/workflowtrigger/serializer"
 )
@@ -39,7 +39,7 @@ const (
 )
 
 var dbClient db.DbClient
-var kafkaClient kafka.KafkaClient
+var kafkaClient kafkaclient.KafkaClient
 var kubernetesClient kubernetesclient.KubernetesClient
 var repoManagerApi reposerver.RepoManagerApi
 var commandDelegatorApi commanddelegator.CommandDelegatorApi
@@ -504,7 +504,7 @@ func InitPipelineTeamEndpoints(r *mux.Router) {
 	r.HandleFunc("/client/{orgName}/{clusterName}/generateEvent", generateEventEndpoint).Methods("POST")
 }
 
-func InitClients(dbClientCopy db.DbClient, kafkaClientCopy kafka.KafkaClient, kubernetesClientCopy kubernetesclient.KubernetesClient, repoManagerApiCopy reposerver.RepoManagerApi, commandDelegatorApiCopy commanddelegator.CommandDelegatorApi, schemaValidatorCopy schemavalidation.RequestSchemaValidator) {
+func InitClients(dbClientCopy db.DbClient, kafkaClientCopy kafkaclient.KafkaClient, kubernetesClientCopy kubernetesclient.KubernetesClient, repoManagerApiCopy reposerver.RepoManagerApi, commandDelegatorApiCopy commanddelegator.CommandDelegatorApi, schemaValidatorCopy schemavalidation.RequestSchemaValidator) {
 	dbClient = dbClientCopy
 	kafkaClient = kafkaClientCopy
 	kubernetesClient = kubernetesClientCopy

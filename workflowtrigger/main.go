@@ -6,6 +6,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/greenopsinc/util/db"
 	"github.com/greenopsinc/util/httpserver"
+	"github.com/greenopsinc/util/kafkaclient"
 	"github.com/greenopsinc/util/kubernetesclient"
 	"github.com/greenopsinc/util/starter"
 	"github.com/greenopsinc/util/tlsmanager"
@@ -13,13 +14,12 @@ import (
 	"greenops.io/workflowtrigger/api/argoauthenticator"
 	"greenops.io/workflowtrigger/api/commanddelegator"
 	"greenops.io/workflowtrigger/api/reposerver"
-	"greenops.io/workflowtrigger/kafka"
 	"greenops.io/workflowtrigger/schemavalidation"
 )
 
 func main() {
 	var dbClient db.DbClient
-	var kafkaClient kafka.KafkaClient
+	var kafkaClient kafkaclient.KafkaClient
 	var kubernetesClient kubernetesclient.KubernetesClient
 	var repoManagerApi reposerver.RepoManagerApi
 	var commandDelegatorApi commanddelegator.CommandDelegatorApi
@@ -27,10 +27,13 @@ func main() {
 	var schemaValidator schemavalidation.RequestSchemaValidator
 	var tlsManager tlsmanager.Manager
 	dbClient = db.New(starter.GetDbClientConfig())
-	kafkaClient = kafka.New(starter.GetKafkaClientConfig())
+	kafkaClient, err := kafkaclient.New(starter.GetKafkaClientConfig(), tlsManager)
+	if err != nil {
+		log.Fatal(err)
+	}
 	kubernetesClient = kubernetesclient.New()
 	argoAuthenticatorApi = argoauthenticator.New(tlsManager)
-	repoManagerApi, err := reposerver.New(starter.GetRepoServerClientConfig(), tlsManager)
+	repoManagerApi, err = reposerver.New(starter.GetRepoServerClientConfig(), tlsManager)
 	if err != nil {
 		log.Fatal(err)
 	}

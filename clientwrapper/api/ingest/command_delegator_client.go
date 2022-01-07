@@ -46,7 +46,6 @@ type CommandDelegatorImpl struct {
 	client              httpclient.HttpClient
 }
 
-// TODO: add argocd tls updates
 func Create(argoClient argodriver.ArgoAuthClient, tm tlsmanager.Manager) (CommandDelegatorApi, error) {
 	commandDelegatorUrl := os.Getenv(EnvCommandDelegatorUrl)
 	if commandDelegatorUrl == "" {
@@ -63,7 +62,7 @@ func Create(argoClient argodriver.ArgoAuthClient, tm tlsmanager.Manager) (Comman
 	if orgName == "" {
 		orgName = DefaultOrgName
 	}
-	httpClient, err := httpclient.NewHttpClient(tlsmanager.ClientWorkflowTrigger, tm)
+	httpClient, err := httpclient.New(tlsmanager.ClientWorkflowTrigger, tm)
 	if err != nil {
 		return nil, err
 	}

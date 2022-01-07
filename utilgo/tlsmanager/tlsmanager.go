@@ -2,6 +2,7 @@ package tlsmanager
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -45,6 +46,7 @@ const (
 	RepoServerTLSSecretName       TLSSecretName = "pipelinereposerver-tls"
 	CommandDelegatorTLSSecretName TLSSecretName = "commanddelegator-tls"
 	ArgoCDRepoServerTLSSecretName TLSSecretName = "argocd-repo-server-tls"
+	KafkaTLSSecretName            TLSSecretName = "kafka-tls"
 	Namespace                     string        = "default"
 )
 
@@ -56,6 +58,7 @@ const (
 	ClientClientWrapper    ClientName = "clientwrapper"
 	ClientCommandDelegator ClientName = "commanddelegator"
 	ClientArgoCDRepoServer ClientName = "argocdreposerver"
+	ClientKafka            ClientName = "kafka"
 )
 
 const (
@@ -113,8 +116,6 @@ func (m *tlsManager) GetClientCertPEM(clientName ClientName) ([]byte, error) {
 	return secret[TLSSecretCrtName], nil
 }
 
-// TODO: check that this watcher is not trigger server reloading if cert is not changed
-//		it could possibly happend on server start when cert is available and we also receiving secret change event
 func (m *tlsManager) WatchServerTLSConf(serverName ClientName, handler func(conf *tls.Config, err error)) error {
 	log.Println("in WatchServerTLSConf")
 	secretName, err := clientNameToSecretName(serverName)
@@ -122,7 +123,8 @@ func (m *tlsManager) WatchServerTLSConf(serverName ClientName, handler func(conf
 		return err
 	}
 
-	m.k.WatchSecretData(string(secretName), Namespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
+	ctx := context.Background()
+	return m.k.WatchSecretData(ctx, string(secretName), Namespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
 		log.Printf("in WatchServerTLSConf, event %v. data = %s\n", t, secret)
 		var (
 			config   *tls.Config
@@ -152,11 +154,8 @@ func (m *tlsManager) WatchServerTLSConf(serverName ClientName, handler func(conf
 		m.tlsConf = config
 		handler(config, nil)
 	})
-	return nil
 }
 
-// TODO: check that this watcher is not trigger server reloading if cert is not changed
-//		it could possibly happend on server start when cert is available and we also receiving secret change event
 func (m *tlsManager) WatchClientTLSConf(clientName ClientName, handler func(conf *tls.Config, err error)) error {
 	log.Println("in WatchClientTLSConf")
 	secretName, err := clientNameToSecretName(clientName)
@@ -164,7 +163,8 @@ func (m *tlsManager) WatchClientTLSConf(clientName ClientName, handler func(conf
 		return err
 	}
 
-	m.k.WatchSecretData(string(secretName), Namespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
+	ctx := context.Background()
+	return m.k.WatchSecretData(ctx, string(secretName), Namespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
 		log.Printf("in WatchClientTLSConf, event %v. data = %s\n", t, secret)
 		switch t {
 		case kclient.SecretChangeTypeAdd:
@@ -177,7 +177,6 @@ func (m *tlsManager) WatchClientTLSConf(clientName ClientName, handler func(conf
 			handler(&tls.Config{InsecureSkipVerify: true}, nil)
 		}
 	})
-	return nil
 }
 
 func (m *tlsManager) WatchClientTLSPEM(clientName ClientName, handler func(certPEM []byte, err error)) error {
@@ -187,7 +186,8 @@ func (m *tlsManager) WatchClientTLSPEM(clientName ClientName, handler func(certP
 		return err
 	}
 
-	m.k.WatchSecretData(string(secretName), Namespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
+	ctx := context.Background()
+	return m.k.WatchSecretData(ctx, string(secretName), Namespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
 		log.Printf("in WatchClientTLSPEM, event %v. data = %s\n", t, secret)
 		switch t {
 		case kclient.SecretChangeTypeAdd:
@@ -198,7 +198,6 @@ func (m *tlsManager) WatchClientTLSPEM(clientName ClientName, handler func(certP
 			handler(nil, nil)
 		}
 	})
-	return nil
 }
 
 func (m *tlsManager) getTLSConf(serverName ClientName) (*tls.Config, error) {
@@ -392,6 +391,8 @@ func clientNameToSecretName(clientName ClientName) (TLSSecretName, error) {
 		return CommandDelegatorTLSSecretName, nil
 	case ClientArgoCDRepoServer:
 		return ArgoCDRepoServerTLSSecretName, nil
+	case ClientKafka:
+		return KafkaTLSSecretName, nil
 	default:
 		return NotValidSecretName, errors.New("wrong client name provided to get client secret")
 	}

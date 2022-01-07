@@ -68,7 +68,6 @@ will be updated for future commands after executing this command.`,
 			configStruct.Org, _ = cmd.Flags().GetString("atlas.org")
 		}
 
-		// TODO: check that if we passing empty value it deletes cert file
 		if cmd.Flags().Lookup("atlas.tls").Changed {
 			certPEM, err := cmd.Flags().GetString("atlas.tls")
 			if err != nil {
