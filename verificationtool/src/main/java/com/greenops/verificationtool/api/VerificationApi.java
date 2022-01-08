@@ -37,10 +37,8 @@ public class VerificationApi {
                             yamlObjectMapper.readValue(yamlPipeline, Object.class)
                     ),
                     PipelineData.class);
-            System.out.println("NAME" + pipelineObj.getName());
             return ResponseEntity.ok().body(schemaToResponsePayload(pipelineObj));
         } catch(JsonProcessingException e) {
-            System.out.println("ERROR VERIFY" + e);
             return ResponseEntity.badRequest().build();
         }
     }
