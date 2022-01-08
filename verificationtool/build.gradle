@@ -1,0 +1,48 @@
+plugins {
+	id 'org.springframework.boot' version '2.5.1'
+	id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+	id 'java'
+	id 'com.google.cloud.tools.jib' version '3.0.0'
+	id 'application'
+}
+
+
+group = 'com.greenops'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '11'
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	//This util line is added in via Gradle composition
+	implementation 'com.greenops:util'
+	implementation 'org.springframework.boot:spring-boot-starter'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	implementation 'org.projectlombok:lombok:1.18.20'
+	annotationProcessor 'org.projectlombok:lombok:1.18.20'
+	implementation 'io.lettuce:lettuce-core:6.1.2.RELEASE'
+	implementation 'org.springframework.kafka:spring-kafka:2.5.8.RELEASE'
+	implementation 'com.fasterxml.jackson.core:jackson-databind:2.11.1'
+	implementation 'org.apache.httpcomponents:httpclient:4.5'
+	implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.11.1'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+test {
+	useJUnitPlatform()
+}
+
+jib {
+	to {
+		image = 'atlasverificationtool'
+	}
+	container {
+		ports = ['8080']
+	}
+}
+
+
