@@ -11,37 +11,49 @@ import (
 	"github.com/greenopsinc/util/clientrequest"
 	"github.com/greenopsinc/util/cluster"
 	"github.com/greenopsinc/util/db"
-	"greenops.io/workflowtrigger/api/argoauthenticator"
+	"greenops.io/workflowtrigger/api/argo"
 )
 
 const (
-	localClusterName    string = "kubernetes_local"
 	initLocalClusterEnv string = "ENABLE_LOCAL_CLUSTER"
 )
 
 func createCluster(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
-	var clusterSchema cluster.ClusterSchema
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
+	var clusterRequest cluster.ClusterCreateRequest
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(r.Body)
-	err = json.Unmarshal(buf.Bytes(), &clusterSchema)
-	if err != nil || clusterSchema.NoDeploy != nil {
-		w.WriteHeader(http.StatusBadRequest)
+	err = json.Unmarshal(buf.Bytes(), &clusterRequest)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if !schemaValidator.VerifyRbac(argoauthenticator.CreateAction, argoauthenticator.ClusterResource, clusterSchema.ClusterName) {
+	if !schemaValidator.VerifyRbac(argo.CreateAction, argo.ClusterResource, clusterRequest.Name) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}
 
-	key := db.MakeDbClusterKey(orgName, clusterSchema.ClusterName)
+	key := db.MakeDbClusterKey(orgName, clusterRequest.Name)
 	if dbClient.FetchClusterSchema(key).ClusterIP != "" {
 		w.WriteHeader(http.StatusConflict)
 		return
 	}
 
+	if clusterRequest.Config != nil {
+		//Creates the cluster in the the context of ArgoCD
+		argoClusterApi.CreateCluster(clusterRequest.Name, clusterRequest.Server, *clusterRequest.Config)
+	}
+	//Creates the cluster in the context of Atlas
+	clusterSchema := cluster.ClusterSchema{
+		ClusterIP:   clusterRequest.Server,
+		ClusterName: clusterRequest.Name,
+		NoDeploy:    nil,
+	}
 	dbClient.StoreValue(key, clusterSchema)
 	w.WriteHeader(http.StatusOK)
 	return
@@ -51,8 +63,10 @@ func readCluster(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
 
-	if !schemaValidator.VerifyRbac(argoauthenticator.GetAction, argoauthenticator.ClusterResource, clusterName) {
+	if !schemaValidator.VerifyRbac(argo.GetAction, argo.ClusterResource, clusterName) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}
@@ -72,13 +86,17 @@ func deleteCluster(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
 
-	if !schemaValidator.VerifyRbac(argoauthenticator.DeleteAction, argoauthenticator.ClusterResource, clusterName) {
+	if !schemaValidator.VerifyRbac(argo.DeleteAction, argo.ClusterResource, clusterName) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}
 
 	key := db.MakeDbClusterKey(orgName, clusterName)
+	clusterSchema := dbClient.FetchClusterSchema(key)
+	argoClusterApi.DeleteCluster(clusterSchema.ClusterName, clusterSchema.ClusterIP)
 	dbClient.StoreValue(key, nil)
 	w.WriteHeader(http.StatusOK)
 }
@@ -87,6 +105,9 @@ func markNoDeployCluster(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
 	var noDeployRequest cluster.NoDeployInfo
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(r.Body)
@@ -96,7 +117,7 @@ func markNoDeployCluster(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//if !schemaValidator.VerifyRbac(argoauthenticator.UpdateAction, argoauthenticator.ClusterResource, clusterName) {
+	//if !schemaValidator.VerifyRbac(argo.UpdateAction, argo.ClusterResource, clusterName) {
 	//	http.Error(w, "Not enough permissions", http.StatusForbidden)
 	//	return
 	//}
@@ -116,7 +137,7 @@ func markNoDeployCluster(w http.ResponseWriter, r *http.Request) {
 		Apply:       true,
 	})
 
-	notification := getNotification(requestId)
+	notification := getNotification(requestId, dbClient)
 	if !notification.Successful {
 		http.Error(w, notification.Body, http.StatusInternalServerError)
 		return
@@ -129,6 +150,9 @@ func removeNoDeployCluster(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
 	var noDeployRequest cluster.NoDeployInfo
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(r.Body)
@@ -138,7 +162,7 @@ func removeNoDeployCluster(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//if !schemaValidator.VerifyRbac(argoauthenticator.UpdateAction, argoauthenticator.ClusterResource, clusterName) {
+	//if !schemaValidator.VerifyRbac(argo.UpdateAction, argo.ClusterResource, clusterName) {
 	//	http.Error(w, "Not enough permissions", http.StatusForbidden)
 	//	return
 	//}
@@ -160,7 +184,7 @@ func removeNoDeployCluster(w http.ResponseWriter, r *http.Request) {
 		Apply:       false,
 	})
 
-	notification := getNotification(requestId)
+	notification := getNotification(requestId, dbClient)
 	if !notification.Successful {
 		http.Error(w, notification.Body, http.StatusInternalServerError)
 		return
@@ -174,13 +198,16 @@ func removeNoDeployCluster(w http.ResponseWriter, r *http.Request) {
 }
 
 func InitializeLocalCluster() {
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
 	if val := os.Getenv(initLocalClusterEnv); val == "" || val == "true" {
-		key := db.MakeDbClusterKey("org", localClusterName)
+		key := db.MakeDbClusterKey("org", cluster.LocalClusterName)
 		if dbClient.FetchClusterSchema(key).ClusterIP != "" {
 			log.Printf("Local cluster already exists")
 			return
 		}
-		dbClient.StoreValue(key, cluster.ClusterSchema{ClusterName: localClusterName})
+		dbClient.StoreValue(key, cluster.ClusterSchema{ClusterName: cluster.LocalClusterName})
 	}
 }
 

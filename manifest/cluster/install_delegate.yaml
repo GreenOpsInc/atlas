@@ -67,10 +67,20 @@ spec:
         - name: clientwrapper
           env:
           - name: WORKFLOW_TRIGGER_SERVER_ADDR
-            value: http://workflowtrigger.atlas.svc.cluster.local:8080
+            value: <http/s address>
           - name: COMMAND_DELEGATOR_URL
-            value: http://commanddelegator.atlas.svc.cluster.local:8080
-          image: docker.io/greenopsinc/clientwrapper:v0.10.0-b
+            value: <http/s address>
+          - name: CLUSTER_NAME
+            value: <cluster name>
+          - name: ARGOCD_SERVER
+            value: <argocd server address>
+          - name: ARGOCD_METRICS_SERVER_ADDR
+            value: <http/s argocd metrics server address>
+          - name: ARGOCD_USER_ACCOUNT
+            value: <username>
+          - name: ARGOCD_USER_PASSWORD
+            value: <password>
+          image: docker.io/greenopsinc/clientwrapper:0.10.0
           imagePullPolicy: Always
           resources:
             requests:

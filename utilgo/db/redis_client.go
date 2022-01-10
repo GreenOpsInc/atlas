@@ -64,7 +64,43 @@ const (
 	LogIncrement int = 15
 )
 
+type DbOperator interface {
+	GetClient() DbClient
+}
+
+type RedisClientOperator struct {
+	pool              *redis.Pool
+}
+
+func New(address string, password string) DbOperator {
+	pool := &redis.Pool{
+		Dial: func() (redis.Conn, error) {
+			conn, err := redis.Dial("tcp", address, redis.DialPassword(password))
+			if err != nil {
+				return nil, err
+			}
+			return conn, nil
+		},
+		MaxIdle:     3,
+		MaxActive:   5,
+		//Wait:        true,
+		IdleTimeout: time.Duration(time.Minute),
+	}
+	return &RedisClientOperator{pool: pool}
+}
+
+func (r *RedisClientOperator) GetClient() DbClient {
+	conn := r.pool.Get()
+	_, err := conn.Do("PING")
+	if err != nil {
+		conn.Close()
+		panic(fmt.Sprintf("Db client could not be fetched, please try again %s", err))
+	}
+	return &RedisClientImpl{client: conn}
+}
+
 type DbClient interface {
+	Close()
 	StoreValue(key string, schema interface{})
 	InsertValueInList(key string, schema interface{})
 	InsertValueInTransactionlessList(key string, schema interface{})
@@ -88,14 +124,8 @@ type RedisClientImpl struct {
 	currentWatchedKey string
 }
 
-func New(address string, password string) DbClient {
-	conn, err := redis.Dial("tcp", address, redis.DialPassword(password))
-	for err != nil {
-		time.Sleep(time.Duration(1))
-		log.Printf("Err setting up dbclient %s", err)
-		conn, err = redis.Dial("tcp", address, redis.DialPassword(password))
-	}
-	return &RedisClientImpl{client: conn}
+func (r *RedisClientImpl) Close() {
+	r.client.Close()
 }
 
 func (r *RedisClientImpl) StoreValue(key string, schema interface{}) {
@@ -318,6 +348,7 @@ func (r *RedisClientImpl) FetchTransactionless(key string, objectType ObjectType
 	log.Printf("Fetching schema for key without a transaction %s", key)
 	existsReply, _ := redis.Bool(r.client.Do(string(exists), key))
 	if !existsReply {
+		log.Printf("Key doesn't exist")
 		return nil
 	}
 	var reply interface{}
