@@ -134,7 +134,7 @@ func retryMessage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Cluster was nil", http.StatusBadRequest)
 		return
 	}
-	key := db.MakeClientNotificationQueueKey(orgName, clusterName)
+	key := db.MakeClientRequestQueueKey(orgName, clusterName)
 	clientRequestPacket := dbClient.FetchHeadInClientRequestList(key)
 	if clientRequestPacket != emptyClientRequestPacketStruct {
 		clientRequestPacket.RetryCount = clientRequestPacket.RetryCount + 1
