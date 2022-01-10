@@ -83,11 +83,11 @@ type ArgoClientDriver struct {
 }
 
 //TODO: ALL functions should have a callee tag on them
-func New(kubernetesDriver *k8sdriver.KubernetesClient) ArgoClient {
+func New(kubernetesDriver *k8sdriver.KubernetesClient, tm tlsmanager.Manager) ArgoClient {
 	var kubernetesClient k8sdriver.KubernetesClientNamespaceSecretRestricted
 	kubernetesClient = *kubernetesDriver
 	apiServerAddress, userAccount, userPassword, _ := getClientCreationData(&kubernetesClient)
-	driver := &ArgoClientDriver{kubernetesClient: kubernetesClient, apiServerAddress: apiServerAddress}
+	driver := &ArgoClientDriver{kubernetesClient: kubernetesClient, apiServerAddress: apiServerAddress, tm: tm}
 	if err := driver.initArgoDriver(userAccount, userPassword); err != nil {
 		util.CheckFatalError(err)
 	}

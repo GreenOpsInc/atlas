@@ -32,6 +32,11 @@ func WriteDataToConfigFile(data []byte, path string) error {
 	if err := checkConfigFile(path); err != nil {
 		return err
 	}
+
+	dirPath := path[0:strings.LastIndex(path, "/")]
+	if err := os.MkdirAll(dirPath, userPermissions); err != nil {
+		return err
+	}
 	return ioutil.WriteFile(path, data, userPermissions)
 }
 
@@ -77,6 +82,7 @@ func checkConfigFile(path string) error {
 
 func checkAndCreateConfigDirectory(path string) error {
 	if _, err := os.Stat(path); err == nil {
+		log.Println("atlas configuration directory exists")
 		return nil
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return errors.New(fmt.Sprintf("failed to check atlas config directory: %s", err.Error()))

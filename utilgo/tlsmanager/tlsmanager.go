@@ -67,7 +67,10 @@ const (
 )
 
 func New(k kclient.KubernetesClient) Manager {
-	return &tlsManager{k: k}
+	m := &tlsManager{k: k}
+	m.tlsClientConfigs = make(map[ClientName]*tls.Config)
+	m.tlsClientCertPEM = make(map[ClientName][]byte)
+	return m
 }
 
 func (m *tlsManager) BestEffortSystemCertPool() *x509.CertPool {
@@ -90,10 +93,13 @@ func (m *tlsManager) GetServerTLSConf(serverName ClientName) (*tls.Config, error
 }
 
 func (m *tlsManager) GetClientTLSConf(clientName ClientName) (*tls.Config, error) {
+	log.Println("in GetClientTLSConf ", clientName)
 	conf, err := m.getTLSClientConf(clientName)
+	log.Printf("received client conf of client %s . conf = %s, err = %s", clientName, conf, err)
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("assigninng client conf to map, map = %v, conf = %v", m.tlsClientConfigs, conf)
 	m.tlsClientConfigs[clientName] = conf
 	return conf, nil
 }
@@ -113,7 +119,7 @@ func (m *tlsManager) GetClientCertPEM(clientName ClientName) ([]byte, error) {
 	if secret == nil {
 		return nil, nil
 	}
-	return secret[TLSSecretCrtName], nil
+	return secret.Data[TLSSecretCrtName], nil
 }
 
 func (m *tlsManager) WatchServerTLSConf(serverName ClientName, handler func(conf *tls.Config, err error)) error {
@@ -228,23 +234,29 @@ func (m *tlsManager) getTLSConf(serverName ClientName) (*tls.Config, error) {
 }
 
 func (m *tlsManager) getTLSClientConf(clientName ClientName) (*tls.Config, error) {
-	log.Println("in GetServerTLSConf")
+	log.Println("in getTLSClientConf")
 	if m.tlsClientConfigs[clientName] != nil {
 		return m.tlsClientConfigs[clientName], nil
 	}
 
 	secretName, err := clientNameToSecretName(clientName)
+	log.Printf("in getTLSClientConf secretName = %s", secretName)
 	if err != nil {
 		return nil, err
 	}
 
 	secret := m.k.FetchSecretData(string(secretName), Namespace)
+	log.Printf("in getTLSClientConf secret = %s", secret)
 	if secret == nil {
+		log.Println("in getTLSClientConf secret is nil")
 		return &tls.Config{InsecureSkipVerify: true}, nil
 	}
 
+	log.Println("in getTLSClientConf before getting root ca")
 	rootCA := m.BestEffortSystemCertPool()
-	rootCA.AppendCertsFromPEM(secret[TLSSecretCrtName])
+	log.Printf("in getTLSClientConf root ca = %v", rootCA)
+	rootCA.AppendCertsFromPEM(secret.Data[TLSSecretCrtName])
+	log.Printf("in getTLSClientConf appending %v to root ca = %v", secret.Data[TLSSecretCrtName], rootCA)
 	return &tls.Config{RootCAs: rootCA}, nil
 }
 
@@ -267,16 +279,18 @@ func (m *tlsManager) getSelfSignedTLSConf() (*tls.Config, error) {
 func (m *tlsManager) getTLSConfFromSecrets(serverName ClientName) (*tls.Config, error) {
 	log.Println("in getTLSConfFromSecrets")
 	secretName, err := clientNameToSecretName(serverName)
+	log.Printf("in getTLSConfFromSecrets secretName = %s", secretName)
 	if err != nil {
 		return nil, err
 	}
 	secret := m.k.FetchSecretData(string(secretName), Namespace)
+	log.Printf("in getTLSConfFromSecrets secret = %s", secret)
 	log.Println("in getTLSConfFromSecrets, secret: ", secret)
 	if secret == nil {
 		return nil, nil
 	}
 
-	conf, err := m.generateTLSConfFromKeyPair(secret[TLSSecretCrtName], secret[TLSSecretKeyName])
+	conf, err := m.generateTLSConfFromKeyPair(secret.Data[TLSSecretCrtName], secret.Data[TLSSecretKeyName])
 	if err != nil {
 		return nil, err
 	}

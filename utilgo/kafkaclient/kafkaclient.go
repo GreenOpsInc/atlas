@@ -48,14 +48,18 @@ func (k *kafkaClient) SendMessage(data string) error {
 }
 
 func (k *kafkaClient) initWriter() (*kafka.Writer, error) {
+	log.Println("in kafka initWriter")
 	tlsConf, err := k.tm.GetClientTLSConf(tlsmanager.ClientKafka)
+	log.Println("received kafka tls conf ", tlsConf)
 	if err != nil {
 		return nil, err
 	}
 	writer := k.configureWriter(tlsConf)
+	log.Println("configured kafka writer ", writer)
 	if err = k.watchWriter(); err != nil {
 		return nil, err
 	}
+	log.Println("started kafka watcher err = ", err)
 	return writer, nil
 }
 

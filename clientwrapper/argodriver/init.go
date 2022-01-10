@@ -17,10 +17,17 @@ import (
 )
 
 const (
-	ArgoCDTLSCertPathSuffix string = "/argocd/cert.tls"
+	ArgoCDTLSCertPathSuffix string = "argocd/cert.tls"
 )
 
 func (a *ArgoClientDriver) initArgoDriver(userAccount string, userPassword string) error {
+	argoClient, err := apiclient.NewClient(a.getAPIClientOptions(""))
+	if err != nil {
+		log.Println("in initArgoDriver after getAPIClientOptions err: ", err.Error())
+		log.Fatalf("Error when making new API client: %s", err)
+	}
+	a.client = argoClient
+
 	tlsTestResult, err := grpcutil.TestTLS(a.apiServerAddress)
 	if err != nil {
 		log.Fatalf("Error when testing TLS: %s", err)
@@ -31,38 +38,50 @@ func (a *ArgoClientDriver) initArgoDriver(userAccount string, userPassword strin
 		log.Println(err.Error())
 	}
 
+	log.Println("in initArgoDriver before generateArgoToken", userAccount, userPassword)
 	token, err := a.generateArgoToken(userAccount, userPassword)
 	if err != nil {
+		log.Println("in initArgoDriver after generateArgoToken err: ", err.Error())
 		return err
 	}
+	log.Println("in initArgoDriver after generateArgoToken token: ", token)
 
 	a.tlsEnabled = tlsTestResult.TLS
 	a.tlsCertPath = tlsCertPath
-	argoClient, err := apiclient.NewClient(a.getAPIClientOptions(token))
+	log.Println("in initArgoDriver getAPIClientOptions", token)
+	argoClient, err = apiclient.NewClient(a.getAPIClientOptions(token))
 	if err != nil {
+		log.Println("in initArgoDriver after getAPIClientOptions err: ", err.Error())
 		log.Fatalf("Error when making new API client: %s", err)
 	}
 	a.client = argoClient
 
+	log.Println("in initArgoDriver watchArgoTLSUpdates", token)
 	if err = a.watchArgoTLSUpdates(); err != nil {
 		log.Fatal("failed to watch argocd tls secret: ", err)
 	}
+	log.Println("in initArgoDriver returning...", token)
 	return nil
 }
 
+// TODO: find null here
 func (a *ArgoClientDriver) generateArgoToken(userAccount string, password string) (string, error) {
+	log.Println("in generateArgoToken")
 	closer, sessionClient, err := a.client.NewSessionClient()
+	log.Println("in generateArgoToken after NewSessionClient ", closer, sessionClient, err)
 	if err != nil {
 		log.Printf("Error when making new session client: %s", err)
 		return "", err
 	}
 	defer io.Close(closer)
 
+	log.Println("in generateArgoToken before sessionClient.Create")
 	sessionResponse, err := sessionClient.Create(context.TODO(), &sessionpkg.SessionCreateRequest{Username: userAccount, Password: password})
 	if err != nil {
 		log.Printf("Error when fetching access token: %s", err)
 		return "", err
 	}
+	log.Println("in generateArgoToken before return ", sessionResponse, err)
 	return sessionResponse.Token, nil
 }
 
@@ -90,26 +109,34 @@ func getClientCreationData(kubernetesDriver *k8sdriver.KubernetesClientNamespace
 }
 
 func (a *ArgoClientDriver) initArgoTLSCert() (string, error) {
+	log.Println("in initArgoTLSCert")
 	certPEM, err := a.tm.GetClientCertPEM(tlsmanager.ClientArgoCDRepoServer)
+	log.Println("in initArgoTLSCert, pem = ", certPEM)
 	if err != nil {
 		log.Println("failed to get argocd certificate from secrets: ", err.Error())
 		return "", nil
 	}
 
+	log.Println("in initArgoTLSCert before get config path")
 	confPath, err := config.GetConfigPath()
+	log.Println("in initArgoTLSCert config path = ", confPath)
 	if err != nil {
 		return "", err
 	}
-	argoTLSCertPath := fmt.Sprintf("%s/%s", confPath, ArgoCDTLSCertPathSuffix)
+	argoTLSCertPath := fmt.Sprintf("%s%s", confPath, ArgoCDTLSCertPathSuffix)
+	log.Println("in initArgoTLSCert argoTLSCertPath = ", argoTLSCertPath)
 
 	data, err := config.ReadDataFromConfigFile(argoTLSCertPath)
+	log.Println("in initArgoTLSCert ReadDataFromConfigFile data = ", data)
 	if err == nil && bytes.Equal(data, certPEM) {
 		return argoTLSCertPath, nil
 	}
 
+	log.Println("in initArgoTLSCert before WriteDataToConfigFile ", certPEM, argoTLSCertPath)
 	if err = config.WriteDataToConfigFile(certPEM, argoTLSCertPath); err != nil {
 		return "", err
 	}
+	log.Println("in initArgoTLSCert returning ", argoTLSCertPath)
 	return argoTLSCertPath, nil
 }
 
@@ -149,7 +176,7 @@ func (a *ArgoClientDriver) updateArgoTLSCert(certPEM []byte) error {
 	if err != nil {
 		return err
 	}
-	argoTLSCertPath := fmt.Sprintf("%s/%s", confPath, ArgoCDTLSCertPathSuffix)
+	argoTLSCertPath := fmt.Sprintf("%s%s", confPath, ArgoCDTLSCertPathSuffix)
 
 	if certPEM == nil {
 		if err = config.DeleteConfigFile(argoTLSCertPath); err != nil {

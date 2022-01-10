@@ -540,7 +540,7 @@ func main() {
 	kubernetesDriver := k8sdriver.New()
 	kubernetesClient := kubernetesclient.New()
 	tm := tlsmanager.New(kubernetesClient)
-	argoDriver := argodriver.New(&kubernetesDriver)
+	argoDriver := argodriver.New(&kubernetesDriver, tm)
 	commandDelegatorApi, err = ingest.Create(argoDriver.(argodriver.ArgoAuthClient), tm)
 	if err != nil {
 		log.Fatal("command delegator API setup failed: ", err.Error())

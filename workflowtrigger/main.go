@@ -26,12 +26,13 @@ func main() {
 	var argoAuthenticatorApi argoauthenticator.ArgoAuthenticatorApi
 	var schemaValidator schemavalidation.RequestSchemaValidator
 	var tlsManager tlsmanager.Manager
+	kubernetesClient = kubernetesclient.New()
 	dbClient = db.New(starter.GetDbClientConfig())
+	tlsManager = tlsmanager.New(kubernetesClient)
 	kafkaClient, err := kafkaclient.New(starter.GetKafkaClientConfig(), tlsManager)
 	if err != nil {
 		log.Fatal(err)
 	}
-	kubernetesClient = kubernetesclient.New()
 	argoAuthenticatorApi = argoauthenticator.New(tlsManager)
 	repoManagerApi, err = reposerver.New(starter.GetRepoServerClientConfig(), tlsManager)
 	if err != nil {
@@ -43,7 +44,6 @@ func main() {
 	}
 	argoAuthenticatorApi = argoauthenticator.New(tlsManager)
 	schemaValidator = schemavalidation.New(argoAuthenticatorApi, repoManagerApi)
-	tlsManager = tlsmanager.New(kubernetesClient)
 	r := mux.NewRouter()
 	r.Use(argoAuthenticatorApi.Middleware)
 	api.InitClients(dbClient, kafkaClient, kubernetesClient, repoManagerApi, commandDelegatorApi, schemaValidator)
