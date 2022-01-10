@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -92,37 +91,6 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&atlasURL, "url", "localhost:8081", "override the default atlas url for a single command execution ")
 	rootCmd.PersistentFlags().StringVar(&orgName, "org", "org", "override the default org name for a single command execution")
-
-}
-
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	if cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := os.UserHomeDir()
-
-		cobra.CheckErr(err)
-
-		log.Println(home)
-
-		// Search config in home directory with name ".atlas" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigType("yaml")
-		viper.SetConfigName(".atlas")
-	}
-
-	viper.AutomaticEnv() // read in environment variables that match
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		bindFlags()
-	}
-
-	atlasURL, _ = rootCmd.Flags().GetString("url")
-	orgName, _ = rootCmd.Flags().GetString("org")
 }
 
 func bindFlags() {

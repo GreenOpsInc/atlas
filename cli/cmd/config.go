@@ -7,14 +7,17 @@ import (
 	"log"
 	"os"
 
+	"github.com/spf13/viper"
+
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
 
 const (
-	confFileSuffix  string      = ".atlas/.atlas.yaml"
-	certFileSuffix  string      = ".atlas/cert.pem"
-	userPermissions os.FileMode = 0700
+	confDirSuffix   string      = ".atlas/"
+	confFileSuffix  string      = ".atlas.yaml"
+	certFileSuffix  string      = "cert.pem"
+	userPermissions os.FileMode = 0777
 )
 
 type conf struct {
@@ -33,8 +36,15 @@ to set the respective configuration value. The default value for these config va
 will be updated for future commands after executing this command.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		home, err := os.UserHomeDir()
-		confFilePath := home + confFileSuffix
+		atlasConfDirPath := home + "/" + confDirSuffix
+		confFilePath := atlasConfDirPath + confFileSuffix
 		var configStruct conf
+
+		if _, err := os.Stat(atlasConfDirPath); os.IsNotExist(err) {
+			if err = os.MkdirAll(atlasConfDirPath, userPermissions); err != nil {
+				log.Fatalf("unable to create atlas config directory, err: %s", err.Error())
+			}
+		}
 
 		cobra.CheckErr(err)
 		if _, err := os.Stat(confFilePath); os.IsNotExist(err) {
@@ -87,6 +97,33 @@ will be updated for future commands after executing this command.`,
 	},
 }
 
+// initConfig reads in config file and ENV variables if set.
+func initConfig() {
+	if cfgFile != "" {
+		// Use config file from the flag.
+		viper.SetConfigFile(cfgFile)
+	} else {
+		// Find home directory.
+		home, err := os.UserHomeDir()
+		cobra.CheckErr(err)
+
+		// Search config in home directory with name ".atlas" (without extension).
+		viper.AddConfigPath(home + "/" + confDirSuffix)
+		viper.SetConfigType("yaml")
+		viper.SetConfigName(".atlas")
+	}
+
+	viper.AutomaticEnv() // read in environment variables that match
+
+	// If a config file is found, read it in.
+	if err := viper.ReadInConfig(); err == nil {
+		bindFlags()
+	}
+
+	atlasURL, _ = rootCmd.Flags().GetString("url")
+	orgName, _ = rootCmd.Flags().GetString("org")
+}
+
 func updateTLSConfig(certPEM string, configStruct *conf) error {
 	if certPEM != "" {
 		configStruct.TLSEnabled = false
@@ -104,7 +141,8 @@ func getCertFilePath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return home + certFileSuffix, nil
+	atlasConfDirPath := home + "/" + confDirSuffix
+	return atlasConfDirPath + certFileSuffix, nil
 }
 
 func checkCertFile() (bool, error) {
@@ -177,4 +215,5 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	configCmd.PersistentFlags().StringP("atlas.url", "", "", "url of atlas")
 	configCmd.PersistentFlags().StringP("atlas.org", "", "", "name of highest level org")
+	configCmd.PersistentFlags().StringP("atlas.tls", "", "", "atlas server tls PEM certificate")
 }

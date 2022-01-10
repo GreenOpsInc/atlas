@@ -17,7 +17,7 @@ spring:
     ssl:
       keystore:
         location: /etc/security/tls/kafka.client.keystore.jks
-      truststore:
+      truestore:
         location: /etc/security/tls/kafka.client.truststore.jks
     topic: greenops.eventing
     dlqtopic: greenops.eventing.dlq

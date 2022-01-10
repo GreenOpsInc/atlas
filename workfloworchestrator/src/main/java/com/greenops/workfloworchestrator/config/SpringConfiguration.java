@@ -132,6 +132,24 @@ public class SpringConfiguration {
     }
 
     @Bean
+    KubernetesClient kubernetesClient(ObjectMapper objectMapper) {
+        KubernetesClient kclient;
+        try {
+            kclient = new KubernetesClientImpl(objectMapper);
+            System.out.println("in getHttpConnector created k client");
+        } catch (IOException exc) {
+            System.out.println("in getHttpConnector k client creation exception");
+            throw new RuntimeException("Could not initialize Kubernetes Client", exc);
+        }
+        return kclient;
+    }
+
+    @Bean
+    TLSManager tlsManager(KubernetesClient kclient) {
+        return new TLSManagerImpl(kclient, "pipelinereposerver_tls_cert", "keystore.pipelinereposerver_tls_cert");
+    }
+
+    @Bean
     ContainerAwareErrorHandler errorHandler(KafkaClient kafkaClient) {
         var errorHandler =
                 new SeekToCurrentErrorHandler((record, exception) -> {
@@ -164,18 +182,25 @@ public class SpringConfiguration {
 
     @Bean
     public KafkaTemplate<String, String> kafkaTemplate(
+            TLSManager tlsManager,
             @Value("${spring.kafka.producer.bootstrap-servers}") String bootstrapServers,
             @Value("${spring.kafka.producer.key-serializer}") String keySerializer,
             @Value("${spring.kafka.producer.value-serializer}") String valueSerializer,
             @Value("${spring.kafka.ssl.keystore.location}") String keystoreLocation,
             @Value("${spring.kafka.ssl.truestore.location}") String truststoreLocation
     ) {
-        ProducerFactory<String, String> factory = producerFactory(bootstrapServers, keySerializer, valueSerializer, keystoreLocation, truststoreLocation);
+        System.out.println("in kafkaTemplate Bean bootstrapServers = " + bootstrapServers
+                + " keySerializer" + keySerializer
+                + " valueSerializer" + valueSerializer
+                + " keystoreLocation" + keystoreLocation
+                + " truststoreLocation" + truststoreLocation);
+        ProducerFactory<String, String> factory = producerFactory(tlsManager,bootstrapServers, keySerializer, valueSerializer, keystoreLocation, truststoreLocation);
         return new KafkaTemplate<>(factory);
     }
 
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory(
+            TLSManager tlsManager,
             @Value("${spring.kafka.consumer.group-id}") String groupId,
             @Value("${spring.kafka.consumer.auto-offset-reset}") String autoOffsetReset,
             @Value("${spring.kafka.consumer.enable-auto-commit}") String enableAutoCommit,
@@ -185,35 +210,44 @@ public class SpringConfiguration {
             @Value("${spring.kafka.ssl.keystore.location}") String keystoreLocation,
             @Value("${spring.kafka.ssl.truestore.location}") String truststoreLocation
     ) {
+        System.out.println("in kafkaListenerContainerFactory Bean groupId = " + groupId
+                + " autoOffsetReset" + autoOffsetReset
+                + " enableAutoCommit" + enableAutoCommit
+                + " bootstrapServers" + bootstrapServers
+                + " keyDeserializer" + keyDeserializer
+                + " valueDeserializer" + valueDeserializer
+                + " keystoreLocation" + keystoreLocation
+                + " truststoreLocation" + truststoreLocation);
         ConcurrentKafkaListenerContainerFactory<String, String> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
-        ConsumerFactory<String, String> consumerFactory = consumerFactory(groupId, autoOffsetReset, enableAutoCommit, bootstrapServers, keyDeserializer, valueDeserializer, keystoreLocation, truststoreLocation);
+        ConsumerFactory<String, String> consumerFactory = consumerFactory(tlsManager,groupId, autoOffsetReset, enableAutoCommit, bootstrapServers, keyDeserializer, valueDeserializer, keystoreLocation, truststoreLocation);
         factory.setConsumerFactory(consumerFactory);
         return factory;
     }
 
     @Bean
-    public ProducerFactory<String, String> producerFactory(String bootstrapServers, String keySerializer, String valueSerializer, String keystoreLocation, String truststoreLocation) {
-        return new DefaultKafkaProducerFactory<>(getKafkaProducerConfigProps(bootstrapServers, keySerializer, valueSerializer, keystoreLocation, truststoreLocation));
+    public ProducerFactory<String, String> producerFactory(TLSManager tlsManager,String bootstrapServers, String keySerializer, String valueSerializer, String keystoreLocation, String truststoreLocation) {
+        return new DefaultKafkaProducerFactory<>(getKafkaProducerConfigProps(tlsManager,bootstrapServers, keySerializer, valueSerializer, keystoreLocation, truststoreLocation));
     }
 
     @Bean
-    public ConsumerFactory<String, String> consumerFactory(String groupId, String autoOffsetReset, String enableAutoCommit, String bootstrapServers, String keyDeserializer, String valueDeserializer, String keystoreLocation, String truststoreLocation) {
-        return new DefaultKafkaConsumerFactory<>(getKafkaConsumerConfigProps(groupId, autoOffsetReset, enableAutoCommit, bootstrapServers, keyDeserializer, valueDeserializer, keystoreLocation, truststoreLocation));
+    public ConsumerFactory<String, String> consumerFactory(TLSManager tlsManager,String groupId, String autoOffsetReset, String enableAutoCommit, String bootstrapServers, String keyDeserializer, String valueDeserializer, String keystoreLocation, String truststoreLocation) {
+        return new DefaultKafkaConsumerFactory<>(getKafkaConsumerConfigProps(tlsManager,groupId, autoOffsetReset, enableAutoCommit, bootstrapServers, keyDeserializer, valueDeserializer, keystoreLocation, truststoreLocation));
     }
 
-    private Map<String, Object> getKafkaProducerConfigProps(String bootstrapServers, String keySerializer, String valueSerializer, String keystoreLocation, String truststoreLocation) {
+    private Map<String, Object> getKafkaProducerConfigProps(TLSManager tlsManager,String bootstrapServers, String keySerializer, String valueSerializer, String keystoreLocation, String truststoreLocation) {
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, keySerializer);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, valueSerializer);
 
-        Map<String, Object> sslConfigProps = getKafkaSSLConfigProps(keystoreLocation, truststoreLocation);
+        Map<String, Object> sslConfigProps = getKafkaSSLConfigProps(tlsManager,keystoreLocation, truststoreLocation);
+        System.out.println("in getKafkaProducerConfigProps sslConfigProps = " + sslConfigProps);
         configProps.putAll(sslConfigProps);
         return configProps;
     }
 
-    private Map<String, Object> getKafkaConsumerConfigProps(String groupId, String autoOffsetReset, String enableAutoCommit, String bootstrapServers, String keyDeserializer, String valueDeserializer, String keystoreLocation, String truststoreLocation) {
+    private Map<String, Object> getKafkaConsumerConfigProps(TLSManager tlsManager,String groupId, String autoOffsetReset, String enableAutoCommit, String bootstrapServers, String keyDeserializer, String valueDeserializer, String keystoreLocation, String truststoreLocation) {
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, autoOffsetReset);
@@ -222,14 +256,15 @@ public class SpringConfiguration {
         configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, keyDeserializer);
         configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, valueDeserializer);
 
-        Map<String, Object> sslConfigProps = getKafkaSSLConfigProps(keystoreLocation, truststoreLocation);
+        Map<String, Object> sslConfigProps = getKafkaSSLConfigProps(tlsManager,keystoreLocation, truststoreLocation);
+        System.out.println("in getKafkaConsumerConfigProps sslConfigProps = " + sslConfigProps);
         configProps.putAll(sslConfigProps);
         return configProps;
     }
 
-    private Map<String, Object> getKafkaSSLConfigProps(String keystoreLocation, String truststoreLocation) {
+    private Map<String, Object> getKafkaSSLConfigProps(TLSManager tlsManager,String keystoreLocation, String truststoreLocation) {
         Map<String, Object> configProps = new HashMap<>();
-        boolean keystoreExists = setupKafkaSSLConfigAndWatcher(keystoreLocation, truststoreLocation);
+        boolean keystoreExists = setupKafkaSSLConfigAndWatcher(tlsManager,keystoreLocation, truststoreLocation);
         if (keystoreExists) {
             configProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL");
             configProps.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, keystoreLocation);
@@ -238,18 +273,9 @@ public class SpringConfiguration {
         return configProps;
     }
 
-    private boolean setupKafkaSSLConfigAndWatcher(String keystoreLocation, String truststoreLocation) {
-        KubernetesClient kclient;
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            kclient = new KubernetesClientImpl(objectMapper);
-        } catch (IOException exc) {
-            throw new RuntimeException("Could not initialize Kubernetes Client", exc);
-        }
-
+    private boolean setupKafkaSSLConfigAndWatcher(TLSManager tlsManager, String keystoreLocation, String truststoreLocation) {
         boolean keystoreExists;
         try {
-            TLSManager tlsManager = new TLSManagerImpl(kclient, null, null);
             keystoreExists = tlsManager.updateKafkaKeystore(keystoreLocation, truststoreLocation);
             if (keystoreExists && !kafkaWatcherStarted) {
                 kafkaWatcherStarted = true;

@@ -53,7 +53,25 @@ public class SpringConfiguration {
     }
 
     @Bean
-    public ServletWebServerFactory servletContainer(ObjectMapper objectMapper) {
+    KubernetesClient kubernetesClient(ObjectMapper objectMapper) {
+        KubernetesClient kclient;
+        try {
+            kclient = new KubernetesClientImpl(objectMapper);
+            System.out.println("in getHttpConnector created k client");
+        } catch (IOException exc) {
+            System.out.println("in getHttpConnector k client creation exception");
+            throw new RuntimeException("Could not initialize Kubernetes Client", exc);
+        }
+        return kclient;
+    }
+
+    @Bean
+    TLSManager tlsManager(KubernetesClient kclient) {
+        return new TLSManagerImpl(kclient, "pipelinereposerver_tls_cert", "keystore.pipelinereposerver_tls_cert");
+    }
+
+    @Bean
+    public ServletWebServerFactory servletContainer(TLSManager tlsManager) {
         TomcatServletWebServerFactory tomcat = new TomcatServletWebServerFactory() {
             @Override
             protected void postProcessContext(Context context) {
@@ -65,31 +83,20 @@ public class SpringConfiguration {
                 context.addConstraint(securityConstraint);
             }
         };
-        tomcat.addAdditionalTomcatConnectors(getHttpConnector(objectMapper));
+        tomcat.addAdditionalTomcatConnectors(getHttpConnector(tlsManager));
         return tomcat;
     }
 
-    private Connector getHttpConnector(ObjectMapper objectMapper) {
+    private Connector getHttpConnector(TLSManager tlsManager) {
         System.out.println("in getHttpConnector");
         var connector = new Connector(TomcatServletWebServerFactory.DEFAULT_PROTOCOL);
         connector.setScheme("https");
         connector.setPort(8080);
         connector.setSecure(true);
-        System.out.println("in getHttpConnector before creating k client");
-
-        KubernetesClient kclient;
-        try {
-            kclient = new KubernetesClientImpl(objectMapper);
-            System.out.println("in getHttpConnector created k client");
-        } catch (IOException exc) {
-            System.out.println("in getHttpConnector k client creation exception");
-            throw new RuntimeException("Could not initialize Kubernetes Client", exc);
-        }
 
         System.out.println("in getHttpConnector before initializing tls manager");
         SSLHostConfig conf;
         try {
-            TLSManager tlsManager = new TLSManagerImpl(kclient, "pipelinereposerver_tls_cert", "keystore.pipelinereposerver_tls_cert");
             System.out.println("in getHttpConnector initialized tls manager");
             conf = tlsManager.getSSLHostConfig(ClientName.CLIENT_CLIENT_WRAPPER);
             System.out.println("in getHttpConnector retrieved tls config, conf certificate = " + conf.getCaCertificateFile());

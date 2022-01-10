@@ -132,7 +132,7 @@ func (k KubernetesClientDriver) WatchSecretData(ctx context.Context, name string
 		return err
 	}
 	log.Println("before informer.Run: ", err)
-	informer.Run(ctx.Done())
+	go informer.Run(ctx.Done())
 	log.Println("after informer.Run: ", err)
 	return nil
 }

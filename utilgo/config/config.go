@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	userPermissions os.FileMode = 0700
+	userPermissions os.FileMode = 0777
 
 	configPathEnvName string = "ATLAS_CONFIG_PATH"
 	configDefaultPath string = "/home/.atlas/"

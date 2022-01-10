@@ -158,8 +158,13 @@ func (a *argoAuthenticatorApi) initArgoClient() {
 
 func (a *argoAuthenticatorApi) initArgoTLSCert() (string, error) {
 	certPEM, err := a.tm.GetClientCertPEM(tlsmanager.ClientArgoCDRepoServer)
+	log.Println("found argocd cert PEM: ", certPEM)
 	if err != nil {
 		log.Println("failed to get argocd certificate from secrets: ", err.Error())
+		return "", nil
+	}
+	if certPEM == nil || len(certPEM) == 0 {
+		log.Println("argocd cert pem is not found")
 		return "", nil
 	}
 
@@ -193,9 +198,11 @@ func (a *argoAuthenticatorApi) getAPIClientOptions(token string) *apiclient.Clie
 		ServerAddr: a.apiServerAddress,
 	}
 	if a.tlsCertPath == "" {
+		log.Println("getAPIClientOptions: tls certificate is not found, setting insecure tls")
 		options.Insecure = true
 		options.PlainText = !a.tlsEnabled
 	} else {
+		log.Println("getAPIClientOptions: tls certificate is found, setting insecure to fase and setting cert path")
 		options.Insecure = false
 		options.PlainText = false
 		options.CertFile = a.tlsCertPath

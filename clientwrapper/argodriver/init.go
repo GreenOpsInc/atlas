@@ -21,6 +21,7 @@ const (
 )
 
 func (a *ArgoClientDriver) initArgoDriver(userAccount string, userPassword string) error {
+	log.Println("in init argo driver")
 	argoClient, err := apiclient.NewClient(a.getAPIClientOptions(""))
 	if err != nil {
 		log.Println("in initArgoDriver after getAPIClientOptions err: ", err.Error())
@@ -64,7 +65,6 @@ func (a *ArgoClientDriver) initArgoDriver(userAccount string, userPassword strin
 	return nil
 }
 
-// TODO: find null here
 func (a *ArgoClientDriver) generateArgoToken(userAccount string, password string) (string, error) {
 	log.Println("in generateArgoToken")
 	closer, sessionClient, err := a.client.NewSessionClient()
@@ -144,10 +144,14 @@ func (a *ArgoClientDriver) getAPIClientOptions(token string) *apiclient.ClientOp
 	options := &apiclient.ClientOptions{
 		ServerAddr: a.apiServerAddress,
 	}
-	if a.tlsCertPath == "" {
+	if !a.tlsEnabled {
+		log.Println("getAPIClientOptions: tls is not enabled, not applying certificate")
+		options.PlainText = true
+	} else if a.tlsCertPath == "" {
+		log.Println("getAPIClientOptions: tls certificate is not found, setting insecure tls")
 		options.Insecure = true
-		options.PlainText = !a.tlsEnabled
 	} else {
+		log.Println("getAPIClientOptions: tls certificate is found, setting insecure to fase and setting cert path")
 		options.Insecure = false
 		options.PlainText = false
 		options.CertFile = a.tlsCertPath

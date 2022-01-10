@@ -65,6 +65,7 @@ func createServer(tlsServerConf *tls.Config, handler http.Handler) *http.Server 
 
 func listenAndServe(wg *sync.WaitGroup, srv *http.Server) {
 	defer wg.Done()
+	log.Println("listening the server: ", srv)
 	if err := srv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}

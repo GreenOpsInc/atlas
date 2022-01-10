@@ -46,11 +46,13 @@ func main() {
 	schemaValidator = schemavalidation.New(argoAuthenticatorApi, repoManagerApi)
 	r := mux.NewRouter()
 	r.Use(argoAuthenticatorApi.Middleware)
+	log.Println("setup middleware...")
 	api.InitClients(dbClient, kafkaClient, kubernetesClient, repoManagerApi, commandDelegatorApi, schemaValidator)
 	api.InitializeLocalCluster()
 	api.InitPipelineTeamEndpoints(r)
 	api.InitStatusEndpoints(r)
 	api.InitClusterEndpoints(r)
 
+	log.Println("before create and watch server...")
 	httpserver.CreateAndWatchServer(tlsmanager.ClientWorkflowTrigger, tlsManager, r)
 }

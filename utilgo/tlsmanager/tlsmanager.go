@@ -116,7 +116,7 @@ func (m *tlsManager) GetClientCertPEM(clientName ClientName) ([]byte, error) {
 	}
 
 	secret := m.k.FetchSecretData(string(secretName), Namespace)
-	if secret == nil {
+	if secret == nil || len(secret.Data) == 0 {
 		return nil, nil
 	}
 	return secret.Data[TLSSecretCrtName], nil
@@ -178,8 +178,11 @@ func (m *tlsManager) WatchClientTLSConf(clientName ClientName, handler func(conf
 		case kclient.SecretChangeTypeUpdate:
 			rootCA := m.BestEffortSystemCertPool()
 			rootCA.AppendCertsFromPEM(secret.Data[TLSSecretCrtName])
-			handler(&tls.Config{RootCAs: rootCA}, nil)
+			conf := &tls.Config{RootCAs: rootCA}
+			m.tlsClientConfigs[clientName] = conf
+			handler(conf, nil)
 		case kclient.SecretChangeTypeDelete:
+			delete(m.tlsClientConfigs, clientName)
 			handler(&tls.Config{InsecureSkipVerify: true}, nil)
 		}
 	})
@@ -199,8 +202,10 @@ func (m *tlsManager) WatchClientTLSPEM(clientName ClientName, handler func(certP
 		case kclient.SecretChangeTypeAdd:
 			fallthrough
 		case kclient.SecretChangeTypeUpdate:
+			m.tlsClientCertPEM[clientName] = secret.Data[TLSSecretCrtName]
 			handler(secret.Data[TLSSecretCrtName], nil)
 		case kclient.SecretChangeTypeDelete:
+			delete(m.tlsClientCertPEM, clientName)
 			handler(nil, nil)
 		}
 	})
@@ -247,7 +252,7 @@ func (m *tlsManager) getTLSClientConf(clientName ClientName) (*tls.Config, error
 
 	secret := m.k.FetchSecretData(string(secretName), Namespace)
 	log.Printf("in getTLSClientConf secret = %s", secret)
-	if secret == nil {
+	if secret == nil || len(secret.Data) == 0 {
 		log.Println("in getTLSClientConf secret is nil")
 		return &tls.Config{InsecureSkipVerify: true}, nil
 	}
@@ -286,7 +291,7 @@ func (m *tlsManager) getTLSConfFromSecrets(serverName ClientName) (*tls.Config, 
 	secret := m.k.FetchSecretData(string(secretName), Namespace)
 	log.Printf("in getTLSConfFromSecrets secret = %s", secret)
 	log.Println("in getTLSConfFromSecrets, secret: ", secret)
-	if secret == nil {
+	if secret == nil || len(secret.Data) == 0 {
 		return nil, nil
 	}
 
@@ -334,19 +339,16 @@ func (m *tlsManager) generateSelfSignedTLSConf() (*tls.Config, error) {
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 	}
-	log.Printf("in generateSelfSignedTLSConf, cert = %v\n", cert)
 
 	certPrivateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("in generateSelfSignedTLSConf, certPrivateKey = %v\n", certPrivateKey)
 
 	certBytes, err := x509.CreateCertificate(rand.Reader, cert, cert, &certPrivateKey.PublicKey, certPrivateKey)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("in generateSelfSignedTLSConf, certBytes = %v\n", certBytes)
 
 	certPEM := new(bytes.Buffer)
 	err = pem.Encode(certPEM, &pem.Block{
@@ -356,7 +358,6 @@ func (m *tlsManager) generateSelfSignedTLSConf() (*tls.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("in generateSelfSignedTLSConf, certPEM = %v\n", certPEM)
 
 	certPrivateKeyPEM := new(bytes.Buffer)
 	err = pem.Encode(certPrivateKeyPEM, &pem.Block{
@@ -366,10 +367,6 @@ func (m *tlsManager) generateSelfSignedTLSConf() (*tls.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("in generateSelfSignedTLSConf, certPrivateKeyPEM = %v\n", certPrivateKeyPEM)
-
-	log.Printf("cert PEM = %s\n", certPEM.String())
-	log.Printf("key PEM = %s\n", certPrivateKeyPEM.String())
 
 	serverCert, err := tls.X509KeyPair(certPEM.Bytes(), certPrivateKeyPEM.Bytes())
 	if err != nil {
