@@ -70,24 +70,33 @@ public class SpringConfiguration {
     }
 
     private Connector getHttpConnector(ObjectMapper objectMapper) {
+        System.out.println("in getHttpConnector");
         var connector = new Connector(TomcatServletWebServerFactory.DEFAULT_PROTOCOL);
         connector.setScheme("https");
         connector.setPort(8080);
         connector.setSecure(true);
+        System.out.println("in getHttpConnector before creating k client");
 
         KubernetesClient kclient;
         try {
             kclient = new KubernetesClientImpl(objectMapper);
+            System.out.println("in getHttpConnector created k client");
         } catch (IOException exc) {
+            System.out.println("in getHttpConnector k client creation exception");
             throw new RuntimeException("Could not initialize Kubernetes Client", exc);
         }
 
+        System.out.println("in getHttpConnector before initializing tls manager");
         SSLHostConfig conf;
         try {
             TLSManager tlsManager = new TLSManagerImpl(kclient, "pipelinereposerver_tls_cert", "keystore.pipelinereposerver_tls_cert");
+            System.out.println("in getHttpConnector initialized tls manager");
             conf = tlsManager.getSSLHostConfig(ClientName.CLIENT_CLIENT_WRAPPER);
+            System.out.println("in getHttpConnector retrieved tls config, conf certificate = " + conf.getCaCertificateFile());
             tlsManager.watchHostSSLConfig(ClientName.CLIENT_CLIENT_WRAPPER);
+            System.out.println("in getHttpConnector tls manager watcher started");
         } catch (Exception exc) {
+            System.out.println("in getHttpConnector in catch block, exc = " + exc);
             throw new RuntimeException("Could not configure server with TLS configuration", exc);
         }
 

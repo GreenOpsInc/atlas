@@ -6,6 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.tomcat.util.net.SSLHostConfig;
 import org.apache.tomcat.util.net.SSLHostConfigCertificate;
 import org.bouncycastle.jce.X509Principal;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
 import org.bouncycastle.x509.X509V3CertificateGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -31,6 +33,15 @@ public class TLSManagerImpl implements TLSManager {
     private static final String NAMESPACE = "default";
     private static final String SECRET_CERT_NAME = "tls.crt";
     private static final String SECRET_KEY_NAME = "tls.key";
+
+    static {
+        if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
+            Security.insertProviderAt(new BouncyCastleProvider(), 1);
+        }
+        if (Security.getProvider(BouncyCastlePQCProvider.PROVIDER_NAME) == null) {
+            Security.insertProviderAt(new BouncyCastlePQCProvider(), 2);
+        }
+    }
 
     private final String serverCertificateAlias;
     private final String serverCertificateName;
@@ -73,7 +84,8 @@ public class TLSManagerImpl implements TLSManager {
         }
 
         ClientSecretName secretName = secretNameFromClientName(ClientName.CLIENT_KAFKA);
-        V1Secret secret = this.kclient.fetchSecretData(secretName.toString(), NAMESPACE);
+        System.out.println("in updateKafkaKeystore keystoreLocation = " + keystoreLocation + " trueStoreLocation = " + trueStoreLocation + " secretName = " + secretName.toString() + " namespace = " + NAMESPACE);
+        V1Secret secret = this.kclient.fetchSecretData(NAMESPACE, secretName.toString());
         if (secret == null) {
             return false;
         }
@@ -107,7 +119,8 @@ public class TLSManagerImpl implements TLSManager {
 
     private SSLHostConfig getTLSConfFromSecrets(ClientName serverName) throws Exception {
         ClientSecretName secretName = secretNameFromClientName(serverName);
-        V1Secret secret = this.kclient.fetchSecretData(secretName.toString(), NAMESPACE);
+        System.out.println("in getTLSConfFromSecrets server name = " + serverName + " secret name = " + secretName.toString() + " namespace = " + NAMESPACE);
+        V1Secret secret = this.kclient.fetchSecretData(NAMESPACE, secretName.toString());
         if (secret == null) {
             return null;
         }

@@ -58,8 +58,8 @@ public class KubernetesClientImpl implements KubernetesClient {
     }
 
     @Override
-    public V1Secret fetchSecretData(String name, String namespace) {
-        return readSecret(name, namespace);
+    public V1Secret fetchSecretData(String namespace, String name) {
+        return readSecret(namespace, name);
     }
 
     @Override
