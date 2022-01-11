@@ -99,6 +99,10 @@ func (m *tlsManager) GetClientTLSConf(clientName ClientName) (*tls.Config, error
 	if err != nil {
 		return nil, err
 	}
+	if conf == nil || len(conf.Certificates) == 0 {
+		log.Println("in GetClientTLSConf certificate is not available, returning nil")
+		return nil, nil
+	}
 	log.Printf("assigninng client conf to map, map = %v, conf = %v", m.tlsClientConfigs, conf)
 	m.tlsClientConfigs[clientName] = conf
 	return conf, nil

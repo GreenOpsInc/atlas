@@ -62,9 +62,9 @@ Example usage:
 		var url string
 		if stepFlagSet {
 			stepName, _ := cmd.Flags().GetString("step")
-			url = fmt.Sprintf("http://%s/sync/%s/%s/%s/%s/%s", atlasURL, orgName, teamName, pipelineName, pipelineRevisionHash, stepName)
+			url = fmt.Sprintf("https://%s/sync/%s/%s/%s/%s/%s", atlasURL, orgName, teamName, pipelineName, pipelineRevisionHash, stepName)
 		} else {
-			url = fmt.Sprintf("http://%s/sync/%s/%s/%s/%s", atlasURL, orgName, teamName, pipelineName, pipelineRevisionHash)
+			url = fmt.Sprintf("https://%s/sync/%s/%s/%s/%s", atlasURL, orgName, teamName, pipelineName, pipelineRevisionHash)
 		}
 
 		var req *http.Request

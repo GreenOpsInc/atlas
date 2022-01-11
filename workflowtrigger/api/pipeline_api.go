@@ -286,12 +286,13 @@ func syncPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, gitRepo.GitRepo, revisionHash,
-		string(argoauthenticator.SyncAction), string(argoauthenticator.ApplicationResource),
-		string(argoauthenticator.SyncAction), string(argoauthenticator.ClusterResource)) {
-		http.Error(w, "Not enough permissions", http.StatusForbidden)
-		return
-	}
+	// TODO: uncomment
+	//if !schemaValidator.ValidateSchemaAccess(orgName, teamName, gitRepo.GitRepo, revisionHash,
+	//	string(argoauthenticator.SyncAction), string(argoauthenticator.ApplicationResource),
+	//	string(argoauthenticator.SyncAction), string(argoauthenticator.ClusterResource)) {
+	//	http.Error(w, "Not enough permissions", http.StatusForbidden)
+	//	return
+	//}
 
 	triggerEvent := event.NewPipelineTriggerEvent(orgName, teamName, pipelineName)
 	triggerEvent.(*event.PipelineTriggerEvent).RevisionHash = revisionHash

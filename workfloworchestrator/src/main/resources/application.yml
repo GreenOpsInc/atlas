@@ -22,6 +22,6 @@ spring:
     topic: greenops.eventing
     dlqtopic: greenops.eventing.dlq
 application:
-  repo-server-url: ${REPO_SERVER_ENDPOINT:http://localhost:8081}
+  repo-server-url: ${REPO_SERVER_ENDPOINT:http://localhost:8080}
   client-wrapper-url: ${CLIENT_WRAPPER_ENDPOINT:http://localhost:9091}
   redis-url: ${REDIS_ENDPOINT:localhost:6379}
