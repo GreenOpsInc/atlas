@@ -22,7 +22,7 @@ const (
 
 func (a *ArgoClientDriver) initArgoDriver(userAccount string, userPassword string) error {
 	log.Println("in init argo driver")
-	argoClient, err := apiclient.NewClient(a.getAPIClientOptions(""))
+	argoClient, err := a.getInitialArgoCDClient()
 	if err != nil {
 		log.Println("in initArgoDriver after getAPIClientOptions err: ", err.Error())
 		log.Fatalf("Error when making new API client: %s", err)
@@ -65,8 +65,25 @@ func (a *ArgoClientDriver) initArgoDriver(userAccount string, userPassword strin
 	return nil
 }
 
+func (a *ArgoClientDriver) getInitialArgoCDClient() (apiclient.Client, error) {
+	tlsTestResult, err := grpcutil.TestTLS(a.apiServerAddress)
+	if err != nil {
+		log.Printf("Error when testing TLS: %s", err)
+		return nil, err
+	}
+
+	return apiclient.NewClient(
+		&apiclient.ClientOptions{
+			ServerAddr: a.apiServerAddress,
+			Insecure:   true,
+			PlainText:  !tlsTestResult.TLS,
+		})
+}
+
 func (a *ArgoClientDriver) generateArgoToken(userAccount string, password string) (string, error) {
-	log.Println("in generateArgoToken")
+	log.Printf("in generateArgoToken, a.client = %v", a.client)
+	log.Printf("in generateArgoToken, a.client.NewSessionClient = %v", a.client.NewSessionClient)
+	log.Println("in generateArgoToken, calling a.client.NewSessionClient...")
 	closer, sessionClient, err := a.client.NewSessionClient()
 	log.Println("in generateArgoToken after NewSessionClient ", closer, sessionClient, err)
 	if err != nil {
@@ -112,8 +129,9 @@ func (a *ArgoClientDriver) initArgoTLSCert() (string, error) {
 	log.Println("in initArgoTLSCert")
 	certPEM, err := a.tm.GetClientCertPEM(tlsmanager.ClientArgoCDRepoServer)
 	log.Println("in initArgoTLSCert, pem = ", certPEM)
-	if err != nil {
-		log.Println("failed to get argocd certificate from secrets: ", err.Error())
+	log.Println("in initArgoTLSCert, pem len = ", len(certPEM))
+	if err != nil || certPEM == nil || len(certPEM) == 0 {
+		log.Println("failed to get argocd certificate from secrets")
 		return "", nil
 	}
 
@@ -144,12 +162,10 @@ func (a *ArgoClientDriver) getAPIClientOptions(token string) *apiclient.ClientOp
 	options := &apiclient.ClientOptions{
 		ServerAddr: a.apiServerAddress,
 	}
-	if !a.tlsEnabled {
-		log.Println("getAPIClientOptions: tls is not enabled, not applying certificate")
-		options.PlainText = true
-	} else if a.tlsCertPath == "" {
+	if a.tlsCertPath == "" {
 		log.Println("getAPIClientOptions: tls certificate is not found, setting insecure tls")
 		options.Insecure = true
+		options.PlainText = !a.tlsEnabled
 	} else {
 		log.Println("getAPIClientOptions: tls certificate is found, setting insecure to fase and setting cert path")
 		options.Insecure = false
@@ -176,6 +192,9 @@ func (a *ArgoClientDriver) watchArgoTLSUpdates() error {
 }
 
 func (a *ArgoClientDriver) updateArgoTLSCert(certPEM []byte) error {
+	if certPEM == nil || len(certPEM) == 0 {
+		return nil
+	}
 	confPath, err := config.GetConfigPath()
 	if err != nil {
 		return err

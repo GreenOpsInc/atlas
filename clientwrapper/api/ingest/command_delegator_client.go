@@ -62,7 +62,7 @@ func Create(argoClient argodriver.ArgoAuthClient, tm tlsmanager.Manager) (Comman
 	if orgName == "" {
 		orgName = DefaultOrgName
 	}
-	httpClient, err := httpclient.New(tlsmanager.ClientWorkflowTrigger, tm)
+	httpClient, err := httpclient.New(tlsmanager.ClientCommandDelegator, tm)
 	if err != nil {
 		return nil, err
 	}

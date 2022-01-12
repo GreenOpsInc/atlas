@@ -37,6 +37,12 @@ type tlsManager struct {
 	tlsClientCertPEM map[ClientName][]byte
 }
 
+const (
+	Namespace   string = "default"
+	CompanyName string = "Atlas"
+	CountryName string = "US"
+)
+
 type TLSSecretName string
 
 const (
@@ -47,7 +53,6 @@ const (
 	CommandDelegatorTLSSecretName TLSSecretName = "commanddelegator-tls"
 	ArgoCDRepoServerTLSSecretName TLSSecretName = "argocd-repo-server-tls"
 	KafkaTLSSecretName            TLSSecretName = "kafka-tls"
-	Namespace                     string        = "default"
 )
 
 type ClientName string
@@ -59,6 +64,16 @@ const (
 	ClientCommandDelegator ClientName = "commanddelegator"
 	ClientArgoCDRepoServer ClientName = "argocdreposerver"
 	ClientKafka            ClientName = "kafka"
+)
+
+type DNSName string
+
+const (
+	NotValidDNSName     DNSName = "not-valid"
+	DNSLocalhost        DNSName = "localhost"
+	DNSRepoServer       DNSName = "reposerver.default.svc.cluster.local"
+	DNSWorkflowTrigger  DNSName = "workflowtrigger.default.svc.cluster.local"
+	DNSCommandDelegator DNSName = "commanddelegator.default.svc.cluster.local"
 )
 
 const (
@@ -95,15 +110,11 @@ func (m *tlsManager) GetServerTLSConf(serverName ClientName) (*tls.Config, error
 func (m *tlsManager) GetClientTLSConf(clientName ClientName) (*tls.Config, error) {
 	log.Println("in GetClientTLSConf ", clientName)
 	conf, err := m.getTLSClientConf(clientName)
-	log.Printf("received client conf of client %s . conf = %s, err = %s", clientName, conf, err)
+	log.Printf("received client conf of client %s. err = %s", clientName, err)
 	if err != nil {
 		return nil, err
 	}
-	if conf == nil || len(conf.Certificates) == 0 {
-		log.Println("in GetClientTLSConf certificate is not available, returning nil")
-		return nil, nil
-	}
-	log.Printf("assigninng client conf to map, map = %v, conf = %v", m.tlsClientConfigs, conf)
+	log.Printf("assigninng client conf to map, map = %v", m.tlsClientConfigs)
 	m.tlsClientConfigs[clientName] = conf
 	return conf, nil
 }
@@ -111,6 +122,7 @@ func (m *tlsManager) GetClientTLSConf(clientName ClientName) (*tls.Config, error
 func (m *tlsManager) GetClientCertPEM(clientName ClientName) ([]byte, error) {
 	log.Println("in GetClientCertPEM")
 	if m.tlsClientCertPEM[clientName] != nil {
+		log.Printf("in GetClientCertPEM %s client cer pem found in m.tlsClientCertPEM[clientName] map: %s", clientName, m.tlsClientCertPEM[clientName])
 		return m.tlsClientCertPEM[clientName], nil
 	}
 
@@ -121,6 +133,7 @@ func (m *tlsManager) GetClientCertPEM(clientName ClientName) ([]byte, error) {
 
 	secret := m.k.FetchSecretData(string(secretName), Namespace)
 	if secret == nil || len(secret.Data) == 0 {
+		log.Println("in GetClientCertPEM secret is nil or data len == 0")
 		return nil, nil
 	}
 	return secret.Data[TLSSecretCrtName], nil
@@ -151,7 +164,7 @@ func (m *tlsManager) WatchServerTLSConf(serverName ClientName, handler func(conf
 			log.Printf("in WatchServerTLSConf, tlsConf = %v\n", config)
 			insecure = false
 		case kclient.SecretChangeTypeDelete:
-			config, err = m.getSelfSignedTLSConf()
+			config, err = m.getSelfSignedTLSConf(serverName)
 			insecure = true
 		}
 
@@ -233,7 +246,7 @@ func (m *tlsManager) getTLSConf(serverName ClientName) (*tls.Config, error) {
 	}
 
 	log.Println("in GetServerTLSConf, before getSelfSignedTLSConf")
-	conf, err = m.getSelfSignedTLSConf()
+	conf, err = m.getSelfSignedTLSConf(serverName)
 	if err != nil {
 		return nil, err
 	}
@@ -257,25 +270,25 @@ func (m *tlsManager) getTLSClientConf(clientName ClientName) (*tls.Config, error
 	secret := m.k.FetchSecretData(string(secretName), Namespace)
 	log.Printf("in getTLSClientConf secret = %s", secret)
 	if secret == nil || len(secret.Data) == 0 {
-		log.Println("in getTLSClientConf secret is nil")
+		log.Printf("in getTLSClientConf for %s secret is nil, setting insecure to true", string(clientName))
 		return &tls.Config{InsecureSkipVerify: true}, nil
 	}
+	log.Printf("in getTLSClientConf for %s secret is not nil, setting insecure to false", string(clientName))
 
 	log.Println("in getTLSClientConf before getting root ca")
 	rootCA := m.BestEffortSystemCertPool()
-	log.Printf("in getTLSClientConf root ca = %v", rootCA)
 	rootCA.AppendCertsFromPEM(secret.Data[TLSSecretCrtName])
-	log.Printf("in getTLSClientConf appending %v to root ca = %v", secret.Data[TLSSecretCrtName], rootCA)
+	log.Printf("in getTLSClientConf appending %v to root ca", secret.Data[TLSSecretCrtName])
 	return &tls.Config{RootCAs: rootCA}, nil
 }
 
-func (m *tlsManager) getSelfSignedTLSConf() (*tls.Config, error) {
+func (m *tlsManager) getSelfSignedTLSConf(serverName ClientName) (*tls.Config, error) {
 	log.Println("in getSelfSignedTLSConf")
 	if m.selfSignedConf != nil {
 		return m.selfSignedConf, nil
 	}
 
-	conf, err := m.generateSelfSignedTLSConf()
+	conf, err := m.generateSelfSignedTLSConf(serverName)
 	if err != nil {
 		return nil, err
 	}
@@ -330,8 +343,17 @@ func (m *tlsManager) generateTLSConfFromKeyPair(certPEM []byte, keyPEM []byte) (
 	}, nil
 }
 
-func (m *tlsManager) generateSelfSignedTLSConf() (*tls.Config, error) {
+func (m *tlsManager) generateSelfSignedTLSConf(serverName ClientName) (*tls.Config, error) {
+	rootCAs := m.BestEffortSystemCertPool()
 	certSerialNumber, err := generateCertificateSerialNumber()
+	if err != nil {
+		return nil, err
+	}
+	dnsName, err := clientNameToDNSName(serverName)
+	if err != nil {
+		return nil, err
+	}
+	ca, caPrivKey, err := createCA(rootCAs)
 	if err != nil {
 		return nil, err
 	}
@@ -339,10 +361,10 @@ func (m *tlsManager) generateSelfSignedTLSConf() (*tls.Config, error) {
 	cert := &x509.Certificate{
 		SerialNumber: certSerialNumber,
 		Subject: pkix.Name{
-			Organization: []string{"GreenOps, INC."},
-			Country:      []string{"US"},
+			Organization: []string{CompanyName},
+			Country:      []string{CountryName},
 		},
-		DNSNames:     []string{"localhost"},
+		DNSNames:     []string{string(dnsName), string(DNSLocalhost)},
 		IPAddresses:  []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
 		NotBefore:    time.Now(),
 		NotAfter:     time.Now().AddDate(10, 0, 0),
@@ -356,7 +378,7 @@ func (m *tlsManager) generateSelfSignedTLSConf() (*tls.Config, error) {
 		return nil, err
 	}
 
-	certBytes, err := x509.CreateCertificate(rand.Reader, cert, cert, &certPrivateKey.PublicKey, certPrivateKey)
+	certBytes, err := x509.CreateCertificate(rand.Reader, cert, ca, &certPrivateKey.PublicKey, caPrivKey)
 	if err != nil {
 		return nil, err
 	}
@@ -384,9 +406,6 @@ func (m *tlsManager) generateSelfSignedTLSConf() (*tls.Config, error) {
 		return nil, err
 	}
 
-	rootCAs := m.BestEffortSystemCertPool()
-	rootCAs.AppendCertsFromPEM(certPEM.Bytes())
-
 	log.Println("cert = ", certPEM)
 	log.Println("key = ", certPrivateKeyPEM)
 
@@ -394,9 +413,56 @@ func (m *tlsManager) generateSelfSignedTLSConf() (*tls.Config, error) {
 	return &tls.Config{
 		Certificates:             []tls.Certificate{serverCert},
 		MinVersion:               tls.VersionTLS13,
+		InsecureSkipVerify:       true,
 		PreferServerCipherSuites: true,
-		RootCAs:                  rootCAs,
 	}, nil
+}
+
+func createCA(rootCAs *x509.CertPool) (*x509.Certificate, *rsa.PrivateKey, error) {
+	caSerialNumber, err := generateCertificateSerialNumber()
+	if err != nil {
+		return nil, nil, err
+	}
+	ca := &x509.Certificate{
+		SerialNumber: caSerialNumber,
+		Subject: pkix.Name{
+			Organization: []string{CompanyName},
+			Country:      []string{CountryName},
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().AddDate(10, 0, 0),
+		IsCA:                  true,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+	}
+
+	caPrivKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		return nil, nil, err
+	}
+	caBytes, err := x509.CreateCertificate(rand.Reader, ca, ca, &caPrivKey.PublicKey, caPrivKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	caPEM := new(bytes.Buffer)
+	if err = pem.Encode(caPEM, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: caBytes,
+	}); err != nil {
+		return nil, nil, err
+	}
+	caPrivKeyPEM := new(bytes.Buffer)
+	if err = pem.Encode(caPrivKeyPEM, &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(caPrivKey),
+	}); err != nil {
+		return nil, nil, err
+	}
+
+	rootCAs.AppendCertsFromPEM(caPEM.Bytes())
+	return ca, caPrivKey, nil
 }
 
 func generateCertificateSerialNumber() (*big.Int, error) {
@@ -420,5 +486,18 @@ func clientNameToSecretName(clientName ClientName) (TLSSecretName, error) {
 		return KafkaTLSSecretName, nil
 	default:
 		return NotValidSecretName, errors.New("wrong client name provided to get client secret")
+	}
+}
+
+func clientNameToDNSName(clientName ClientName) (DNSName, error) {
+	switch clientName {
+	case ClientRepoServer:
+		return DNSRepoServer, nil
+	case ClientWorkflowTrigger:
+		return DNSWorkflowTrigger, nil
+	case ClientCommandDelegator:
+		return DNSCommandDelegator, nil
+	default:
+		return NotValidDNSName, errors.New("wrong client name provided to get client DNS name")
 	}
 }

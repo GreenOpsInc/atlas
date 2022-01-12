@@ -20,6 +20,7 @@ type client struct {
 }
 
 func New(clientName tlsmanager.ClientName, tm tlsmanager.Manager) (HttpClient, error) {
+	log.Printf("creating new client for %s", string(clientName))
 	c := &client{clientName: clientName, tm: tm}
 	httpClient, err := c.initHttpClient()
 	if err != nil {
@@ -72,6 +73,7 @@ func (c *client) configureClient(tlsConf *tls.Config) *http.Client {
 	//		},
 	//	}
 
+	log.Printf("configuring http client <%s>, tls insecure skip = %v, root ca = %v", c.clientName, tlsConf.InsecureSkipVerify, tlsConf.RootCAs)
 	return &http.Client{
 		Timeout: time.Second * 10,
 		Transport: &http.Transport{

@@ -48,6 +48,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.listener.ContainerAwareErrorHandler;
+import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.SeekToCurrentErrorHandler;
 import org.springframework.util.backoff.FixedBackOff;
 
@@ -222,6 +223,7 @@ public class SpringConfiguration {
                 new ConcurrentKafkaListenerContainerFactory<>();
         ConsumerFactory<String, String> consumerFactory = consumerFactory(tlsManager,groupId, autoOffsetReset, enableAutoCommit, bootstrapServers, keyDeserializer, valueDeserializer, keystoreLocation, truststoreLocation);
         factory.setConsumerFactory(consumerFactory);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
         return factory;
     }
 
