@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -79,11 +80,11 @@ will be updated for future commands after executing this command.`,
 		}
 
 		if cmd.Flags().Lookup("atlas.tls").Changed {
-			certPEM, err := cmd.Flags().GetString("atlas.tls")
+			certPath, err := cmd.Flags().GetString("atlas.tls")
 			if err != nil {
 				fmt.Printf("failed to update atlas tls config: %s", err.Error())
 			}
-			if err := updateTLSConfig(certPEM, &configStruct); err != nil {
+			if err := updateTLSConfig(certPath, &configStruct); err != nil {
 				fmt.Printf("failed to update atlas tls config: %s", err.Error())
 				return
 			}
@@ -124,12 +125,13 @@ func initConfig() {
 	orgName, _ = rootCmd.Flags().GetString("org")
 }
 
-func updateTLSConfig(certPEM string, configStruct *conf) error {
-	if certPEM != "" {
+func updateTLSConfig(certPath string, configStruct *conf) error {
+	if certPath == "false" {
 		configStruct.TLSEnabled = false
 		return deleteCertFile()
 	}
-	if err := updateCertFile([]byte(certPEM)); err != nil {
+	if err := saveCertFile(certPath); err != nil {
+		configStruct.TLSEnabled = false
 		return err
 	}
 	configStruct.TLSEnabled = true
@@ -159,15 +161,29 @@ func checkCertFile() (bool, error) {
 	return true, nil
 }
 
-func updateCertFile(data []byte) error {
+func saveCertFile(filePath string) error {
+	if _, err := os.Stat(filePath); err != nil {
+		return err
+	}
 	certFilePath, err := getCertFilePath()
 	if err != nil {
 		return err
 	}
-	if _, err = checkCertFile(); err != nil {
+
+	in, err := os.Open(filePath)
+	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(certFilePath, data, userPermissions)
+	defer in.Close()
+	out, err := os.Create(certFilePath)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(out, in)
+	if err != nil {
+		return err
+	}
+	return out.Close()
 }
 
 func deleteCertFile() error {
@@ -215,5 +231,5 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	configCmd.PersistentFlags().StringP("atlas.url", "", "", "url of atlas")
 	configCmd.PersistentFlags().StringP("atlas.org", "", "", "name of highest level org")
-	configCmd.PersistentFlags().StringP("atlas.tls", "", "", "atlas server tls PEM certificate")
+	configCmd.PersistentFlags().StringP("atlas.tls", "", "", "atlas server tls PEM certificate path or \"false\"")
 }

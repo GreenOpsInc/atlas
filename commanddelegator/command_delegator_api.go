@@ -169,5 +169,5 @@ func main() {
 
 	r := mux.NewRouter()
 	InitEndpoints(r)
-	httpserver.CreateAndWatchServer(tlsmanager.ClientWorkflowTrigger, tlsManager, r)
+	httpserver.CreateAndWatchServer(tlsmanager.ClientCommandDelegator, tlsManager, r)
 }

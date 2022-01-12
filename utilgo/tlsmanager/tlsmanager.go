@@ -147,7 +147,7 @@ func (m *tlsManager) WatchServerTLSConf(serverName ClientName, handler func(conf
 			fallthrough
 		case kclient.SecretChangeTypeUpdate:
 			log.Printf("in WatchServerTLSConf, secret data = %v\n", secret.Data)
-			config, err = m.generateTLSConfFromKeyPair(secret.Data[TLSSecretCrtName], secret.Data[TLSSecretCrtName])
+			config, err = m.generateTLSConfFromKeyPair(secret.Data[TLSSecretCrtName], secret.Data[TLSSecretKeyName])
 			log.Printf("in WatchServerTLSConf, tlsConf = %v\n", config)
 			insecure = false
 		case kclient.SecretChangeTypeDelete:
@@ -299,6 +299,9 @@ func (m *tlsManager) getTLSConfFromSecrets(serverName ClientName) (*tls.Config, 
 		return nil, nil
 	}
 
+	log.Printf("in getTLSConfFromSecrets received secret, data = %v", secret.Data)
+	log.Printf("in getTLSConfFromSecrets received secret, cert = %s, key = %s", secret.Data[TLSSecretCrtName], secret.Data[TLSSecretKeyName])
+
 	conf, err := m.generateTLSConfFromKeyPair(secret.Data[TLSSecretCrtName], secret.Data[TLSSecretKeyName])
 	if err != nil {
 		return nil, err
@@ -306,15 +309,19 @@ func (m *tlsManager) getTLSConfFromSecrets(serverName ClientName) (*tls.Config, 
 	return conf, nil
 }
 
-func (m *tlsManager) generateTLSConfFromKeyPair(cert []byte, key []byte) (*tls.Config, error) {
-	log.Printf("in generateTLSConfFromKeyPair cert = %s, key = %s\n", string(cert), string(key))
-	c, err := tls.X509KeyPair(cert, key)
+func (m *tlsManager) generateTLSConfFromKeyPair(certPEM []byte, keyPEM []byte) (*tls.Config, error) {
+	log.Printf("in generateTLSConfFromKeyPair cert = %s, key = %s\n", string(certPEM), string(keyPEM))
+	c, err := tls.X509KeyPair(certPEM, keyPEM)
 	log.Printf("in generateTLSConfFromKeyPair c = %v\n", c)
 	if err != nil {
+		log.Println("error in generateTLSConfFromKeyPair: ", err.Error())
 		return nil, err
 	}
-
+	log.Println("in generateTLSConfFromKeyPair getting pool")
 	rootCAs := m.BestEffortSystemCertPool()
+	log.Println("in generateTLSConfFromKeyPair appending cert to pool")
+	rootCAs.AppendCertsFromPEM(certPEM)
+	log.Println("in generateTLSConfFromKeyPair returning tls conf")
 	return &tls.Config{
 		Certificates:             []tls.Certificate{c},
 		MinVersion:               tls.VersionTLS13,
@@ -379,6 +386,9 @@ func (m *tlsManager) generateSelfSignedTLSConf() (*tls.Config, error) {
 
 	rootCAs := m.BestEffortSystemCertPool()
 	rootCAs.AppendCertsFromPEM(certPEM.Bytes())
+
+	log.Println("cert = ", certPEM)
+	log.Println("key = ", certPrivateKeyPEM)
 
 	log.Printf("in generateSelfSignedTLSConf, serverCert = %v\n", serverCert)
 	return &tls.Config{
