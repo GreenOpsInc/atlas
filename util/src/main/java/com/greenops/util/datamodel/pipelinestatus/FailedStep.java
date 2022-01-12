@@ -12,4 +12,20 @@ public class FailedStep {
         this.brokenTest = brokenTest;
         this.brokenTestLog = brokenTestLog;
     }
+
+    public String getStep(){
+        return step;
+    }
+
+    public boolean isDeploymentFailed(){
+        return deploymentFailed;
+    }
+
+    public String getBrokenTest(){
+        return brokenTest;
+    }
+
+    public String getBrokenTestLog(){
+        return brokenTestLog;
+    }
 }

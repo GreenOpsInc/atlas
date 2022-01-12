@@ -6,14 +6,13 @@ import com.greenops.util.datamodel.auditlog.Log;
 import com.greenops.util.datamodel.auditlog.PipelineInfo;
 import com.greenops.util.datamodel.auditlog.RemediationLog;
 import com.greenops.util.datamodel.event.*;
-import com.greenops.util.datamodel.git.ArgoRepoSchema;
 import com.greenops.util.datamodel.pipeline.TeamSchema;
+import com.greenops.util.datamodel.pipelinedata.PipelineData;
+import com.greenops.util.datamodel.pipelinedata.StepData;
+import com.greenops.util.datamodel.pipelinedata.Test;
 import com.greenops.util.datamodel.request.GetFileRequest;
 import com.greenops.util.dbclient.DbClient;
 import com.greenops.util.error.AtlasNonRetryableError;
-import com.greenops.workfloworchestrator.datamodel.pipelinedata.PipelineData;
-import com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData;
-import com.greenops.workfloworchestrator.datamodel.pipelinedata.Test;
 import com.greenops.util.datamodel.clientmessages.ResourceGvk;
 import com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManagerApi;
 import com.greenops.workfloworchestrator.ingest.dbclient.DbKey;
@@ -28,10 +27,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.greenops.util.datamodel.event.ClientCompletionEvent.*;
-import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.ROOT_STEP_NAME;
-import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.createRootStep;
+import static com.greenops.util.datamodel.pipelinedata.StepData.ROOT_STEP_NAME;
+import static com.greenops.util.datamodel.pipelinedata.StepData.createRootStep;
 import static com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManagerApi.ROOT_COMMIT;
-import static com.greenops.workfloworchestrator.ingest.handling.util.deployment.ArgoDeploymentInfo.NO_OP_ARGO_DEPLOYMENT;
+import static com.greenops.util.ingest.deployment.ArgoDeploymentInfo.NO_OP_ARGO_DEPLOYMENT;
 
 @Slf4j
 @Component
@@ -224,7 +223,7 @@ public class EventHandlerImpl implements EventHandler {
             return;
         }
 
-        var step = pipelineData.getStep(event.getStepName());
+        StepData step = pipelineData.getStep(event.getStepName());
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName());
         var latestLog = dbClient.fetchLatestLog(logKey);
         if (latestLog != null && latestLog.getStatus().equals(Log.LogStatus.CANCELLED.name())) return;

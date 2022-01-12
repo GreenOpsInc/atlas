@@ -3,15 +3,16 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
-	"github.com/argoproj/argo-cd/v2/util/errors"
-	"github.com/argoproj/argo-cd/v2/util/localconfig"
-	"github.com/spf13/cobra"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
+	"github.com/argoproj/argo-cd/v2/util/errors"
+	"github.com/argoproj/argo-cd/v2/util/localconfig"
+	"github.com/spf13/cobra"
 )
 
 // teamCreateCmd represents the teamCreate command
@@ -69,6 +70,7 @@ Example usage:
 			}
 		}
 
+		fmt.Println("Bearer", context.User.AuthToken)
 		
 		client := &http.Client{Timeout: 20 * time.Second}
 		resp, err := client.Do(req)

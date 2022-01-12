@@ -4,14 +4,14 @@ import com.greenops.util.datamodel.request.DeployResponse;
 
 public class FailureEvent implements Event {
 
-    private String orgName;
-    private String teamName;
-    private String pipelineName;
-    private String uvn;
-    private String stepName;
-    private DeployResponse deployResponse;
-    private String statusCode;
-    private String error;
+    private final String orgName;
+    private final String teamName;
+    private final String pipelineName;
+    private final String uvn;
+    private final String stepName;
+    private final DeployResponse deployResponse;
+    private final String statusCode;
+    private final String error;
 
     public FailureEvent(String orgName, String teamName, String pipelineName, String uvn, String stepName, DeployResponse deployResponse, String statusCode, String error) {
         this.orgName = orgName;

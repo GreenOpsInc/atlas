@@ -12,7 +12,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
                 @JsonSubTypes.Type(value = ApplicationInfraCompletionEvent.class, name = "appinfracompletion"),
                 @JsonSubTypes.Type(value = TriggerStepEvent.class, name = "triggerstep"),
                 @JsonSubTypes.Type(value = FailureEvent.class, name = "failureevent"),
-                @JsonSubTypes.Type(value = PipelineTriggerEvent.class, name = "pipelinetrigger")
+                @JsonSubTypes.Type(value = PipelineTriggerEvent.class, name = "pipelinetrigger"),
+                @JsonSubTypes.Type(value = PipelineCompletionEvent.class, name = "pipelinecompletion")
         }
 )
 public interface Event {

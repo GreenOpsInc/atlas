@@ -23,18 +23,19 @@ public class SpringKafkaListener {
     @Qualifier("eventAndRequestObjectMapper")
     ObjectMapper objectMapper;
 
-    @KafkaListener(topics = "${spring.kafka.topic}", groupId = "${spring.kafka.consumer.group-id}")
+    @Autowired
+    KafkaClient kafkaClient;
+
+    @KafkaListener(topics = "${spring.kafka.verification-topic}", groupId = "${spring.kafka.consumer.group-id}")
     public void listen(String message, Acknowledgment ack) {
         try {
             var event = objectMapper.readValue(message, Event.class);
-            System.out.println("[KAFKA TOPIC]" + message);
             eventHandler.handleEvent(event);
             ack.acknowledge();
+            kafkaClient.sendMessage(event);
         } catch (JsonProcessingException e) {
             log.error("ObjectMapper could not map message to Event", e);
             throw new AtlasNonRetryableError(e);
         }
     }
-
-    //TODO: Add repartitioning handling
 }

@@ -24,6 +24,12 @@ spec:
               value: redisserver.default.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
               value: http://reposerver.default.svc.cluster.local:8081
+            - name: WORKFLOWTRIGGER_ENDPOINT
+              value: http://workflowtrigger.default.svc.cluster.local:8080
+            - name: KAFKA_GREENOPS_TOPIC
+              value: greenops.eventing
+            - name: KAFKA_VERIFICATIONTOOL_TOPIC
+              value: verification.eventing
           image: atlasverificationtool
           imagePullPolicy: Never
           name: atlasverificationtool

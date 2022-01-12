@@ -1,10 +1,9 @@
 package com.greenops.workfloworchestrator.ingest.handling;
 
 import com.greenops.util.datamodel.event.Event;
-import com.greenops.workfloworchestrator.datamodel.pipelinedata.PipelineData;
-import com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData;
+import com.greenops.util.datamodel.pipelinedata.PipelineData;
+import com.greenops.util.datamodel.pipelinedata.StepData;
 import com.greenops.util.datamodel.clientmessages.ResourceGvk;
-import com.greenops.workfloworchestrator.ingest.handling.util.deployment.ArgoDeploymentInfo;
 
 import java.util.List;
 

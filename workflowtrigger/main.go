@@ -10,7 +10,7 @@ import (
 	"github.com/greenopsinc/util/db"
 	"github.com/greenopsinc/util/kubernetesclient"
 	"greenops.io/workflowtrigger/api"
-	"greenops.io/workflowtrigger/api/argoauthenticator"
+	"greenops.io/workflowtrigger/api/argo"
 	"greenops.io/workflowtrigger/api/commanddelegator"
 	"greenops.io/workflowtrigger/api/reposerver"
 	"greenops.io/workflowtrigger/kafka"
@@ -18,23 +18,23 @@ import (
 )
 
 func main() {
-	var dbClient db.DbClient
+	var dbOperator db.DbOperator
 	var kafkaClient kafka.KafkaClient
 	var kubernetesClient kubernetesclient.KubernetesClient
 	var repoManagerApi reposerver.RepoManagerApi
 	var commandDelegatorApi commanddelegator.CommandDelegatorApi
-	var argoAuthenticatorApi argoauthenticator.ArgoAuthenticatorApi
+	var argoAuthenticatorApi argo.ArgoAuthenticatorApi
 	var schemaValidator schemavalidation.RequestSchemaValidator
-	dbClient = db.New(starter.GetDbClientConfig())
+	dbOperator = db.New(starter.GetDbClientConfig())
 	kafkaClient = kafka.New(starter.GetKafkaClientConfig())
 	kubernetesClient = kubernetesclient.New()
 	repoManagerApi = reposerver.New(starter.GetRepoServerClientConfig())
 	commandDelegatorApi = commanddelegator.New(starter.GetCommandDelegatorServerClientConfig())
-	argoAuthenticatorApi = argoauthenticator.New()
+	argoAuthenticatorApi = argo.New().GetAuthenticatorApi()
 	schemaValidator = schemavalidation.New(argoAuthenticatorApi, repoManagerApi)
 	r := mux.NewRouter()
-	r.Use(argoAuthenticatorApi.(*argoauthenticator.ArgoAuthenticatorApiImpl).Middleware)
-	api.InitClients(dbClient, kafkaClient, kubernetesClient, repoManagerApi, commandDelegatorApi, schemaValidator)
+	r.Use(argoAuthenticatorApi.(*argo.ArgoApiImpl).Middleware)
+	api.InitClients(dbOperator, kafkaClient, kubernetesClient, repoManagerApi, argo.New().GetClusterApi(), commandDelegatorApi, schemaValidator)
 	api.InitializeLocalCluster()
 	api.InitPipelineTeamEndpoints(r)
 	api.InitStatusEndpoints(r)

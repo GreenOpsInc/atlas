@@ -2,18 +2,17 @@ package com.greenops.util.datamodel.pipelinestatus;
 
 import com.greenops.util.datamodel.auditlog.DeploymentLog;
 import com.greenops.util.datamodel.auditlog.Log;
-import com.greenops.util.datamodel.auditlog.RemediationLog;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class PipelineStatus {
 
-    private List<String> progressingSteps;
+    private final List<String> progressingSteps;
+    private final List<FailedStep> failedSteps;
     private boolean stable;
     private boolean complete;
     private boolean cancelled;
-    private List<FailedStep> failedSteps;
 
     public PipelineStatus() {
         this.progressingSteps = new ArrayList<>();
@@ -22,7 +21,27 @@ public class PipelineStatus {
         this.cancelled = false;
         this.failedSteps = new ArrayList<>();
     }
-    
+
+    public List<String> getProgressingSteps() {
+        return this.progressingSteps;
+    }
+
+    public boolean isStable() {
+        return this.stable;
+    }
+
+    public boolean isComplete() {
+        return this.complete;
+    }
+
+    public boolean isCancelled() {
+        return this.cancelled;
+    }
+
+    public List<FailedStep> getFailedSteps() {
+        return this.failedSteps;
+    }
+
     public void markCancelled() {
         this.cancelled = true;
         this.complete = false;
@@ -47,7 +66,7 @@ public class PipelineStatus {
             }
         } else {
             //Was instance of a RemediationLog
-            if (!((RemediationLog) log).getStatus().equals(Log.LogStatus.FAILURE.name())) {
+            if (!log.getStatus().equals(Log.LogStatus.FAILURE.name())) {
                 this.stable = false;
             }
             //TODO: Needs to be added to failed step

@@ -2,6 +2,8 @@
 /cli/.idea/
 /workflowtrigger/.idea/
 /test_config/.idea/
+/test_config/linux_deploy_kubernetes_test.sh
+/test_config/testatlasinfrastructure.yaml
 /workflowtrigger/.gradle/
 /workflowtrigger/build/
 /commanddelegator/.idea/

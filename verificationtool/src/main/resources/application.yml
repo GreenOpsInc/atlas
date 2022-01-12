@@ -8,15 +8,17 @@ spring:
     listener:
       ack-mode: MANUAL_IMMEDIATE
     consumer:
-      group-id: verificationtool_orchestrator
+      group-id: verificationtool
       auto-offset-reset: earliest
       enable-auto-commit: false
       bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-    topic: greenops.eventing
-    dlqtopic: greenops.eventing.dlq
+    greenops-topic: ${KAFKA_GREENOPS_TOPIC:greenops.eventing}
+    verification-topic: ${KAFKA_VERIFICATIONTOOL_TOPIC:verification.eventing}
+    verification-dlqtopic: ${KAFKA_VERIFICATIONTOOL_TOPIC:verification.eventing}.dlq
 application:
   repo-server-url: ${REPO_SERVER_ENDPOINT:http://localhost:8081}
   client-wrapper-url: ${CLIENT_WRAPPER_ENDPOINT:http://localhost:9091}
   redis-url: ${REDIS_ENDPOINT:localhost:6379}
+  workflowtrigger-url: ${WORKFLOW_TRIGGER_ENDPOINT:http://localhost:8081}

@@ -1,8 +1,8 @@
 package com.greenops.workfloworchestrator.ingest.handling;
 
 import com.greenops.util.datamodel.event.Event;
-import com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData;
-import com.greenops.workfloworchestrator.datamodel.pipelinedata.Test;
+import com.greenops.util.datamodel.pipelinedata.StepData;
+import com.greenops.util.datamodel.pipelinedata.Test;
 
 public interface TestHandler {
 

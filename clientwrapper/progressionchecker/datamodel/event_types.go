@@ -149,3 +149,17 @@ func MakeFailureEventEvent(clientMetadata clientrequest.ClientRequestEventMetada
 		Error:          error,
 	}
 }
+
+func MakeFailureEventEventRaw(orgName string, teamName string, pipelineName string, pipelineUvn string, stepName string, error string) EventInfo {
+	return FailureEventInfo{
+		EventInfoMetaData: EventInfoMetaData{
+			Type:         FailureEvent,
+			OrgName:      orgName,
+			TeamName:     teamName,
+			PipelineName: pipelineName,
+			PipelineUvn:  pipelineUvn,
+			StepName:     stepName,
+		},
+		Error: error,
+	}
+}

@@ -3,10 +3,12 @@ package kafka
 import (
 	"context"
 	"fmt"
-	"github.com/segmentio/kafka-go"
 	"log"
+	"os"
 	"strconv"
 	"time"
+
+	"github.com/segmentio/kafka-go"
 )
 
 type KafkaClient interface {
@@ -18,14 +20,18 @@ type KafkaClientImpl struct {
 }
 
 const (
-	kafkaTopic string = "greenops.eventing"
+	defaultKafkaTopic string = "greenops.eventing"
 )
 
 func New(address string) KafkaClient {
+	topic := os.Getenv("KAFKA_TOPIC")
+	if topic == "" {
+		topic = defaultKafkaTopic
+	}
 	k := KafkaClientImpl{}
 	k.kafkaWriter = &kafka.Writer{
 		Addr:     kafka.TCP(address),
-		Topic:    kafkaTopic,
+		Topic:    topic,
 		Balancer: &kafka.LeastBytes{},
 	}
 	return &k

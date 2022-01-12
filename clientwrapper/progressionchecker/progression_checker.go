@@ -2,6 +2,7 @@ package progressionchecker
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"greenops.io/client/api/generation"
@@ -45,8 +46,31 @@ func listenForApplicationsToWatch(inputChannel chan string, outputChannel chan s
 	}
 }
 
-func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGetRestricted, argoClient argodriver.ArgoGetRestrictedClient, eventGenerationApi generation.EventGenerationApi, pluginList plugins.Plugins, channel chan string, metricsServerAddress string) {
-	watchedApplications := make(map[string]datamodel.WatchKey)
+func checkForCompletedApplications(watchedApplications map[string]datamodel.WatchKey, kubernetesClient k8sdriver.KubernetesClientGetRestricted, argoClient argodriver.ArgoGetRestrictedClient, eventGenerationApi generation.EventGenerationApi, pluginList plugins.Plugins, channel chan string, metricsServerAddress string) (recoveredWatchedApplications map[string]datamodel.WatchKey) {
+	var mapKey string
+	var watchKey datamodel.WatchKey
+	defer func() {
+		if err := recover(); err != nil {
+			var stronglyTypedError error
+			switch err.(type) {
+			case error:
+				stronglyTypedError = err.(error)
+			default:
+				stronglyTypedError = errors.New(err.(string))
+			}
+			log.Printf("Progression checker exiting with error %s", stronglyTypedError.Error())
+			failureEvent := datamodel.MakeFailureEventEventRaw(watchKey.OrgName, watchKey.TeamName, watchKey.PipelineName, watchKey.PipelineUvn, watchKey.StepName, stronglyTypedError.Error())
+			for i := 0; i < HttpRequestRetryLimit; i++ {
+				if eventGenerationApi.GenerateEvent(failureEvent) {
+					delete(watchedApplications, mapKey)
+					break
+				}
+			}
+		}
+		//recoveredWatchedApplications is the named return type
+		//In case of an error, this recovery function return the list of watched applications by setting recoveredWatchedApplications
+		recoveredWatchedApplications = watchedApplications
+	}()
 	for {
 		//Update watched applications list with new entries
 		for {
@@ -76,7 +100,7 @@ func checkForCompletedApplications(kubernetesClient k8sdriver.KubernetesClientGe
 		}
 
 		deleteKeys := make([]string, 0)
-		for mapKey, watchKey := range watchedApplications {
+		for mapKey, watchKey = range watchedApplications {
 			if watchKey.Type == datamodel.WatchArgoApplicationKey {
 				for _, appInfo := range argoAppInfo {
 					if watchKey.Name == appInfo.Name && watchKey.Namespace == appInfo.Namespace {
@@ -198,5 +222,9 @@ func Start(kubernetesClient k8sdriver.KubernetesClientGetRestricted, argoClient 
 	progressionCheckerChannel := make(chan string, ProgressionChannelBufferSize)
 	//TODO: Add initial cache creation
 	go listenForApplicationsToWatch(channel, progressionCheckerChannel)
-	checkForCompletedApplications(kubernetesClient, argoClient, eventGenerationApi, pluginList, progressionCheckerChannel, metricsServerAddress)
+	watchedApplications := make(map[string]datamodel.WatchKey)
+	for {
+		log.Printf("Progression checker starting...")
+		watchedApplications = checkForCompletedApplications(watchedApplications, kubernetesClient, argoClient, eventGenerationApi, pluginList, progressionCheckerChannel, metricsServerAddress)
+	}
 }

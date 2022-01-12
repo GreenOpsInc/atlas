@@ -2,9 +2,9 @@ package com.greenops.workfloworchestrator.ingest.handling;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.event.Event;
+import com.greenops.util.datamodel.pipelinedata.StepData;
+import com.greenops.util.datamodel.pipelinedata.Test;
 import com.greenops.util.datamodel.request.GetFileRequest;
-import com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData;
-import com.greenops.workfloworchestrator.datamodel.pipelinedata.Test;
 import com.greenops.workfloworchestrator.ingest.apiclient.clientwrapper.ClientRequestQueue;
 import com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManagerApi;
 import lombok.extern.slf4j.Slf4j;

@@ -1,5 +1,8 @@
 package com.greenops.verificationtool.datamodel.pipelinedata;
 
+import com.greenops.util.datamodel.pipelinedata.PipelineDataImpl;
+import com.greenops.util.datamodel.pipelinedata.StepData;
+import com.greenops.util.datamodel.pipelinedata.StepDataImpl;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

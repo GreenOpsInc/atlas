@@ -3,13 +3,11 @@ package com.greenops.verificationtool.ingest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.greenops.verificationtool.datamodel.mixin.pipelinedata.PipelineDataMixin;
-import com.greenops.verificationtool.datamodel.mixin.pipelinedata.StepDataMixin;
-import com.greenops.verificationtool.datamodel.mixin.pipelinedata.InjectScriptTestMixin;
-import com.greenops.verificationtool.datamodel.pipelinedata.InjectScriptTest;
-import com.greenops.verificationtool.datamodel.pipelinedata.PipelineData;
-import com.greenops.verificationtool.datamodel.pipelinedata.PipelineDataImpl;
-import com.greenops.verificationtool.datamodel.pipelinedata.StepDataImpl;
+import com.greenops.util.datamodel.mixin.pipelinedata.ArgoWorkflowTaskMixin;
+import com.greenops.util.datamodel.mixin.pipelinedata.InjectScriptTestMixin;
+import com.greenops.util.datamodel.mixin.pipelinedata.PipelineDataMixin;
+import com.greenops.util.datamodel.mixin.pipelinedata.StepDataMixin;
+import com.greenops.util.datamodel.pipelinedata.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -24,7 +22,8 @@ public class DataSerializationTest {
         objectMapper = new ObjectMapper()
                 .addMixIn(PipelineDataImpl.class, PipelineDataMixin.class)
                 .addMixIn(StepDataImpl.class, StepDataMixin.class)
-                .addMixIn(InjectScriptTest.class, InjectScriptTestMixin.class);
+                .addMixIn(InjectScriptTest.class, InjectScriptTestMixin.class)
+                .addMixIn(ArgoWorkflowTask.class, ArgoWorkflowTaskMixin.class);
     }
 
     //TODO: Obviously an incomplete test. This should be manually tested if the data model is updated.

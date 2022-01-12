@@ -67,7 +67,6 @@ Example usage:
 		} else {
 			url = fmt.Sprintf("http://%s/sync/%s/%s/%s/%s", atlasURL, orgName, teamName, pipelineName, pipelineRevisionHash)
 		}
-
 		var req *http.Request
 
 		if !tokenFlagSet && !usernameFlagSet {

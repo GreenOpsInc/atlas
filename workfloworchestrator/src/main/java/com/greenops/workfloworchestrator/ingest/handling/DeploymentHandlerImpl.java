@@ -5,10 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.clientmessages.ResourceGvk;
 import com.greenops.util.datamodel.clientmessages.ResourcesGvkRequest;
 import com.greenops.util.datamodel.event.Event;
+import com.greenops.util.datamodel.pipelinedata.PipelineData;
+import com.greenops.util.datamodel.pipelinedata.StepData;
 import com.greenops.util.datamodel.request.GetFileRequest;
 import com.greenops.util.error.AtlasNonRetryableError;
-import com.greenops.workfloworchestrator.datamodel.pipelinedata.PipelineData;
-import com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData;
 import com.greenops.workfloworchestrator.ingest.apiclient.clientwrapper.ClientRequestQueue;
 import com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManagerApi;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.ROOT_STEP_NAME;
+import static com.greenops.util.datamodel.pipelinedata.StepData.ROOT_STEP_NAME;
 import static com.greenops.workfloworchestrator.ingest.handling.EventHandlerImpl.WATCH_ARGO_APPLICATION_KEY;
 
 @Slf4j
