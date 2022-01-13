@@ -1,10 +1,45 @@
-spring:
+#spring:
+#  kafka:
+#    producer:
+#      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+#      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+#      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+##      transaction-id-prefix: tx-
+#    listener:
+#      ack-mode: MANUAL_IMMEDIATE
+#    consumer:
+#      group-id: workflow_orchestrator
+#      auto-offset-reset: earliest
+#      enable-auto-commit: false
+#      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+#      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+#      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+#    ssl:
+#      keystore-password: SS28qmtOJH4OFLUP
+#      keystore-location: /home/.atlas/tls/kafka.keystore.jks
+#      truststore-password: SS28qmtOJH4OFLUP
+#      truststore-location: /home/.atlas/tls/kafka.truststore.jks
+#      key-password: SS28qmtOJH4OFLUP
+##      keystore:
+##        location: /home/.atlas/tls/kafka.keystore.jks
+##        password: SS28qmtOJH4OFLUP
+##      truststore:
+##        location: /home/.atlas/tls/kafka.truststore.jks
+##        password: SS28qmtOJH4OFLUP
+##      key:
+##        password: SS28qmtOJH4OFLUP
+#    topic: greenops.eventing
+#    dlqtopic: greenops.eventing.dlq
+application:
+  repo-server-url: ${REPO_SERVER_ENDPOINT:http://localhost:8080}
+  client-wrapper-url: ${CLIENT_WRAPPER_ENDPOINT:http://localhost:9091}
+  redis-url: ${REDIS_ENDPOINT:localhost:6379}
   kafka:
     producer:
       bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
-#      transaction-id-prefix: tx-
+    #      transaction-id-prefix: tx-
     listener:
       ack-mode: MANUAL_IMMEDIATE
     consumer:
@@ -15,13 +50,18 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     ssl:
-      keystore:
-        location: /etc/security/tls/kafka.client.keystore.jks
-      truestore:
-        location: /etc/security/tls/kafka.client.truststore.jks
+      keystore-password: SS28qmtOJH4OFLUP
+      keystore-location: /home/.atlas/tls/kafka.keystore.jks
+      truststore-password: SS28qmtOJH4OFLUP
+      truststore-location: /home/.atlas/tls/kafka.truststore.jks
+      key-password: SS28qmtOJH4OFLUP
+    #      keystore:
+    #        location: /home/.atlas/tls/kafka.keystore.jks
+    #        password: SS28qmtOJH4OFLUP
+    #      truststore:
+    #        location: /home/.atlas/tls/kafka.truststore.jks
+    #        password: SS28qmtOJH4OFLUP
+    #      key:
+    #        password: SS28qmtOJH4OFLUP
     topic: greenops.eventing
     dlqtopic: greenops.eventing.dlq
-application:
-  repo-server-url: ${REPO_SERVER_ENDPOINT:http://localhost:8080}
-  client-wrapper-url: ${CLIENT_WRAPPER_ENDPOINT:http://localhost:9091}
-  redis-url: ${REDIS_ENDPOINT:localhost:6379}

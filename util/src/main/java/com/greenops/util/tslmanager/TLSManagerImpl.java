@@ -4,6 +4,8 @@ import com.greenops.util.kubernetesclient.KubernetesClient;
 import io.kubernetes.client.models.V1Secret;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.kafka.clients.CommonClientConfigs;
+import org.apache.kafka.common.config.SslConfigs;
 import org.apache.tomcat.util.net.SSLHostConfig;
 import org.apache.tomcat.util.net.SSLHostConfigCertificate;
 import org.bouncycastle.asn1.x500.X500Name;
@@ -25,13 +27,18 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.security.*;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 
 @Slf4j
@@ -44,6 +51,11 @@ public class TLSManagerImpl implements TLSManager {
     private static final String NAMESPACE = "default";
     private static final String SECRET_CERT_NAME = "tls.crt";
     private static final String SECRET_KEY_NAME = "tls.key";
+    private static final String SECRET_KAFKA_KEYSTORE_NAME = "kafka.keystore.jks";
+    private static final String SECRET_KAFKA_TRUSTSTORE_NAME = "kafka.truststore.jks";
+    private static final String SECRET_KAFKA_KEY_CREDENTIALS = "kafka.key.credentials";
+    private static final String SECRET_KAFKA_KEYSTORE_CREDENTIALS = "kafka.keystore.credentials";
+    private static final String SECRET_KAFKA_TRUSTSTORE_CREDENTIALS = "kafka.truststore.credentials";
     private static final String KEYSTORE_PASSWORD = "SS28qmtOJH4OFLUP";
     private static final Date NOT_BEFORE = new Date(System.currentTimeMillis() - 86400000L * 365);
     private static final Date NOT_AFTER = new Date(253402300799000L);
@@ -100,39 +112,71 @@ public class TLSManagerImpl implements TLSManager {
     }
 
     @Override
-    public boolean updateKafkaKeystore(String keystoreLocation, String trueStoreLocation) throws Exception {
+    public Map<String, Object> getKafkaSSLConfProps(String keystoreLocation, String truststoreLocation) throws Exception {
         File keyStoreFile = new File(keystoreLocation);
+        File truststoreFile = new File(truststoreLocation);
+        File parent = keyStoreFile.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            throw new IllegalStateException("Couldn't create .atlas config directory: " + parent);
+        }
+
         if (keyStoreFile.exists()) {
             keyStoreFile.delete();
         }
-        File trueStoreFile = new File(trueStoreLocation);
-        if (trueStoreFile.exists()) {
-            trueStoreFile.delete();
+        if (truststoreFile.exists()) {
+            truststoreFile.delete();
         }
 
         ClientSecretName secretName = secretNameFromClientName(ClientName.CLIENT_KAFKA);
-        System.out.println("in updateKafkaKeystore keystoreLocation = " + keystoreLocation + " trueStoreLocation = " + trueStoreLocation + " secretName = " + secretName.toString() + " namespace = " + NAMESPACE);
+        System.out.println("in updateKafkaKeystore keystoreLocation = " + keystoreLocation + " truststoreLocation = " + truststoreLocation + " secretName = " + secretName.toString() + " namespace = " + NAMESPACE);
         V1Secret secret = this.kclient.fetchSecretData(NAMESPACE, secretName.toString());
         if (secret == null) {
-            return false;
+            return null;
         }
 
-        KeyPair kp = createKeyPair(secret.getData().get(SECRET_CERT_NAME), secret.getData().get(SECRET_KEY_NAME));
-        X509Certificate cert = createCertificate(kp);
+        System.out.println("secret = ");
+        for (String key : secret.getData().keySet()) {
+            System.out.println("key : " + key);
+            System.out.println("value : " + Arrays.toString(secret.getData().get(key)));
+        }
 
-        KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-        keystore.setCertificateEntry("kafka.client.keystore", cert);
+        byte[] keystoreData = secret.getData().get(SECRET_KAFKA_KEYSTORE_NAME);
+        byte[] truststoreData = secret.getData().get(SECRET_KAFKA_TRUSTSTORE_NAME);
+        String kafkaKeystoreCreds = new String(secret.getData().get(SECRET_KAFKA_KEYSTORE_CREDENTIALS), StandardCharsets.UTF_8);
+        String kafkaTruststoreCreds = new String(secret.getData().get(SECRET_KAFKA_TRUSTSTORE_CREDENTIALS), StandardCharsets.UTF_8);
+        String kafkaKeyCreds = new String(secret.getData().get(SECRET_KAFKA_KEY_CREDENTIALS), StandardCharsets.UTF_8);
+
+        System.out.println("keystore data = " + new String(keystoreData, StandardCharsets.UTF_8));
+        System.out.println("truststore data = " + new String(truststoreData, StandardCharsets.UTF_8));
+        System.out.println("keystore creds = '" + kafkaKeystoreCreds + "'");
+        System.out.println("truststore creds = '" + kafkaTruststoreCreds + "'");
+        System.out.println("key creds = '" + kafkaKeyCreds + "'");
+
         keyStoreFile = new File(keystoreLocation);
         keyStoreFile.createNewFile();
-        keystore.store(new FileOutputStream(keyStoreFile), null);
+        Files.write(keyStoreFile.toPath(), keystoreData);
 
-        KeyStore truestore = KeyStore.getInstance(KeyStore.getDefaultType());
-        truestore.setCertificateEntry("kafka.client.truestore", cert);
-        trueStoreFile = new File(keystoreLocation);
-        trueStoreFile.createNewFile();
-        keystore.store(new FileOutputStream(trueStoreFile), null);
+        truststoreFile = new File(truststoreLocation);
+        truststoreFile.createNewFile();
+        Files.write(truststoreFile.toPath(), truststoreData);
 
-        return true;
+        System.out.println("trying to read keystore and truststore file contents...");
+
+        // TODO: delete
+        byte[] keystoreContents = Files.readAllBytes(keyStoreFile.toPath());
+        byte[] truststoreContents = Files.readAllBytes(truststoreFile.toPath());
+        System.out.println("saved keystore file contents = " + new String(keystoreContents));
+        System.out.println("saved truststore file contents = " + new String(truststoreContents));
+        // TODO: end delete
+
+        Map<String, Object> configProps = new HashMap<>();
+        configProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL");
+        configProps.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, keystoreLocation);
+        configProps.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, truststoreLocation);
+        configProps.put(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, kafkaKeystoreCreds);
+        configProps.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, kafkaTruststoreCreds);
+        configProps.put(SslConfigs.SSL_KEY_PASSWORD_CONFIG, kafkaKeyCreds);
+        return configProps;
     }
 
     @Override
@@ -146,7 +190,6 @@ public class TLSManagerImpl implements TLSManager {
 
     private SSLHostConfig getTLSConfFromSecrets(ClientName serverName) throws Exception {
         ClientSecretName secretName = secretNameFromClientName(serverName);
-        System.out.println("in getTLSConfFromSecrets server name = " + serverName + " secret name = " + secretName.toString() + " namespace = " + NAMESPACE);
         V1Secret secret = this.kclient.fetchSecretData(NAMESPACE, secretName.toString());
         if (secret == null) {
             return null;
@@ -155,52 +198,33 @@ public class TLSManagerImpl implements TLSManager {
     }
 
     private SSLHostConfig generateSSLHostConfFromKeyPair(byte[] pub, byte[] key) throws Exception {
-        System.out.println("in generateSSLHostConfFromKeyPair");
         KeyStore keyStore = getKeyStore();
-        System.out.println("in generateSSLHostConfFromKeyPair keyStore = " + keyStore);
 
         KeyPair keyPair = createKeyPair(pub, key);
-        System.out.println("in generateSSLHostConfFromKeyPair keyPair = " + keyPair);
         X509Certificate cert = createCertificate(keyPair);
-        System.out.println("in generateSSLHostConfFromKeyPair cert = " + cert);
         saveCert(cert, keyPair.getPrivate(), keyStore);
-        System.out.println("in generateSSLHostConfFromKeyPair after saveCert");
 
         SSLHostConfig sslHostConfig = new SSLHostConfig();
-        System.out.println("in generateSSLHostConfFromKeyPair sslHostConfig = " + sslHostConfig);
         SSLHostConfigCertificate certificate = new SSLHostConfigCertificate(
                 sslHostConfig, SSLHostConfigCertificate.Type.RSA);
-        System.out.println("in generateSSLHostConfFromKeyPair certificate = " + certificate);
         certificate.setCertificateKeystore(keyStore);
-        System.out.println("in generateSSLHostConfFromKeyPair after certificate.setCertificateKeystore");
         sslHostConfig.addCertificate(certificate);
-        System.out.println("in generateSSLHostConfFromKeyPair after sslHostConfig.addCertificate");
         return sslHostConfig;
     }
 
     private SSLHostConfig getSelfSignedSSLHostConf() throws Exception {
-        System.out.println("in getSelfSignedSSLHostConf");
         KeyStore keyStore = getKeyStore();
-        System.out.println("in getSelfSignedSSLHostConf keyStore = " + keyStore);
 
         KeyPair keyPair = generateKeyPair();
-        System.out.println("in getSelfSignedSSLHostConf keyPair = " + keyPair);
         X509Certificate cert = createCertificate(keyPair);
-        System.out.println("in getSelfSignedSSLHostConf cert = " + cert);
         saveCert(cert, keyPair.getPrivate(), keyStore);
-        System.out.println("in getSelfSignedSSLHostConf after saveCert");
 
         SSLHostConfig sslHostConfig = new SSLHostConfig();
-        System.out.println("in getSelfSignedSSLHostConf sslHostConfig = " + sslHostConfig);
         SSLHostConfigCertificate certificate = new SSLHostConfigCertificate(
                 sslHostConfig, SSLHostConfigCertificate.Type.RSA);
-        System.out.println("in getSelfSignedSSLHostConf certificate = " + certificate);
         certificate.setCertificateKeystore(keyStore);
-        System.out.println("in getSelfSignedSSLHostConf after certificate.setCertificateKeystore");
         sslHostConfig.addCertificate(certificate);
-        System.out.println("in getSelfSignedSSLHostConf after sslHostConfig.addCertificate");
         sslHostConfig.setInsecureRenegotiation(true);
-        System.out.println("in getSelfSignedSSLHostConf after sslHostConfig.setInsecureRenegotiation");
         return sslHostConfig;
     }
 
@@ -223,60 +247,11 @@ public class TLSManagerImpl implements TLSManager {
     }
 
     private KeyPair generateKeyPair() throws Exception {
-//        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(CERTIFICATE_ALGORITHM);
-//        keyPairGenerator.initialize(CERTIFICATE_BITS, new SecureRandom());
-//        return keyPairGenerator.generateKeyPair();
-        // GENERATE THE PUBLIC/PRIVATE RSA KEY PAIR
         KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA", "BC");
         keyPairGenerator.initialize(1024, new SecureRandom());
         return keyPairGenerator.generateKeyPair();
     }
 
-    // TODO: certificate generation method N1
-    @SuppressWarnings("deprecation")
-//    private X509Certificate createCertificate(KeyPair keyPair) throws InvalidKeyException, SignatureException {
-//        X509V3CertificateGenerator v3CertGen = new X509V3CertificateGenerator();
-//        v3CertGen.setSerialNumber(BigInteger.valueOf(System.currentTimeMillis()));
-//        v3CertGen.setIssuerDN(new X509Principal(CERTIFICATE_DN));
-//        v3CertGen.setNotBefore(new Date(System.currentTimeMillis() - 1000L * 60 * 60 * 24));
-//        v3CertGen.setNotAfter(new Date(System.currentTimeMillis() + (1000L * 60 * 60 * 24 * 365 * 10)));
-//        v3CertGen.setSubjectDN(new X509Principal(CERTIFICATE_DN));
-//        v3CertGen.setPublicKey(keyPair.getPublic());
-//        v3CertGen.setSignatureAlgorithm("SHA256WithRSAEncryption");
-//        return v3CertGen.generateX509Certificate(keyPair.getPrivate());
-//    }
-
-    // TODO: certificate generation method N2
-//    private X509Certificate createCertificate(KeyPair keyPair) throws Exception {
-//        // yesterday
-//        Date validityBeginDate = new Date(System.currentTimeMillis() - 24 * 60 * 60 * 1000);
-//        // in 2 years
-//        Date validityEndDate = new Date(System.currentTimeMillis() + 2L * 365 * 24 * 60 * 60 * 1000);
-//
-//        // GENERATE THE X509 CERTIFICATE
-//        X509V1CertificateGenerator certGen = new X509V1CertificateGenerator();
-//        X500Principal dnName = new X500Principal(CERTIFICATE_DN);
-//
-//        certGen.setSerialNumber(BigInteger.valueOf(System.currentTimeMillis()));
-//        certGen.setSubjectDN(dnName);
-//        certGen.setIssuerDN(dnName); // use the same
-//        certGen.setNotBefore(validityBeginDate);
-//        certGen.setNotAfter(validityEndDate);
-//        certGen.setPublicKey(keyPair.getPublic());
-//        certGen.setSignatureAlgorithm("SHA256WithRSAEncryption");
-//
-//        X509Certificate cert = certGen.generate(keyPair.getPrivate(), "BC");
-//
-//        PEMWriter pemWriter = new PEMWriter(new PrintWriter(System.out));
-//        pemWriter.writeObject(cert);
-//        pemWriter.flush();
-//        pemWriter.writeObject(keyPair.getPrivate());
-//        pemWriter.flush();
-//        return cert;
-//    }
-
-    // TODO: fix error: java.lang.NullPointerException: Cannot invoke "java.security.SecureRandom.nextBytes(byte[])" because "this.random" is null
-    // TODO: certificate generation method N3
     private X509Certificate createCertificate(KeyPair keyPair) throws Exception {
 
         // Prepare the information required for generating an X.509 certificate.

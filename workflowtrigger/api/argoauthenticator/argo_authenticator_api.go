@@ -214,7 +214,7 @@ func (a *argoAuthenticatorApi) getAPIClientOptions(token string) *apiclient.Clie
 }
 
 func (a *argoAuthenticatorApi) watchArgoTLSUpdates() error {
-	err := a.tm.WatchClientTLSPEM(tlsmanager.ClientArgoCDRepoServer, func(certPEM []byte, err error) {
+	err := a.tm.WatchClientTLSPEM(tlsmanager.ClientArgoCDRepoServer, tlsmanager.NamespaceArgoCD, func(certPEM []byte, err error) {
 		log.Printf("in watchArgoTLSUpdates, conf = %v, err = %v\n", certPEM, err)
 		if err != nil {
 			log.Fatalf("an error occurred in the watch %s client: %s", tlsmanager.ClientArgoCDRepoServer, err.Error())

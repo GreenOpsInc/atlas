@@ -24,9 +24,11 @@ type Manager interface {
 	GetServerTLSConf(serverName ClientName) (*tls.Config, error)
 	GetClientTLSConf(clientName ClientName) (*tls.Config, error)
 	GetClientCertPEM(clientName ClientName) ([]byte, error)
+	GetKafkaTLSConf() (*tls.Config, error)
 	WatchServerTLSConf(serverName ClientName, handler func(conf *tls.Config, err error)) error
 	WatchClientTLSConf(clientName ClientName, handler func(conf *tls.Config, err error)) error
-	WatchClientTLSPEM(clientName ClientName, handler func(certPEM []byte, err error)) error
+	WatchClientTLSPEM(clientName ClientName, namespace string, handler func(certPEM []byte, err error)) error
+	WatchKafkaTLSConf(handler func(conf *tls.Config, err error)) error
 }
 
 type tlsManager struct {
@@ -38,9 +40,10 @@ type tlsManager struct {
 }
 
 const (
-	Namespace   string = "default"
-	CompanyName string = "Atlas"
-	CountryName string = "US"
+	NamespaceDefault string = "default"
+	NamespaceArgoCD  string = "argocd"
+	CompanyName      string = "Atlas"
+	CountryName      string = "US"
 )
 
 type TLSSecretName string
@@ -74,11 +77,13 @@ const (
 	DNSRepoServer       DNSName = "reposerver.default.svc.cluster.local"
 	DNSWorkflowTrigger  DNSName = "workflowtrigger.default.svc.cluster.local"
 	DNSCommandDelegator DNSName = "commanddelegator.default.svc.cluster.local"
+	DNSArgoCDRepoServer DNSName = "argocd-server.argocd.svc.cluster.local"
 )
 
 const (
-	TLSSecretCrtName = "tls.crt"
-	TLSSecretKeyName = "tls.key"
+	TLSSecretCrtName      = "tls.crt"
+	TLSSecretKeyName      = "tls.key"
+	TLSSecretKafkaCrtName = "kafka.cert.pem"
 )
 
 func New(k kclient.KubernetesClient) Manager {
@@ -131,12 +136,35 @@ func (m *tlsManager) GetClientCertPEM(clientName ClientName) ([]byte, error) {
 		return nil, err
 	}
 
-	secret := m.k.FetchSecretData(string(secretName), Namespace)
+	secret := m.k.FetchSecretData(string(secretName), NamespaceDefault)
 	if secret == nil || len(secret.Data) == 0 {
 		log.Println("in GetClientCertPEM secret is nil or data len == 0")
 		return nil, nil
 	}
 	return secret.Data[TLSSecretCrtName], nil
+}
+
+func (m *tlsManager) GetKafkaTLSConf() (*tls.Config, error) {
+	log.Println("in GetKafkaCertPEM")
+	if m.tlsClientConfigs[ClientKafka] != nil {
+		log.Printf("in GetKafkaCertPEM %s client cer pem found in m.tlsClientConfigs[clientName] map: %s", ClientKafka, m.tlsClientConfigs[ClientKafka])
+		return m.tlsClientConfigs[ClientKafka], nil
+	}
+
+	secretName, err := clientNameToSecretName(ClientKafka)
+	if err != nil {
+		return nil, err
+	}
+
+	secret := m.k.FetchSecretData(string(secretName), NamespaceDefault)
+	if secret == nil || len(secret.Data) == 0 {
+		log.Println("in GetClientCertPEM secret is nil or data len == 0")
+		return nil, nil
+	}
+	rootCA := m.BestEffortSystemCertPool()
+	rootCA.AppendCertsFromPEM(secret.Data[TLSSecretKafkaCrtName])
+	log.Printf("in GetKafkaTLSConf appending %v to root ca", secret.Data[TLSSecretKafkaCrtName])
+	return &tls.Config{RootCAs: rootCA}, nil
 }
 
 func (m *tlsManager) WatchServerTLSConf(serverName ClientName, handler func(conf *tls.Config, err error)) error {
@@ -147,7 +175,7 @@ func (m *tlsManager) WatchServerTLSConf(serverName ClientName, handler func(conf
 	}
 
 	ctx := context.Background()
-	return m.k.WatchSecretData(ctx, string(secretName), Namespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
+	return m.k.WatchSecretData(ctx, string(secretName), NamespaceDefault, func(t kclient.SecretChangeType, secret *corev1.Secret) {
 		log.Printf("in WatchServerTLSConf, event %v. data = %s\n", t, secret)
 		var (
 			config   *tls.Config
@@ -187,7 +215,7 @@ func (m *tlsManager) WatchClientTLSConf(clientName ClientName, handler func(conf
 	}
 
 	ctx := context.Background()
-	return m.k.WatchSecretData(ctx, string(secretName), Namespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
+	return m.k.WatchSecretData(ctx, string(secretName), NamespaceDefault, func(t kclient.SecretChangeType, secret *corev1.Secret) {
 		log.Printf("in WatchClientTLSConf, event %v. data = %s\n", t, secret)
 		switch t {
 		case kclient.SecretChangeTypeAdd:
@@ -205,7 +233,7 @@ func (m *tlsManager) WatchClientTLSConf(clientName ClientName, handler func(conf
 	})
 }
 
-func (m *tlsManager) WatchClientTLSPEM(clientName ClientName, handler func(certPEM []byte, err error)) error {
+func (m *tlsManager) WatchClientTLSPEM(clientName ClientName, namespace string, handler func(certPEM []byte, err error)) error {
 	log.Println("in WatchClientTLSPEM")
 	secretName, err := clientNameToSecretName(clientName)
 	if err != nil {
@@ -213,7 +241,7 @@ func (m *tlsManager) WatchClientTLSPEM(clientName ClientName, handler func(certP
 	}
 
 	ctx := context.Background()
-	return m.k.WatchSecretData(ctx, string(secretName), Namespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
+	return m.k.WatchSecretData(ctx, string(secretName), namespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
 		log.Printf("in WatchClientTLSPEM, event %v. data = %s\n", t, secret)
 		switch t {
 		case kclient.SecretChangeTypeAdd:
@@ -223,6 +251,32 @@ func (m *tlsManager) WatchClientTLSPEM(clientName ClientName, handler func(certP
 			handler(secret.Data[TLSSecretCrtName], nil)
 		case kclient.SecretChangeTypeDelete:
 			delete(m.tlsClientCertPEM, clientName)
+			handler(nil, nil)
+		}
+	})
+}
+
+func (m *tlsManager) WatchKafkaTLSConf(handler func(config *tls.Config, err error)) error {
+	log.Println("in WatchClientTLSConf")
+	secretName, err := clientNameToSecretName(ClientKafka)
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	return m.k.WatchSecretData(ctx, string(secretName), NamespaceDefault, func(t kclient.SecretChangeType, secret *corev1.Secret) {
+		log.Printf("in WatchClientTLSConf, event %v. data = %s\n", t, secret)
+		switch t {
+		case kclient.SecretChangeTypeAdd:
+			fallthrough
+		case kclient.SecretChangeTypeUpdate:
+			rootCA := m.BestEffortSystemCertPool()
+			rootCA.AppendCertsFromPEM(secret.Data[TLSSecretKafkaCrtName])
+			conf := &tls.Config{RootCAs: rootCA}
+			m.tlsClientConfigs[ClientKafka] = conf
+			handler(conf, nil)
+		case kclient.SecretChangeTypeDelete:
+			delete(m.tlsClientConfigs, ClientKafka)
 			handler(nil, nil)
 		}
 	})
@@ -267,7 +321,7 @@ func (m *tlsManager) getTLSClientConf(clientName ClientName) (*tls.Config, error
 		return nil, err
 	}
 
-	secret := m.k.FetchSecretData(string(secretName), Namespace)
+	secret := m.k.FetchSecretData(string(secretName), NamespaceDefault)
 	log.Printf("in getTLSClientConf secret = %s", secret)
 	if secret == nil || len(secret.Data) == 0 {
 		log.Printf("in getTLSClientConf for %s secret is nil, setting insecure to true", string(clientName))
@@ -305,7 +359,7 @@ func (m *tlsManager) getTLSConfFromSecrets(serverName ClientName) (*tls.Config, 
 	if err != nil {
 		return nil, err
 	}
-	secret := m.k.FetchSecretData(string(secretName), Namespace)
+	secret := m.k.FetchSecretData(string(secretName), NamespaceDefault)
 	log.Printf("in getTLSConfFromSecrets secret = %s", secret)
 	log.Println("in getTLSConfFromSecrets, secret: ", secret)
 	if secret == nil || len(secret.Data) == 0 {
@@ -497,6 +551,8 @@ func clientNameToDNSName(clientName ClientName) (DNSName, error) {
 		return DNSWorkflowTrigger, nil
 	case ClientCommandDelegator:
 		return DNSCommandDelegator, nil
+	case ClientArgoCDRepoServer:
+		return DNSArgoCDRepoServer, nil
 	default:
 		return NotValidDNSName, errors.New("wrong client name provided to get client DNS name")
 	}

@@ -23,7 +23,7 @@ public class SpringKafkaListener {
     @Qualifier("eventAndRequestObjectMapper")
     ObjectMapper objectMapper;
 
-    @KafkaListener(topics = "${spring.kafka.topic}", groupId = "${spring.kafka.consumer.group-id}")
+    @KafkaListener(topics = "${application.kafka.topic}", groupId = "${application.kafka.consumer.group-id}")
     public void listen(String message, Acknowledgment ack) {
         try {
             var event = objectMapper.readValue(message, Event.class);

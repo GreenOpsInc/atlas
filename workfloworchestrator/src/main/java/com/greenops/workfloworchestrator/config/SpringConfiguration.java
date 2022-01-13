@@ -177,18 +177,20 @@ public class SpringConfiguration {
                         log.info("Couldn't deserialize event to send failure event", e.getCause());
                     }
                 }, new FixedBackOff(100L, 5L));
-        errorHandler.addNotRetryableException(AtlasNonRetryableError.class);
+        errorHandler.addNotRetryableExceptions(AtlasNonRetryableError.class);
         return errorHandler;
     }
 
     @Bean
     public KafkaTemplate<String, String> kafkaTemplate(
             TLSManager tlsManager,
-            @Value("${spring.kafka.producer.bootstrap-servers}") String bootstrapServers,
-            @Value("${spring.kafka.producer.key-serializer}") String keySerializer,
-            @Value("${spring.kafka.producer.value-serializer}") String valueSerializer,
-            @Value("${spring.kafka.ssl.keystore.location}") String keystoreLocation,
-            @Value("${spring.kafka.ssl.truestore.location}") String truststoreLocation
+            @Value("${application.kafka.producer.bootstrap-servers}") String bootstrapServers,
+            @Value("${application.kafka.producer.key-serializer}") String keySerializer,
+            @Value("${application.kafka.producer.value-serializer}") String valueSerializer,
+//            @Value("${application.kafka.ssl.keystore.location}") String keystoreLocation,
+//            @Value("${application.kafka.ssl.truestore.location}") String truststoreLocation
+            @Value("${application.kafka.ssl.keystore-location}") String keystoreLocation,
+            @Value("${application.kafka.ssl.truststore-location}") String truststoreLocation
     ) {
         System.out.println("in kafkaTemplate Bean bootstrapServers = " + bootstrapServers
                 + " keySerializer" + keySerializer
@@ -202,14 +204,16 @@ public class SpringConfiguration {
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory(
             TLSManager tlsManager,
-            @Value("${spring.kafka.consumer.group-id}") String groupId,
-            @Value("${spring.kafka.consumer.auto-offset-reset}") String autoOffsetReset,
-            @Value("${spring.kafka.consumer.enable-auto-commit}") String enableAutoCommit,
-            @Value("${spring.kafka.consumer.bootstrap-servers}") String bootstrapServers,
-            @Value("${spring.kafka.consumer.key-deserializer}") String keyDeserializer,
-            @Value("${spring.kafka.consumer.value-deserializer}") String valueDeserializer,
-            @Value("${spring.kafka.ssl.keystore.location}") String keystoreLocation,
-            @Value("${spring.kafka.ssl.truestore.location}") String truststoreLocation
+            @Value("${application.kafka.consumer.group-id}") String groupId,
+            @Value("${application.kafka.consumer.auto-offset-reset}") String autoOffsetReset,
+            @Value("${application.kafka.consumer.enable-auto-commit}") String enableAutoCommit,
+            @Value("${application.kafka.consumer.bootstrap-servers}") String bootstrapServers,
+            @Value("${application.kafka.consumer.key-deserializer}") String keyDeserializer,
+            @Value("${application.kafka.consumer.value-deserializer}") String valueDeserializer,
+//            @Value("${application.kafka.ssl.keystore.location}") String keystoreLocation,
+//            @Value("${application.kafka.ssl.truststore.location}") String truststoreLocation
+            @Value("${application.kafka.ssl.keystore-location}") String keystoreLocation,
+            @Value("${application.kafka.ssl.truststore-location}") String truststoreLocation
     ) {
         System.out.println("in kafkaListenerContainerFactory Bean groupId = " + groupId
                 + " autoOffsetReset" + autoOffsetReset
@@ -265,27 +269,15 @@ public class SpringConfiguration {
     }
 
     private Map<String, Object> getKafkaSSLConfigProps(TLSManager tlsManager,String keystoreLocation, String truststoreLocation) {
-        Map<String, Object> configProps = new HashMap<>();
-        boolean keystoreExists = setupKafkaSSLConfigAndWatcher(tlsManager,keystoreLocation, truststoreLocation);
-        if (keystoreExists) {
-            configProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL");
-            configProps.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, keystoreLocation);
-            configProps.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, truststoreLocation);
-        }
-        return configProps;
-    }
-
-    private boolean setupKafkaSSLConfigAndWatcher(TLSManager tlsManager, String keystoreLocation, String truststoreLocation) {
-        boolean keystoreExists;
         try {
-            keystoreExists = tlsManager.updateKafkaKeystore(keystoreLocation, truststoreLocation);
-            if (keystoreExists && !kafkaWatcherStarted) {
+            Map<String, Object> configProps = tlsManager.getKafkaSSLConfProps(keystoreLocation, truststoreLocation);
+            if (configProps != null && configProps.containsKey(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG) && !kafkaWatcherStarted) {
                 kafkaWatcherStarted = true;
                 tlsManager.watchKafkaKeystore(keystoreLocation, truststoreLocation);
             }
+            return configProps;
         } catch (Exception exc) {
             throw new RuntimeException("Could not configure Kafka with TLS configuration", exc);
         }
-        return keystoreExists;
     }
 }

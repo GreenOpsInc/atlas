@@ -49,7 +49,7 @@ func (k *kafkaClient) SendMessage(data string) error {
 
 func (k *kafkaClient) initWriter() (*kafka.Writer, error) {
 	log.Println("in kafka initWriter")
-	tlsConf, err := k.tm.GetClientTLSConf(tlsmanager.ClientKafka)
+	tlsConf, err := k.tm.GetKafkaTLSConf()
 	log.Println("received kafka tls conf ", tlsConf)
 	if err != nil {
 		return nil, err

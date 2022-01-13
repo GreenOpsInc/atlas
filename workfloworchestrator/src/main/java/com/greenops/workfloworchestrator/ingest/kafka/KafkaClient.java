@@ -21,7 +21,7 @@ public class KafkaClient {
     private final KafkaTemplate<String, String> kafkaTemplate;
 
     @Autowired
-    public KafkaClient(@Qualifier("eventAndRequestObjectMapper") ObjectMapper objectMapper, @Value("${spring.kafka.topic}") String topic, @Value("${spring.kafka.dlqtopic}") String dlqTopic, KafkaTemplate<String, String> kafkaTemplate) {
+    public KafkaClient(@Qualifier("eventAndRequestObjectMapper") ObjectMapper objectMapper, @Value("${application.kafka.topic}") String topic, @Value("${application.kafka.dlqtopic}") String dlqTopic, KafkaTemplate<String, String> kafkaTemplate) {
         this.objectMapper = objectMapper;
         this.normalTopic = topic;
         this.dlqTopic = dlqTopic;
