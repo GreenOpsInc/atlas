@@ -1,5 +1,13 @@
 spring:
   kafka:
+    security:
+      protocol: "SSL"
+    ssl:
+      truststore-location: file:/tls-cert/kafka.truststore.jks
+      truststore-password: SS28qmtOJH4OFLUP
+      keystore-location: file:/tls-cert/kafka.keystore.jks
+      keystore-password: SS28qmtOJH4OFLUP
+      key-password: SS28qmtOJH4OFLUP
     producer:
       bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
       key-serializer: org.apache.kafka.common.serialization.StringSerializer

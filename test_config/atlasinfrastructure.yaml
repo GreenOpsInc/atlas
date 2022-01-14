@@ -386,7 +386,7 @@ spec:
             - name: CLIENT_WRAPPER_ENDPOINT
               value: http://atlasclientwrapper.default.svc.cluster.local:9091
             - name: KAFKA_BOOTSTRAP_SERVERS
-              value: LOCALHOSTDYNAMICADDRESS:29092
+              value: LOCALHOSTDYNAMICADDRESS:9093
             - name: REDIS_ENDPOINT
               value: redisserver.default.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
@@ -394,7 +394,14 @@ spec:
           image: atlasworkfloworchestrator
           imagePullPolicy: Never
           name: workfloworchestrator
+          volumeMounts:
+            - mountPath: /tls-cert
+              name: tlscert
           resources: {}
+      volumes:
+        - name: tlscert
+          hostPath:
+            path: /tls-cert
       restartPolicy: Always
 status: {}
 ---
