@@ -19,7 +19,7 @@ import (
 	"github.com/greenopsinc/util/kubernetesclient"
 	"github.com/greenopsinc/util/pipeline"
 	"github.com/greenopsinc/util/team"
-	"greenops.io/workflowtrigger/api/argoauthenticator"
+	"greenops.io/workflowtrigger/api/argo"
 	"greenops.io/workflowtrigger/api/commanddelegator"
 	"greenops.io/workflowtrigger/api/reposerver"
 	"greenops.io/workflowtrigger/schemavalidation"
@@ -38,10 +38,11 @@ const (
 	argoRevisionHashField string = "argoRevisionHash"
 )
 
-var dbClient db.DbClient
+var dbOperator db.DbOperator
 var kafkaClient kafkaclient.KafkaClient
 var kubernetesClient kubernetesclient.KubernetesClient
 var repoManagerApi reposerver.RepoManagerApi
+var argoClusterApi argo.ArgoClusterApi
 var commandDelegatorApi commanddelegator.CommandDelegatorApi
 var schemaValidator schemavalidation.RequestSchemaValidator
 
@@ -50,12 +51,15 @@ func createTeam(w http.ResponseWriter, r *http.Request) {
 	orgName := vars[orgNameField]
 	teamName := vars[teamNameField]
 	parentTeamName := vars[parentTeamNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
 	key := db.MakeDbTeamKey(orgName, teamName)
 	teamSchema := dbClient.FetchTeamSchema(key)
 	if teamSchema.GetOrgName() == "" {
 		newTeam := team.New(teamName, parentTeamName, orgName)
 		dbClient.StoreValue(key, newTeam)
-		addTeamToOrgList(newTeam.GetOrgName(), newTeam.GetTeamName())
+		addTeamToOrgList(newTeam.GetOrgName(), newTeam.GetTeamName(), dbClient)
 		log.Printf("Created new team %s", newTeam.GetTeamName())
 		w.WriteHeader(http.StatusOK)
 		return
@@ -67,6 +71,9 @@ func readTeam(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	teamName := vars[teamNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
 	key := db.MakeDbTeamKey(orgName, teamName)
 	teamSchema := dbClient.FetchTeamSchema(key)
 	if teamSchema.GetOrgName() == "" {
@@ -80,6 +87,9 @@ func readTeam(w http.ResponseWriter, r *http.Request) {
 func listTeams(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
 	key := db.MakeDbListOfTeamsKey(orgName)
 	listOfTeams := dbClient.FetchStringList(key)
 	if listOfTeams == nil {
@@ -93,6 +103,9 @@ func deleteTeam(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	teamName := vars[teamNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
 	key := db.MakeDbTeamKey(orgName, teamName)
 	teamSchema := dbClient.FetchTeamSchema(key)
 	for _, val := range teamSchema.GetPipelineSchemas() {
@@ -102,7 +115,7 @@ func deleteTeam(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	dbClient.StoreValue(key, nil)
-	removeTeamFromOrgList(orgName, teamName)
+	removeTeamFromOrgList(orgName, teamName, dbClient)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -111,6 +124,9 @@ func createPipeline(w http.ResponseWriter, r *http.Request) {
 	orgName := vars[orgNameField]
 	teamName := vars[teamNameField]
 	pipelineName := vars[pipelineNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
 	var gitRepo git.GitRepoSchema
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(r.Body)
@@ -138,7 +154,7 @@ func createPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, gitRepo.GitRepo, reposerver.RootCommit, string(argoauthenticator.CreateAction), string(argoauthenticator.ApplicationResource)) {
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, gitRepo.GitRepo, reposerver.RootCommit, string(argo.CreateAction), string(argo.ApplicationResource)) {
 		repoManagerApi.DeleteRepo(gitRepo)
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
@@ -157,12 +173,15 @@ func getPipelineEndpoint(w http.ResponseWriter, r *http.Request) {
 	orgName := vars[orgNameField]
 	teamName := vars[teamNameField]
 	pipelineName := vars[pipelineNameField]
-	pipelineSchema := getPipeline(orgName, teamName, pipelineName)
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
+	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
 	if pipelineSchema == nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, pipelineSchema.GetGitRepoSchema().GitRepo, reposerver.RootCommit, string(argoauthenticator.GetAction), string(argoauthenticator.ApplicationResource)) {
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, pipelineSchema.GetGitRepoSchema().GitRepo, reposerver.RootCommit, string(argo.GetAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}
@@ -172,7 +191,7 @@ func getPipelineEndpoint(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func getPipeline(orgName string, teamName string, pipelineName string) *pipeline.PipelineSchema {
+func getPipeline(orgName string, teamName string, pipelineName string, dbClient db.DbClient) *pipeline.PipelineSchema {
 	key := db.MakeDbTeamKey(orgName, teamName)
 	teamSchema := dbClient.FetchTeamSchema(key)
 	if teamSchema.GetOrgName() == "" {
@@ -190,6 +209,9 @@ func deletePipeline(w http.ResponseWriter, r *http.Request) {
 	orgName := vars[orgNameField]
 	teamName := vars[teamNameField]
 	pipelineName := vars[pipelineNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
 	key := db.MakeDbTeamKey(orgName, teamName)
 	teamSchema := dbClient.FetchTeamSchema(key)
 	if teamSchema.GetOrgName() == "" {
@@ -200,7 +222,7 @@ func deletePipeline(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, teamSchema.GetPipelineSchema(pipelineName).GetGitRepoSchema().GitRepo, reposerver.RootCommit, string(argoauthenticator.DeleteAction), string(argoauthenticator.ApplicationResource)) {
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, teamSchema.GetPipelineSchema(pipelineName).GetGitRepoSchema().GitRepo, reposerver.RootCommit, string(argo.DeleteAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}
@@ -221,6 +243,9 @@ func deletePipeline(w http.ResponseWriter, r *http.Request) {
 }
 
 func clearPipelineData(orgName string, teamName string, pipelineName string) {
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
 	prefix := fmt.Sprintf("%s-%s-%s", orgName, teamName, pipelineName)
 	dbClient.DeleteByPrefix(prefix)
 }
@@ -230,6 +255,9 @@ func updatePipeline(w http.ResponseWriter, r *http.Request) {
 	orgName := vars[orgNameField]
 	teamName := vars[teamNameField]
 	pipelineName := vars[pipelineNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
 	key := db.MakeDbTeamKey(orgName, teamName)
 
 	var gitRepoUpd git.GitRepoSchema
@@ -250,7 +278,7 @@ func updatePipeline(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, teamSchema.GetPipelineSchema(pipelineName).GetGitRepoSchema().GitRepo, reposerver.RootCommit, string(argoauthenticator.UpdateAction), string(argoauthenticator.ApplicationResource)) {
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, teamSchema.GetPipelineSchema(pipelineName).GetGitRepoSchema().GitRepo, reposerver.RootCommit, string(argo.UpdateAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 	}
 	kubernetesClient.StoreGitCred(gitRepoUpd.GetGitCred(), db.MakeSecretName(orgName, teamName, pipelineName))
@@ -273,6 +301,9 @@ func syncPipeline(w http.ResponseWriter, r *http.Request) {
 	teamName := vars[teamNameField]
 	pipelineName := vars[pipelineNameField]
 	revisionHash := vars[revisionHashField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
 	var gitRepo git.GitRepoSchema
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(r.Body)
@@ -286,13 +317,12 @@ func syncPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: uncomment
-	//if !schemaValidator.ValidateSchemaAccess(orgName, teamName, gitRepo.GitRepo, revisionHash,
-	//	string(argoauthenticator.SyncAction), string(argoauthenticator.ApplicationResource),
-	//	string(argoauthenticator.SyncAction), string(argoauthenticator.ClusterResource)) {
-	//	http.Error(w, "Not enough permissions", http.StatusForbidden)
-	//	return
-	//}
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, gitRepo.GitRepo, revisionHash,
+		string(argo.SyncAction), string(argo.ApplicationResource),
+		string(argo.SyncAction), string(argo.ClusterResource)) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
+	}
 
 	triggerEvent := event.NewPipelineTriggerEvent(orgName, teamName, pipelineName)
 	triggerEvent.(*event.PipelineTriggerEvent).RevisionHash = revisionHash
@@ -322,9 +352,9 @@ func runSubPipeline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, gitRepo.GitRepo, revisionHash,
-		string(argoauthenticator.OverrideAction), string(argoauthenticator.ApplicationResource),
-		string(argoauthenticator.SyncAction), string(argoauthenticator.ApplicationResource),
-		string(argoauthenticator.SyncAction), string(argoauthenticator.ClusterResource)) {
+		string(argo.OverrideAction), string(argo.ApplicationResource),
+		string(argo.SyncAction), string(argo.ApplicationResource),
+		string(argo.SyncAction), string(argo.ClusterResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}
@@ -345,6 +375,9 @@ func forceDeploy(w http.ResponseWriter, r *http.Request) {
 	stepName := vars[stepNameField]
 	pipelineRevisionHash := vars[revisionHashField]
 	argoRevisionHash := vars[argoRevisionHashField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
 	var gitRepo git.GitRepoSchema
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(r.Body)
@@ -359,9 +392,9 @@ func forceDeploy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, gitRepo.GitRepo, pipelineRevisionHash,
-		string(argoauthenticator.OverrideAction), string(argoauthenticator.ApplicationResource),
-		string(argoauthenticator.SyncAction), string(argoauthenticator.ApplicationResource),
-		string(argoauthenticator.SyncAction), string(argoauthenticator.ClusterResource)) {
+		string(argo.OverrideAction), string(argo.ApplicationResource),
+		string(argo.SyncAction), string(argo.ApplicationResource),
+		string(argo.SyncAction), string(argo.ClusterResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}
@@ -404,7 +437,7 @@ func generateEventEndpoint(w http.ResponseWriter, r *http.Request) {
 	//vars := mux.Vars(r)
 	//orgName := vars[orgNameField]
 	//clusterName := vars[clusterNameField]
-	//if !schemaValidator.VerifyRbac(argoauthenticator.UpdateAction, argoauthenticator.ClusterResource, clusterName) {
+	//if !schemaValidator.VerifyRbac(argo.UpdateAction, argo.ClusterResource, clusterName) {
 	//	http.Error(w, "Not enough permissions", http.StatusForbidden)
 	//	return
 	//}
@@ -429,6 +462,9 @@ func generateEvent(event string) {
 func generateNotification(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	requestId := vars["requestId"]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
@@ -441,7 +477,7 @@ func generateNotification(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func removeTeamFromOrgList(orgName string, teamName string) {
+func removeTeamFromOrgList(orgName string, teamName string, dbClient db.DbClient) {
 	key := db.MakeDbListOfTeamsKey(orgName)
 	listOfTeams := dbClient.FetchStringList(key)
 	if listOfTeams == nil {
@@ -455,7 +491,7 @@ func removeTeamFromOrgList(orgName string, teamName string) {
 	dbClient.StoreValue(key, listOfTeams)
 }
 
-func addTeamToOrgList(orgName string, teamName string) {
+func addTeamToOrgList(orgName string, teamName string, dbClient db.DbClient) {
 	key := db.MakeDbListOfTeamsKey(orgName)
 	listOfTeams := dbClient.FetchStringList(key)
 	if listOfTeams == nil {
@@ -470,7 +506,7 @@ func addTeamToOrgList(orgName string, teamName string) {
 	dbClient.StoreValue(key, listOfTeams)
 }
 
-func getNotification(requestId string) clientrequest.Notification {
+func getNotification(requestId string, dbClient db.DbClient) clientrequest.Notification {
 	key := db.MakeDbNotificationKey(requestId)
 	time.Sleep(5 * time.Second)
 	var notification clientrequest.Notification
@@ -505,11 +541,12 @@ func InitPipelineTeamEndpoints(r *mux.Router) {
 	r.HandleFunc("/client/{orgName}/{clusterName}/generateEvent", generateEventEndpoint).Methods("POST")
 }
 
-func InitClients(dbClientCopy db.DbClient, kafkaClientCopy kafkaclient.KafkaClient, kubernetesClientCopy kubernetesclient.KubernetesClient, repoManagerApiCopy reposerver.RepoManagerApi, commandDelegatorApiCopy commanddelegator.CommandDelegatorApi, schemaValidatorCopy schemavalidation.RequestSchemaValidator) {
-	dbClient = dbClientCopy
+func InitClients(dbOperatorCopy db.DbOperator, kafkaClientCopy kafkaclient.KafkaClient, kubernetesClientCopy kubernetesclient.KubernetesClient, repoManagerApiCopy reposerver.RepoManagerApi, argoClusterApiCopy argo.ArgoClusterApi, commandDelegatorApiCopy commanddelegator.CommandDelegatorApi, schemaValidatorCopy schemavalidation.RequestSchemaValidator) {
+	dbOperator = dbOperatorCopy
 	kafkaClient = kafkaClientCopy
 	kubernetesClient = kubernetesClientCopy
 	repoManagerApi = repoManagerApiCopy
+	argoClusterApi = argoClusterApiCopy
 	commandDelegatorApi = commandDelegatorApiCopy
 	schemaValidator = schemaValidatorCopy
 }

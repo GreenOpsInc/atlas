@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"gopkg.in/yaml.v2"
-	"greenops.io/workflowtrigger/api/argoauthenticator"
+	"greenops.io/workflowtrigger/api/argo"
 	"greenops.io/workflowtrigger/api/reposerver"
 )
 
@@ -32,11 +32,11 @@ func (p *PipelineData) initClusterNames() {
 }
 
 type RequestSchemaValidator struct {
-	argoAuthenticatorApi argoauthenticator.ArgoAuthenticatorApi
+	argoAuthenticatorApi argo.ArgoAuthenticatorApi
 	repoManagerApi       reposerver.RepoManagerApi
 }
 
-func New(argoAuthenticatorApi argoauthenticator.ArgoAuthenticatorApi, repoApi reposerver.RepoManagerApi) RequestSchemaValidator {
+func New(argoAuthenticatorApi argo.ArgoAuthenticatorApi, repoApi reposerver.RepoManagerApi) RequestSchemaValidator {
 	return RequestSchemaValidator{
 		argoAuthenticatorApi: argoAuthenticatorApi,
 		repoManagerApi:       repoApi,
@@ -81,13 +81,13 @@ func (r RequestSchemaValidator) ValidateSchemaAccess(orgName string, teamName st
 		for i = 0; i < len(actionResourceEntries); i += 2 {
 			action := actionResourceEntries[i]
 			resource := actionResourceEntries[i+1]
-			if argoauthenticator.RbacResource(resource) == argoauthenticator.ClusterResource {
-				if !r.argoAuthenticatorApi.CheckRbacPermissions(argoauthenticator.RbacAction(action), argoauthenticator.ClusterResource, step.ClusterName) {
+			if argo.RbacResource(resource) == argo.ClusterResource {
+				if !r.VerifyRbac(argo.RbacAction(action), argo.ClusterResource, step.ClusterName) {
 					return false
 				}
-			} else if argoauthenticator.RbacResource(resource) == argoauthenticator.ApplicationResource {
+			} else if argo.RbacResource(resource) == argo.ApplicationResource {
 				applicationSubresource := r.getArgoApplicationProjectAndName(orgName, teamName, gitRepoUrl, gitCommitHash, step.ApplicationPath)
-				if !r.argoAuthenticatorApi.CheckRbacPermissions(argoauthenticator.RbacAction(action), argoauthenticator.ApplicationResource, applicationSubresource) {
+				if !r.VerifyRbac(argo.RbacAction(action), argo.ApplicationResource, applicationSubresource) {
 					return false
 				}
 			}
@@ -96,7 +96,7 @@ func (r RequestSchemaValidator) ValidateSchemaAccess(orgName string, teamName st
 	return true
 }
 
-func (r RequestSchemaValidator) VerifyRbac(action argoauthenticator.RbacAction, resource argoauthenticator.RbacResource, subresource string) bool {
+func (r RequestSchemaValidator) VerifyRbac(action argo.RbacAction, resource argo.RbacResource, subresource string) bool {
 	return r.argoAuthenticatorApi.CheckRbacPermissions(action, resource, subresource)
 }
 

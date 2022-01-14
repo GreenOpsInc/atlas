@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/greenopsinc/util/clientrequest"
+	"github.com/greenopsinc/util/cluster"
 	"github.com/greenopsinc/util/httpclient"
 	"github.com/greenopsinc/util/kubernetesclient"
 	"github.com/greenopsinc/util/tlsmanager"
@@ -64,7 +65,7 @@ func (c EventGenerationImpl) GenerateEvent(eventInfo datamodel.EventInfo) bool {
 	}
 	clusterName := os.Getenv(ingest.EnvClusterName)
 	if clusterName == "" {
-		clusterName = ingest.DefaultClusterName
+		clusterName = cluster.LocalClusterName
 	}
 	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/client/%s/%s/generateEvent", c.workflowTriggerAddress, eventInfo.GetEventOrg(), clusterName), bytes.NewBuffer(data))
 	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
@@ -115,7 +116,7 @@ func (c EventGenerationImpl) GenerateResponseEvent(responseEvent clientrequest.R
 	}
 	clusterName := os.Getenv(ingest.EnvClusterName)
 	if clusterName == "" {
-		clusterName = ingest.DefaultClusterName
+		clusterName = cluster.LocalClusterName
 	}
 	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/client/%s/%s/generateEvent", c.workflowTriggerAddress, responseEvent.GetEventOrg(), clusterName), bytes.NewBuffer(data))
 	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())

@@ -417,35 +417,28 @@ func handleNotificationRequest(requestId string, f func(interface{}) (interface{
 			break
 		}
 	}
-	generationSuccess := false
-	for !generationSuccess {
-		var notification generation.Notification
-		if err != nil {
-			notification.Successful = false
-			notification.Body = err.Error()
-			generationSuccess = eventGenerationApi.GenerateNotification(requestId, notification)
-		} else {
-			notification.Successful = true
-			notification.Body = resp
-			generationSuccess = eventGenerationApi.GenerateNotification(requestId, notification)
-		}
-		if !generationSuccess {
-			log.Printf("Caught error trying to send notification...looping until request can be sent correctly")
-		}
-	}
-	generationSuccess = false
-	for !generationSuccess {
-		retryError := commandDelegatorApi.AckHeadOfNotificationList()
-		if retryError != nil {
-			log.Printf("Caught error trying to send ack notification message: %s...looping until request can be sent correctly", retryError)
-			generationSuccess = false
-			continue
-		}
-		generationSuccess = true
-	}
+	notificationPostProcessing(requestId, resp, err)
 }
 
 func handleRequests() {
+	var command clientrequest.ClientRequestEvent
+	defer func() {
+		if err := recover(); err != nil {
+			var stronglyTypedError error
+			switch err.(type) {
+			case error:
+				stronglyTypedError = err.(error)
+			default:
+				stronglyTypedError = errors.New(err.(string))
+			}
+			log.Printf("Atlas operator exiting with error %s", stronglyTypedError.Error())
+			if notificationRequest, ok := command.(clientrequest.NotificationRequestEvent); ok {
+				notificationPostProcessing(notificationRequest.GetRequestId(), nil, stronglyTypedError)
+			} else {
+				requestPostProcessing(command, stronglyTypedError)
+			}
+		}
+	}()
 	for {
 		var err error
 		commands, err := commandDelegatorApi.GetCommands()
@@ -453,7 +446,7 @@ func handleRequests() {
 			log.Printf("Error getting commands %s", err)
 			continue
 		}
-		for _, command := range *commands {
+		for _, command = range *commands {
 			err = nil
 			log.Printf("Handling event type %s", command.GetEvent())
 			if command.GetEvent() == serializerutil.ClientDeployRequestType {
@@ -493,45 +486,86 @@ func handleRequests() {
 				handleNotificationRequest(request.RequestId, markNoDeploy, request)
 				continue
 			}
-			generationSuccess := false
-			for !generationSuccess {
-				var retryError error
-				if err != nil {
-					atlasError := err.(AtlasError)
-					if atlasError.AtlasErrorType == AtlasRetryableError && !command.GetClientMetadata().FinalTry {
-						log.Printf("Caught retryable error with message %s", atlasError)
-						retryError = commandDelegatorApi.RetryRequest()
-						if retryError != nil {
-							log.Printf("Caught error trying to send request for retry: %s...looping until request can be sent correctly", retryError)
-							generationSuccess = false
-							continue
-						}
-						generationSuccess = true
-						//Retry automatically acks the head of the request list, no need to do it again
-						break
-					} else {
-						log.Printf("Caught non-retryable error with message %s", atlasError)
-						failureEvent := datamodel.MakeFailureEventEvent(command.GetClientMetadata(), clientrequest.DeployResponse{}, "", atlasError.Error())
+			requestPostProcessing(command, err)
+		}
+		duration := 10 * time.Second
+		time.Sleep(duration)
+	}
+}
 
-						generationSuccess = eventGenerationApi.GenerateEvent(failureEvent)
-						if !generationSuccess {
-							log.Printf("Unable to send failure notification...looping until notification can be sent correctly")
-							continue
-						}
-					}
+func notificationPostProcessing(requestId string, resp interface{}, err error) {
+	generationSuccess := false
+	for !generationSuccess {
+		var notification generation.Notification
+		if err != nil {
+			notification.Successful = false
+			notification.Body = err.Error()
+			generationSuccess = eventGenerationApi.GenerateNotification(requestId, notification)
+		} else {
+			notification.Successful = true
+			notification.Body = resp
+			generationSuccess = eventGenerationApi.GenerateNotification(requestId, notification)
+		}
+		if !generationSuccess {
+			log.Printf("Caught error trying to send notification...looping until request can be sent correctly")
+		}
+	}
+	generationSuccess = false
+	for !generationSuccess {
+		retryError := commandDelegatorApi.AckHeadOfNotificationList()
+		if retryError != nil {
+			log.Printf("Caught error trying to send ack notification message: %s...looping until request can be sent correctly", retryError)
+			generationSuccess = false
+			continue
+		}
+		generationSuccess = true
+	}
+}
+
+func requestPostProcessing(command clientrequest.ClientRequestEvent, err error) {
+	generationSuccess := false
+	for !generationSuccess {
+		var retryError error
+		if err != nil {
+			atlasError, ok := err.(AtlasError)
+			//If the error is not an AtlasError, it should be treated as a RetryableError
+			if !ok {
+				atlasError = AtlasError{
+					AtlasErrorType: AtlasRetryableError,
+					Err:            err,
 				}
-				retryError = commandDelegatorApi.AckHeadOfRequestList()
+			}
+
+			if atlasError.AtlasErrorType == AtlasRetryableError && !command.GetClientMetadata().FinalTry {
+				log.Printf("Caught retryable error with message %s", atlasError)
+				retryError = commandDelegatorApi.RetryRequest()
 				if retryError != nil {
-					log.Printf("Caught error trying to send ack request message: %s...looping until request can be sent correctly", retryError)
-					err = nil
+					log.Printf("Caught error trying to send request for retry: %s...looping until request can be sent correctly", retryError)
 					generationSuccess = false
 					continue
 				}
 				generationSuccess = true
+				//Retry automatically acks the head of the request list, no need to do it again
+				break
+			} else {
+				log.Printf("Caught non-retryable error with message %s", atlasError)
+				failureEvent := datamodel.MakeFailureEventEvent(command.GetClientMetadata(), clientrequest.DeployResponse{}, "", atlasError.Error())
+
+				generationSuccess = eventGenerationApi.GenerateEvent(failureEvent)
+				if !generationSuccess {
+					log.Printf("Unable to send failure notification...looping until notification can be sent correctly")
+					continue
+				}
 			}
 		}
-		duration := 10 * time.Second
-		time.Sleep(duration)
+		retryError = commandDelegatorApi.AckHeadOfRequestList()
+		if retryError != nil {
+			log.Printf("Caught error trying to send ack request message: %s...looping until request can be sent correctly", retryError)
+			err = nil
+			generationSuccess = false
+			continue
+		}
+		generationSuccess = true
 	}
 }
 
@@ -563,5 +597,8 @@ func main() {
 	var getRestrictedArgoClient argodriver.ArgoGetRestrictedClient
 	getRestrictedArgoClient = argoDriver
 	go progressionchecker.Start(getRestrictedKubernetesClient, getRestrictedArgoClient, eventGenerationApi, pluginList, channel)
-	handleRequests()
+	for {
+		log.Printf("Atlas operator starting...")
+		handleRequests()
+	}
 }

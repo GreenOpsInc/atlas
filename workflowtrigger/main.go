@@ -11,29 +11,28 @@ import (
 	"github.com/greenopsinc/util/starter"
 	"github.com/greenopsinc/util/tlsmanager"
 	"greenops.io/workflowtrigger/api"
-	"greenops.io/workflowtrigger/api/argoauthenticator"
+	"greenops.io/workflowtrigger/api/argo"
 	"greenops.io/workflowtrigger/api/commanddelegator"
 	"greenops.io/workflowtrigger/api/reposerver"
 	"greenops.io/workflowtrigger/schemavalidation"
 )
 
 func main() {
-	var dbClient db.DbClient
-	var kafkaClient kafkaclient.KafkaClient
+	var dbOperator db.DbOperator
 	var kubernetesClient kubernetesclient.KubernetesClient
+	var kafkaClient kafkaclient.KafkaClient
+	var tlsManager tlsmanager.Manager
 	var repoManagerApi reposerver.RepoManagerApi
 	var commandDelegatorApi commanddelegator.CommandDelegatorApi
-	var argoAuthenticatorApi argoauthenticator.ArgoAuthenticatorApi
+	var argoAuthenticatorApi argo.ArgoAuthenticatorApi
 	var schemaValidator schemavalidation.RequestSchemaValidator
-	var tlsManager tlsmanager.Manager
 	kubernetesClient = kubernetesclient.New()
-	dbClient = db.New(starter.GetDbClientConfig())
 	tlsManager = tlsmanager.New(kubernetesClient)
+	dbOperator = db.New(starter.GetDbClientConfig())
 	kafkaClient, err := kafkaclient.New(starter.GetKafkaClientConfig(), tlsManager)
 	if err != nil {
 		log.Fatal(err)
 	}
-	argoAuthenticatorApi = argoauthenticator.New(tlsManager)
 	repoManagerApi, err = reposerver.New(starter.GetRepoServerClientConfig(), tlsManager)
 	if err != nil {
 		log.Fatal(err)
@@ -42,12 +41,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	argoAuthenticatorApi = argoauthenticator.New(tlsManager)
+	argoAuthenticatorApi = argo.New(tlsManager).GetAuthenticatorApi()
 	schemaValidator = schemavalidation.New(argoAuthenticatorApi, repoManagerApi)
 	r := mux.NewRouter()
-	r.Use(argoAuthenticatorApi.Middleware)
+	r.Use(argoAuthenticatorApi.(*argo.ArgoApiImpl).Middleware)
+	api.InitClients(dbOperator, kafkaClient, kubernetesClient, repoManagerApi, argo.New(tlsManager).GetClusterApi(), commandDelegatorApi, schemaValidator)
+	r.Use(argoAuthenticatorApi.(*argo.ArgoApiImpl).Middleware)
 	log.Println("setup middleware...")
-	api.InitClients(dbClient, kafkaClient, kubernetesClient, repoManagerApi, commandDelegatorApi, schemaValidator)
 	api.InitializeLocalCluster()
 	api.InitPipelineTeamEndpoints(r)
 	api.InitStatusEndpoints(r)

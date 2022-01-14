@@ -19,15 +19,11 @@ import (
 )
 
 const (
-	localCusterName string = "kubernetes_local"
-)
-
-const (
 	orgNameField     string = "orgName"
 	clusterNameField string = "clusterName"
 )
 
-var dbClient db.DbClient
+var dbOperator db.DbOperator
 var emptyClusterStruct = cluster.ClusterSchema{}
 var emptyClientRequestPacketStruct = clientrequest.ClientRequestPacket{}
 
@@ -35,6 +31,9 @@ func getCommands(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
 	clusterKey := db.MakeDbClusterKey(orgName, clusterName)
 	clusterSchema := dbClient.FetchClusterSchemaTransactionless(clusterKey)
 	if clusterSchema == emptyClusterStruct {
@@ -74,6 +73,9 @@ func ackHeadOfRequestList(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
 	clusterKey := db.MakeDbClusterKey(orgName, clusterName)
 	clusterSchema := dbClient.FetchClusterSchemaTransactionless(clusterKey)
 	if clusterSchema == emptyClusterStruct {
@@ -88,6 +90,9 @@ func addNotificationCommand(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
 	clusterKey := db.MakeDbClusterKey(orgName, clusterName)
 	clusterSchema := dbClient.FetchClusterSchemaTransactionless(clusterKey)
 	if clusterSchema == emptyClusterStruct {
@@ -117,6 +122,9 @@ func ackHeadOfNotificationList(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
 	clusterKey := db.MakeDbClusterKey(orgName, clusterName)
 	clusterSchema := dbClient.FetchClusterSchemaTransactionless(clusterKey)
 	if clusterSchema == emptyClusterStruct {
@@ -131,13 +139,16 @@ func retryMessage(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
 	clusterKey := db.MakeDbClusterKey(orgName, clusterName)
 	clusterSchema := dbClient.FetchClusterSchemaTransactionless(clusterKey)
 	if clusterSchema == emptyClusterStruct {
 		http.Error(w, "Cluster was nil", http.StatusBadRequest)
 		return
 	}
-	key := db.MakeClientNotificationQueueKey(orgName, clusterName)
+	key := db.MakeClientRequestQueueKey(orgName, clusterName)
 	clientRequestPacket := dbClient.FetchHeadInClientRequestList(key)
 	if clientRequestPacket != emptyClientRequestPacketStruct {
 		clientRequestPacket.RetryCount = clientRequestPacket.RetryCount + 1
@@ -163,10 +174,9 @@ func InitEndpoints(r *mux.Router) {
 }
 
 func main() {
-	dbClient = db.New(starter.GetDbClientConfig())
+	dbOperator = db.New(starter.GetDbClientConfig())
 	kclient := kubernetesclient.New()
 	tlsManager := tlsmanager.New(kclient)
-
 	r := mux.NewRouter()
 	InitEndpoints(r)
 	httpserver.CreateAndWatchServer(tlsmanager.ClientCommandDelegator, tlsManager, r)

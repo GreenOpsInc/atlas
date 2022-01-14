@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/greenopsinc/util/clientrequest"
+	"github.com/greenopsinc/util/cluster"
 	"github.com/greenopsinc/util/httpclient"
 	"github.com/greenopsinc/util/serializer"
 	"github.com/greenopsinc/util/serializerutil"
@@ -22,7 +23,6 @@ const (
 	EnvCommandDelegatorUrl     string = "COMMAND_DELEGATOR_URL"
 	DefaultCommandDelegatorUrl string = "http://commanddelegator.atlas.svc.cluster.local:8080"
 	EnvClusterName             string = "CLUSTER_NAME"
-	DefaultClusterName         string = "kubernetes_local"
 	EnvOrgName                 string = "ORG_NAME"
 	DefaultOrgName             string = "org" //TODO: Remove this
 )
@@ -56,7 +56,7 @@ func Create(argoClient argodriver.ArgoAuthClient, tm tlsmanager.Manager) (Comman
 	}
 	clusterName := os.Getenv(EnvClusterName)
 	if clusterName == "" {
-		clusterName = DefaultClusterName
+		clusterName = cluster.LocalClusterName
 	}
 	orgName := os.Getenv(EnvOrgName)
 	if orgName == "" {

@@ -5,7 +5,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/greenopsinc/util/auditlog"
 	"github.com/greenopsinc/util/db"
-	"greenops.io/workflowtrigger/api/argoauthenticator"
+	"greenops.io/workflowtrigger/api/argo"
 	"greenops.io/workflowtrigger/api/reposerver"
 	"greenops.io/workflowtrigger/pipelinestatus"
 	"greenops.io/workflowtrigger/serializer"
@@ -26,10 +26,12 @@ func getStepLogs(w http.ResponseWriter, r *http.Request) {
 	teamName := vars[teamNameField]
 	pipelineName := vars[pipelineNameField]
 	stepName := vars[stepNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
 
-	pipelineSchema := getPipeline(orgName, teamName, pipelineName)
+	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
 	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, pipelineSchema.GetGitRepoSchema().GitRepo, reposerver.RootCommit,
-		string(argoauthenticator.GetAction), string(argoauthenticator.ApplicationResource)) {
+		string(argo.GetAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}
@@ -61,10 +63,12 @@ func getPipelineUvns(w http.ResponseWriter, r *http.Request) {
 	orgName := vars[orgNameField]
 	teamName := vars[teamNameField]
 	pipelineName := vars[pipelineNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
 
-	pipelineSchema := getPipeline(orgName, teamName, pipelineName)
+	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
 	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, pipelineSchema.GetGitRepoSchema().GitRepo, reposerver.RootCommit,
-		string(argoauthenticator.GetAction), string(argoauthenticator.ApplicationResource)) {
+		string(argo.GetAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}
@@ -99,10 +103,12 @@ func getPipelineStatus(w http.ResponseWriter, r *http.Request) {
 	teamName := vars[teamNameField]
 	pipelineName := vars[pipelineNameField]
 	pipelineUvn := vars[pipelineUvnField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
 
-	pipelineSchema := getPipeline(orgName, teamName, pipelineName)
+	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
 	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, pipelineSchema.GetGitRepoSchema().GitRepo, reposerver.RootCommit,
-		string(argoauthenticator.GetAction), string(argoauthenticator.ApplicationResource)) {
+		string(argo.GetAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}
@@ -246,11 +252,13 @@ func cancelLatestPipeline(w http.ResponseWriter, r *http.Request) {
 	orgName := vars[orgNameField]
 	teamName := vars[teamNameField]
 	pipelineName := vars[pipelineNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
 
-	pipelineSchema := getPipeline(orgName, teamName, pipelineName)
+	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
 	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, pipelineSchema.GetGitRepoSchema().GitRepo, reposerver.RootCommit,
-		string(argoauthenticator.SyncAction), string(argoauthenticator.ApplicationResource),
-		string(argoauthenticator.SyncAction), string(argoauthenticator.ClusterResource)) {
+		string(argo.SyncAction), string(argo.ApplicationResource),
+		string(argo.SyncAction), string(argo.ClusterResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}
