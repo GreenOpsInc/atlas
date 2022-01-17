@@ -85,6 +85,7 @@ public class KubernetesClientImpl implements KubernetesClient {
                 V1SecretList.class);
         System.out.println("in kclient informer created: " + informer);
 
+        // TODO: check keystore value and restart app only if it's changed
         informer.addEventHandler(
                 new ResourceEventHandler<>() {
                     @Override

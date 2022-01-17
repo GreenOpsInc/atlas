@@ -36,6 +36,8 @@ const (
 	DefaultSSOLocalPort = 8085
 )
 
+// TODO: fix error: FATA[0005] rpc error: code = Unimplemented desc = unknown service session.SessionService
+
 func init() {
 	var globalClientOpts argocdclient.ClientOptions
 	command := NewLoginCommand(&globalClientOpts)

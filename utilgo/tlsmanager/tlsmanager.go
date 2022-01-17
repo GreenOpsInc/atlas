@@ -159,10 +159,11 @@ func (m *tlsManager) GetKafkaTLSConf() (*tls.Config, error) {
 	secret := m.k.FetchSecretData(string(secretName), NamespaceDefault)
 	if secret == nil || len(secret.Data) == 0 {
 		log.Println("in GetClientCertPEM secret is nil or data len == 0")
-		return nil, nil
+		return &tls.Config{InsecureSkipVerify: true}, nil
 	}
 	rootCA := m.BestEffortSystemCertPool()
 	rootCA.AppendCertsFromPEM(secret.Data[TLSSecretKafkaCrtName])
+	m.tlsClientCertPEM[ClientKafka] = secret.Data[TLSSecretKafkaCrtName]
 	log.Printf("in GetKafkaTLSConf appending %v to root ca", secret.Data[TLSSecretKafkaCrtName])
 	return &tls.Config{RootCAs: rootCA}, nil
 }
@@ -242,14 +243,20 @@ func (m *tlsManager) WatchClientTLSPEM(clientName ClientName, namespace string, 
 
 	ctx := context.Background()
 	return m.k.WatchSecretData(ctx, string(secretName), namespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
-		log.Printf("in WatchClientTLSPEM, event %v. data = %s\n", t, secret)
 		switch t {
 		case kclient.SecretChangeTypeAdd:
 			fallthrough
 		case kclient.SecretChangeTypeUpdate:
+			crt := secret.Data[TLSSecretKafkaCrtName]
+			if m.tlsClientCertPEM[clientName] != nil && bytes.Compare(crt, m.tlsClientCertPEM[clientName]) == 0 {
+				return
+			}
+
+			log.Printf("in WatchClientTLSPEM, event %v. data = %s\n", t, secret)
 			m.tlsClientCertPEM[clientName] = secret.Data[TLSSecretCrtName]
 			handler(secret.Data[TLSSecretCrtName], nil)
 		case kclient.SecretChangeTypeDelete:
+			log.Printf("in WatchClientTLSPEM, event %v. data = %s\n", t, secret)
 			delete(m.tlsClientCertPEM, clientName)
 			handler(nil, nil)
 		}
@@ -265,18 +272,26 @@ func (m *tlsManager) WatchKafkaTLSConf(handler func(config *tls.Config, err erro
 
 	ctx := context.Background()
 	return m.k.WatchSecretData(ctx, string(secretName), NamespaceDefault, func(t kclient.SecretChangeType, secret *corev1.Secret) {
-		log.Printf("in WatchClientTLSConf, event %v. data = %s\n", t, secret)
 		switch t {
 		case kclient.SecretChangeTypeAdd:
 			fallthrough
 		case kclient.SecretChangeTypeUpdate:
+			crt := secret.Data[TLSSecretKafkaCrtName]
+			if m.tlsClientCertPEM[ClientKafka] != nil && bytes.Compare(crt, m.tlsClientCertPEM[ClientKafka]) == 0 {
+				return
+			}
+
+			log.Printf("in WatchClientTLSConf, event %v. data = %s\n", t, secret)
 			rootCA := m.BestEffortSystemCertPool()
-			rootCA.AppendCertsFromPEM(secret.Data[TLSSecretKafkaCrtName])
+			rootCA.AppendCertsFromPEM(crt)
 			conf := &tls.Config{RootCAs: rootCA}
 			m.tlsClientConfigs[ClientKafka] = conf
+			m.tlsClientCertPEM[ClientKafka] = crt
 			handler(conf, nil)
 		case kclient.SecretChangeTypeDelete:
+			log.Printf("in WatchClientTLSConf, event %v. data = %s\n", t, secret)
 			delete(m.tlsClientConfigs, ClientKafka)
+			m.tlsClientCertPEM[ClientKafka] = nil
 			handler(nil, nil)
 		}
 	})

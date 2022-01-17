@@ -52,14 +52,16 @@ import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.SeekToCurrentErrorHandler;
 import org.springframework.util.backoff.FixedBackOff;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
 @Configuration
 public class SpringConfiguration {
-
+    
     private boolean kafkaWatcherStarted = false;
 
     @Bean
@@ -129,6 +131,15 @@ public class SpringConfiguration {
 
     @Bean
     DbClient dbClient(@Value("${application.redis-url}") String redisUrl, ObjectMapper objectMapper) {
+//        try {
+////            File keyStoreFile = new File("/tls_cert/kafka.keystore.jks");
+////            byte[] keystoreContents = Files.readAllBytes(keyStoreFile.toPath());
+////            System.out.println("saved keystore file contents = " + new String(keystoreContents));
+//
+//            Thread.sleep(300000);
+//        }catch (Exception e) {
+//            System.out.println(e);
+//        }
         return new RedisDbClient(redisUrl, objectMapper);
     }
 
@@ -187,8 +198,6 @@ public class SpringConfiguration {
             @Value("${application.kafka.producer.bootstrap-servers}") String bootstrapServers,
             @Value("${application.kafka.producer.key-serializer}") String keySerializer,
             @Value("${application.kafka.producer.value-serializer}") String valueSerializer,
-//            @Value("${application.kafka.ssl.keystore.location}") String keystoreLocation,
-//            @Value("${application.kafka.ssl.truestore.location}") String truststoreLocation
             @Value("${application.kafka.ssl.keystore-location}") String keystoreLocation,
             @Value("${application.kafka.ssl.truststore-location}") String truststoreLocation
     ) {
@@ -210,8 +219,6 @@ public class SpringConfiguration {
             @Value("${application.kafka.consumer.bootstrap-servers}") String bootstrapServers,
             @Value("${application.kafka.consumer.key-deserializer}") String keyDeserializer,
             @Value("${application.kafka.consumer.value-deserializer}") String valueDeserializer,
-//            @Value("${application.kafka.ssl.keystore.location}") String keystoreLocation,
-//            @Value("${application.kafka.ssl.truststore.location}") String truststoreLocation
             @Value("${application.kafka.ssl.keystore-location}") String keystoreLocation,
             @Value("${application.kafka.ssl.truststore-location}") String truststoreLocation
     ) {
@@ -248,8 +255,10 @@ public class SpringConfiguration {
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, valueSerializer);
 
         Map<String, Object> sslConfigProps = getKafkaSSLConfigProps(tlsManager,keystoreLocation, truststoreLocation);
-        System.out.println("in getKafkaProducerConfigProps sslConfigProps = " + sslConfigProps);
-        configProps.putAll(sslConfigProps);
+        if (sslConfigProps != null) {
+            System.out.println("in getKafkaProducerConfigProps sslConfigProps = " + sslConfigProps);
+            configProps.putAll(sslConfigProps);
+        }
         return configProps;
     }
 
@@ -263,8 +272,10 @@ public class SpringConfiguration {
         configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, valueDeserializer);
 
         Map<String, Object> sslConfigProps = getKafkaSSLConfigProps(tlsManager,keystoreLocation, truststoreLocation);
-        System.out.println("in getKafkaConsumerConfigProps sslConfigProps = " + sslConfigProps);
-        configProps.putAll(sslConfigProps);
+        if (sslConfigProps != null) {
+            System.out.println("in getKafkaConsumerConfigProps sslConfigProps = " + sslConfigProps);
+            configProps.putAll(sslConfigProps);
+        }
         return configProps;
     }
 

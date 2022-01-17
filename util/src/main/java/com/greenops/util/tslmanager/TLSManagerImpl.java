@@ -8,25 +8,12 @@ import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.common.config.SslConfigs;
 import org.apache.tomcat.util.net.SSLHostConfig;
 import org.apache.tomcat.util.net.SSLHostConfigCertificate;
-import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.Extension;
-import org.bouncycastle.asn1.x509.GeneralName;
-import org.bouncycastle.asn1.x509.GeneralNames;
-import org.bouncycastle.cert.X509CertificateHolder;
-import org.bouncycastle.cert.X509v3CertificateBuilder;
-import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
-import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.operator.ContentSigner;
-import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.*;
@@ -39,7 +26,6 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-
 
 @Slf4j
 @Component
@@ -59,15 +45,6 @@ public class TLSManagerImpl implements TLSManager {
     private static final String KEYSTORE_PASSWORD = "SS28qmtOJH4OFLUP";
     private static final Date NOT_BEFORE = new Date(System.currentTimeMillis() - 86400000L * 365);
     private static final Date NOT_AFTER = new Date(253402300799000L);
-
-    static {
-        if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
-            Security.insertProviderAt(new BouncyCastleProvider(), 1);
-        }
-        if (Security.getProvider(BouncyCastlePQCProvider.PROVIDER_NAME) == null) {
-            Security.insertProviderAt(new BouncyCastlePQCProvider(), 2);
-        }
-    }
 
     private final String serverCertificateAlias;
     private final String serverCertificateName;
@@ -182,9 +159,25 @@ public class TLSManagerImpl implements TLSManager {
     @Override
     public void watchKafkaKeystore(String keystoreLocation, String trueStoreLocation) {
         ClientSecretName secretName = secretNameFromClientName(ClientName.CLIENT_KAFKA);
-        this.kclient.watchSecretData(secretName.toString(), NAMESPACE, data -> {
-            System.out.println("Exiting due to Kafka certificate change.");
-            System.exit(0);
+        this.kclient.watchSecretData(secretName.toString(), NAMESPACE, secret -> {
+            if (secret == null) {
+                System.out.println("Exiting due to Kafka tls certificate change.");
+                System.exit(0);
+            }
+
+            byte[] keystoreContents;
+            File keyStoreFile = new File(keystoreLocation);
+            try {
+                keystoreContents  = Files.readAllBytes(keyStoreFile.toPath());
+            } catch(Exception e) {
+                throw new RuntimeException("cannot read keystore file in the kubernetes secret change handler");
+            }
+            byte[] keystoreData = secret.getData().get(SECRET_KAFKA_KEYSTORE_NAME);
+
+            if (Arrays.equals(keystoreData, keystoreContents)) {
+                System.out.println("Exiting due to Kafka tls certificate change.");
+                System.exit(0);
+            }
         });
     }
 
@@ -254,26 +247,27 @@ public class TLSManagerImpl implements TLSManager {
 
     private X509Certificate createCertificate(KeyPair keyPair) throws Exception {
 
-        // Prepare the information required for generating an X.509 certificate.
-        X500Name owner = new X500Name(CERTIFICATE_DN);
-        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(owner, new BigInteger(64, new SecureRandom()), NOT_BEFORE, NOT_AFTER, owner, keyPair.getPublic());
-
-        // Subject alternative name (part of SNI extension, used for hostname verification)
-        GeneralNames subjectAlternativeName = new GeneralNames(new GeneralName(GeneralName.dNSName, "localhost"));
-        builder.addExtension(Extension.subjectAlternativeName, false, subjectAlternativeName);
-
-        PrivateKey privateKey = keyPair.getPrivate();
-        ContentSigner signer = new JcaContentSignerBuilder("SHA512WithRSAEncryption").build(privateKey);
-        X509CertificateHolder certHolder = builder.build(signer);
-        X509Certificate cert = new JcaX509CertificateConverter().setProvider(new BouncyCastleProvider()).getCertificate(certHolder);
-
-        String pem = convertToPem(cert);
-        System.out.println("PEM CERT: ");
-        System.out.println(pem);
-
-        //check so that cert is valid
-        cert.verify(keyPair.getPublic());
-        return cert;
+//        // Prepare the information required for generating an X.509 certificate.
+//        X500Name owner = new X500Name(CERTIFICATE_DN);
+//        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(owner, new BigInteger(64, new SecureRandom()), NOT_BEFORE, NOT_AFTER, owner, keyPair.getPublic());
+//
+//        // Subject alternative name (part of SNI extension, used for hostname verification)
+//        GeneralNames subjectAlternativeName = new GeneralNames(new GeneralName(GeneralName.dNSName, "localhost"));
+//        builder.addExtension(Extension.subjectAlternativeName, false, subjectAlternativeName);
+//
+//        PrivateKey privateKey = keyPair.getPrivate();
+//        ContentSigner signer = new JcaContentSignerBuilder("SHA512WithRSAEncryption").build(privateKey);
+//        X509CertificateHolder certHolder = builder.build(signer);
+//        X509Certificate cert = new JcaX509CertificateConverter().setProvider(new BouncyCastleProvider()).getCertificate(certHolder);
+//
+//        String pem = convertToPem(cert);
+//        System.out.println("PEM CERT: ");
+//        System.out.println(pem);
+//
+//        //check so that cert is valid
+//        cert.verify(keyPair.getPublic());
+//        return cert;
+        return null;
     }
 
     private void saveCert(X509Certificate cert, PrivateKey key, KeyStore keyStore) throws KeyStoreException, NoSuchAlgorithmException, IOException, CertificateException {

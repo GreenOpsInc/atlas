@@ -25,7 +25,7 @@ Each service will listen for kubernetes secret changes and update their servers 
 
 ### Test certificates
 
-`test_certs` directory contains self signed certificates for each Atlas service.
+`certs` directory contains self signed certificates for each Atlas service.
 
 NOTE: those should be used only for testing purpose!
 
@@ -50,29 +50,29 @@ More info in docs:
 If Kafka is secured with TLS config we should add cert and key value to the `kafka-tls` kubernetes tls secret:
 ```shell
 kubectl create secret generic kafka-tls \
-  --from-file=./test_certs/kafka.keystore.jks \
-  --from-file=./test_certs/kafka.truststore.jks \
-  --from-file=./test_certs/kafka.cert.pem \
-  --from-file=./test_certs/kafka.keystore.credentials \
-  --from-file=./test_certs/kafka.truststore.credentials \
-  --from-file=./test_certs/kafka.key.credentials
+  --from-file=./certs/kafka.keystore.jks \
+  --from-file=./certs/kafka.truststore.jks \
+  --from-file=./certs/kafka.cert.pem \
+  --from-file=./certs/kafka.keystore.credentials \
+  --from-file=./certs/kafka.truststore.credentials \
+  --from-file=./certs/kafka.key.credentials
 ```
 
 #### Generating keystore and truststore
 
 Create a certificate in a new keystore:
 ```shell
-keytool -genkey -alias kafka -keyalg RSA -keypass SS28qmtOJH4OFLUP -keystore kafka.keystore.jks -storepass SS28qmtOJH4OFLUP
+keytool -genkey -alias localhost -keyalg RSA -keypass SS28qmtOJH4OFLUP -keystore kafka.keystore.jks -storepass SS28qmtOJH4OFLUP -ext SAN=DNS:{FQDN}
 ```
 
 Export the certificate to a file:
 ```shell
-keytool -export -alias kafka -file kafka.key.cer -keystore kafka.keystore.jks -storepass SS28qmtOJH4OFLUP
+keytool -export -alias localhost -file kafka.key.cer -keystore kafka.keystore.jks -storepass SS28qmtOJH4OFLUP
 ```
 
 Import the certificate into a new trust store:
 ```shell
-keytool -import -v -trustcacerts -alias kafka -keypass SS28qmtOJH4OFLUP -file kafka.key.cer -keystore kafka.truststore.jks -storepass SS28qmtOJH4OFLUP
+keytool -import -v -trustcacerts -alias localhost -keypass SS28qmtOJH4OFLUP -file kafka.key.cer -keystore kafka.truststore.jks -storepass SS28qmtOJH4OFLUP
 ```
 
 #### Convert keystore into PEM
@@ -97,4 +97,48 @@ To use this file as a kubernetes tls secret we should create two separate files 
 `key_enc.pem` file is encrypted. To create `key.pem` file and use it in kubernetes tls secret run:
 ```shell
 openssl pkey -in kafka.key_enc.pem -out kafka.key.pem
+```
+
+#### Mounting a local directory to minikube
+
+```shell
+minikube mount <path>/certs:/certs
+```
+
+#### Setup Strimzi Kafka TlS
+
+Create a Kafka User with Authentication TLS & Simple Authorization:
+```shell
+kubectl apply -f https://raw.githubusercontent.com/anoopl/strimzi-kafka-operator-authn-authz/master/kafka-user.yaml
+```
+
+Download the Cluster CA Cert and PKCS12 ( .p12) keys of User to use with Kafka Client:
+```shell
+kubectl get secret -n kafka my-cluster-cluster-ca-cert -o jsonpath='{.data.ca\.crt}' | base64 -d > kafla.cert.crt
+kubectl get secret -n kafka my-cluster-cluster-ca-cert -o jsonpath='{.data.ca\.password}' | base64 -d > kafka.keystore.credentials
+kubectl get secret -n kafka my-cluster-cluster-ca-cert -o jsonpath='{.data.ca\.p12}' | base64 -d > kafka.p12
+```
+
+Convert the ca.cert to truststore jks and user.p12 to Keystore.jks:
+```shell
+keytool -keystore kafka.truststore.jks -alias CARoot -import -file kafka.cert.crt
+keytool -importkeystore -srckeystore kafka.p12 -srcstoretype pkcs12 -destkeystore kafka.keystore.jks -deststoretype jks
+```
+
+Create `kafka.cert.pem` file for Go services configuration:
+```shell
+openssl x509 -in kafka.cert.crt -out kafka.cert.pem -outform PEM
+```
+
+Copy contents of `kafka.keystore.credentials` file to the `kafka.key.credentials` and `kafka.truststore.credentials` files.
+
+Create kubernets secret:
+```shell
+kubectl create secret generic kafka-tls \
+  --from-file=./certs/kafka.keystore.jks \
+  --from-file=./certs/kafka.truststore.jks \
+  --from-file=./certs/kafka.cert.pem \
+  --from-file=./certs/kafka.keystore.credentials \
+  --from-file=./certs/kafka.truststore.credentials \
+  --from-file=./certs/kafka.key.credentials
 ```
