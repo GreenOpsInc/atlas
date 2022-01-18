@@ -95,23 +95,16 @@ func (k KubernetesClientDriver) FetchGitCred(name string) git.GitCred {
 }
 
 func (k KubernetesClientDriver) FetchSecretData(name string, namespace string) *v1.Secret {
-	log.Printf("in FetchSecretData, name = %s, namespace = %s\n", name, namespace)
 	secret := k.readSecret(namespace, name)
-	log.Printf("in FetchSecretData, secret = %v\n", secret)
 	if secret != nil {
-		log.Println("in FetchSecretData checked that secret is not nil, secret = ", secret)
-		log.Printf("in FetchSecretData, secret.Data = %v\n", secret.Data)
 		return secret
 	}
 	return nil
 }
 
 func (k KubernetesClientDriver) WatchSecretData(ctx context.Context, name string, namespace string, handler WatchSecretHandler) error {
-	log.Printf("in WatchSecretData, name = %s, namespace = %s\n", name, namespace)
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client, 0, informers.WithNamespace(namespace))
-	log.Printf("in WatchSecretData, factory = %v\n", factory)
 	informer := factory.Core().V1().Secrets().Informer()
-	log.Printf("in WatchSecretData, informer = %v\n", informer)
 
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -128,25 +121,20 @@ func (k KubernetesClientDriver) WatchSecretData(ctx context.Context, name string
 		log.Println("failed to watch secret values: ", err)
 	})
 	if err != nil {
-		log.Printf("in WatchSecretData, informer.SetWatchErrorHandler err = %v\n", err)
 		return err
 	}
-	log.Println("before informer.Run: ", err)
 	go informer.Run(ctx.Done())
-	log.Println("after informer.Run: ", err)
 	return nil
 }
 
 func handleSecretInformerEvent(obj interface{}, name string, t SecretChangeType, handler WatchSecretHandler) {
 	secret, ok := obj.(*corev1.Secret)
 	if !ok {
-		log.Println("failed to parse secret data in secret informer")
 		return
 	}
 	if secret.Name != name {
 		return
 	}
-	log.Printf("in WatchSecretData, informer handler. type = %d secret data = %v\n", t, secret.Data)
 	handler(t, secret)
 }
 
@@ -185,9 +173,7 @@ func (k KubernetesClientDriver) updateSecret(object interface{}, namespace strin
 }
 
 func (k KubernetesClientDriver) readSecret(namespace string, name string) *corev1.Secret {
-	log.Printf("in kclient readSecret ns = %s, name = %s", namespace, name)
 	secret, err := k.client.CoreV1().Secrets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
-	log.Printf("in kclient readSecret received secret = %v", secret)
 	if err != nil {
 		if strings.HasSuffix(err.Error(), "not found") {
 			return nil

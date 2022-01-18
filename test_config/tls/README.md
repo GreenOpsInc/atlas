@@ -29,6 +29,8 @@ Each service will listen for kubernetes secret changes and update their servers 
 
 NOTE: those should be used only for testing purpose!
 
+Those certificates could be applied and removed as kubernetes secrets by `./add_tls.sh` and `./delete_tls.sh` scripts respectively.
+
 ### ArgoCD
 
 ArgoCD TLS should be configured using `argocd-repo-server-tls` secret in the `argocd` namespace.
@@ -105,7 +107,7 @@ openssl pkey -in kafka.key_enc.pem -out kafka.key.pem
 minikube mount <path>/certs:/certs
 ```
 
-#### Setup Strimzi Kafka TlS
+### Strimzi Kafka TlS
 
 Create a Kafka User with Authentication TLS & Simple Authorization:
 ```shell

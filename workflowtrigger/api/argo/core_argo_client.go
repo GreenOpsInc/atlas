@@ -83,13 +83,10 @@ func (a *ArgoApiImpl) initArgoClient() {
 
 func (a *ArgoApiImpl) initArgoTLSCert() (string, error) {
 	certPEM, err := a.tm.GetClientCertPEM(tlsmanager.ClientArgoCDRepoServer)
-	log.Println("found argocd cert PEM: ", certPEM)
 	if err != nil {
-		log.Println("failed to get argocd certificate from secrets: ", err.Error())
 		return "", nil
 	}
 	if certPEM == nil || len(certPEM) == 0 {
-		log.Println("argocd cert pem is not found")
 		return "", nil
 	}
 
@@ -123,11 +120,9 @@ func (a *ArgoApiImpl) getAPIClientOptions(token string) *apiclient.ClientOptions
 		ServerAddr: a.apiServerAddress,
 	}
 	if a.tlsCertPath == "" {
-		log.Println("getAPIClientOptions: tls certificate is not found, setting insecure tls")
 		options.Insecure = true
 		options.PlainText = !a.tlsEnabled
 	} else {
-		log.Println("getAPIClientOptions: tls certificate is found, setting insecure to fase and setting cert path")
 		options.Insecure = false
 		options.PlainText = false
 		options.CertFile = a.tlsCertPath
@@ -140,7 +135,6 @@ func (a *ArgoApiImpl) getAPIClientOptions(token string) *apiclient.ClientOptions
 
 func (a *ArgoApiImpl) watchArgoTLSUpdates() error {
 	err := a.tm.WatchClientTLSPEM(tlsmanager.ClientArgoCDRepoServer, tlsmanager.NamespaceArgoCD, func(certPEM []byte, err error) {
-		log.Printf("in watchArgoTLSUpdates, conf = %v, err = %v\n", certPEM, err)
 		if err != nil {
 			log.Fatalf("an error occurred in the watch %s client: %s", tlsmanager.ClientArgoCDRepoServer, err.Error())
 		}

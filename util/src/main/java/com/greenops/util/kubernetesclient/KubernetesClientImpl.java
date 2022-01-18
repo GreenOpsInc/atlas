@@ -65,16 +65,12 @@ public class KubernetesClientImpl implements KubernetesClient {
     @Override
     public void watchSecretData(String name, String namespace, WatchSecretHandler handler) {
         String fieldSelector = "metadata.name=" + name;
-        System.out.println("in kclient watchSecretData, name = " + name + " namespace = " + namespace);
         SharedInformerFactory factory = new SharedInformerFactory();
-        System.out.println("in kclient factory created: " + factory);
         CoreV1Api coreV1Api = new CoreV1Api();
-        System.out.println("in kclient coreV1Api created: " + coreV1Api);
-        
+
         SharedIndexInformer<V1Secret> informer = factory.sharedIndexInformerFor(
                 (CallGeneratorParams params) -> {
                     try {
-                        // TODO: try to filter by name field selector
                         return coreV1Api.listNamespacedSecretCall(namespace, null, null, null, fieldSelector, null, null, params.resourceVersion, 30, params.watch, null, null);
                     } catch (ApiException e) {
                         e.printStackTrace();
@@ -83,33 +79,26 @@ public class KubernetesClientImpl implements KubernetesClient {
                 },
                 V1Secret.class,
                 V1SecretList.class);
-        System.out.println("in kclient informer created: " + informer);
 
-        // TODO: check keystore value and restart app only if it's changed
         informer.addEventHandler(
                 new ResourceEventHandler<>() {
                     @Override
                     public void onAdd(V1Secret secret) {
-                        System.out.println("handled secret watcher onAdd handler: secret = " + secret.getMetadata().getName());
-//                        handler.handle(secret);
+                        handler.handle(secret);
                     }
 
                     @Override
                     public void onUpdate(V1Secret oldSecret, V1Secret newSecret) {
-                        System.out.println("handled secret watcher onUpdate handler: secret = " + newSecret.getMetadata().getName());
-//                        handler.handle(newSecret);
+                        handler.handle(newSecret);
                     }
 
                     @Override
                     public void onDelete(V1Secret secret, boolean deletedFinalStateUnknown) {
-                        System.out.println("handled secret watcher onDelete handler: secret = " + secret.getMetadata().getName());
-//                        handler.handle(null);
+                        handler.handle(null);
                     }
                 });
-        System.out.println("in kclient informer added event listener: " + informer);
 
         factory.startAllRegisteredInformers();
-        System.out.println("in kclient startAllRegisteredInformers called");
     }
 
     public boolean storeSecret(Object object, String namespace, String name) {

@@ -10,7 +10,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
-	"log"
 	"math/big"
 	"net"
 	"time"
@@ -96,10 +95,8 @@ func New(k kclient.KubernetesClient) Manager {
 func (m *tlsManager) BestEffortSystemCertPool() *x509.CertPool {
 	rootCAs, _ := x509.SystemCertPool()
 	if rootCAs == nil {
-		log.Println("root ca not found, returning new...")
 		return x509.NewCertPool()
 	}
-	log.Println("root ca found")
 	return rootCAs
 }
 
@@ -113,21 +110,16 @@ func (m *tlsManager) GetServerTLSConf(serverName ClientName) (*tls.Config, error
 }
 
 func (m *tlsManager) GetClientTLSConf(clientName ClientName) (*tls.Config, error) {
-	log.Println("in GetClientTLSConf ", clientName)
 	conf, err := m.getTLSClientConf(clientName)
-	log.Printf("received client conf of client %s. err = %s", clientName, err)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("assigninng client conf to map, map = %v", m.tlsClientConfigs)
 	m.tlsClientConfigs[clientName] = conf
 	return conf, nil
 }
 
 func (m *tlsManager) GetClientCertPEM(clientName ClientName) ([]byte, error) {
-	log.Println("in GetClientCertPEM")
 	if m.tlsClientCertPEM[clientName] != nil {
-		log.Printf("in GetClientCertPEM %s client cer pem found in m.tlsClientCertPEM[clientName] map: %s", clientName, m.tlsClientCertPEM[clientName])
 		return m.tlsClientCertPEM[clientName], nil
 	}
 
@@ -138,16 +130,13 @@ func (m *tlsManager) GetClientCertPEM(clientName ClientName) ([]byte, error) {
 
 	secret := m.k.FetchSecretData(string(secretName), NamespaceDefault)
 	if secret == nil || len(secret.Data) == 0 {
-		log.Println("in GetClientCertPEM secret is nil or data len == 0")
 		return nil, nil
 	}
 	return secret.Data[TLSSecretCrtName], nil
 }
 
 func (m *tlsManager) GetKafkaTLSConf() (*tls.Config, error) {
-	log.Println("in GetKafkaCertPEM")
 	if m.tlsClientConfigs[ClientKafka] != nil {
-		log.Printf("in GetKafkaCertPEM %s client cer pem found in m.tlsClientConfigs[clientName] map: %s", ClientKafka, m.tlsClientConfigs[ClientKafka])
 		return m.tlsClientConfigs[ClientKafka], nil
 	}
 
@@ -158,18 +147,15 @@ func (m *tlsManager) GetKafkaTLSConf() (*tls.Config, error) {
 
 	secret := m.k.FetchSecretData(string(secretName), NamespaceDefault)
 	if secret == nil || len(secret.Data) == 0 {
-		log.Println("in GetClientCertPEM secret is nil or data len == 0")
 		return &tls.Config{InsecureSkipVerify: true}, nil
 	}
 	rootCA := m.BestEffortSystemCertPool()
 	rootCA.AppendCertsFromPEM(secret.Data[TLSSecretKafkaCrtName])
 	m.tlsClientCertPEM[ClientKafka] = secret.Data[TLSSecretKafkaCrtName]
-	log.Printf("in GetKafkaTLSConf appending %v to root ca", secret.Data[TLSSecretKafkaCrtName])
 	return &tls.Config{RootCAs: rootCA}, nil
 }
 
 func (m *tlsManager) WatchServerTLSConf(serverName ClientName, handler func(conf *tls.Config, err error)) error {
-	log.Println("in WatchServerTLSConf")
 	secretName, err := clientNameToSecretName(serverName)
 	if err != nil {
 		return err
@@ -177,7 +163,6 @@ func (m *tlsManager) WatchServerTLSConf(serverName ClientName, handler func(conf
 
 	ctx := context.Background()
 	return m.k.WatchSecretData(ctx, string(secretName), NamespaceDefault, func(t kclient.SecretChangeType, secret *corev1.Secret) {
-		log.Printf("in WatchServerTLSConf, event %v. data = %s\n", t, secret)
 		var (
 			config   *tls.Config
 			err      error
@@ -188,9 +173,7 @@ func (m *tlsManager) WatchServerTLSConf(serverName ClientName, handler func(conf
 		case kclient.SecretChangeTypeAdd:
 			fallthrough
 		case kclient.SecretChangeTypeUpdate:
-			log.Printf("in WatchServerTLSConf, secret data = %v\n", secret.Data)
 			config, err = m.generateTLSConfFromKeyPair(secret.Data[TLSSecretCrtName], secret.Data[TLSSecretKeyName])
-			log.Printf("in WatchServerTLSConf, tlsConf = %v\n", config)
 			insecure = false
 		case kclient.SecretChangeTypeDelete:
 			config, err = m.getSelfSignedTLSConf(serverName)
@@ -209,7 +192,6 @@ func (m *tlsManager) WatchServerTLSConf(serverName ClientName, handler func(conf
 }
 
 func (m *tlsManager) WatchClientTLSConf(clientName ClientName, handler func(conf *tls.Config, err error)) error {
-	log.Println("in WatchClientTLSConf")
 	secretName, err := clientNameToSecretName(clientName)
 	if err != nil {
 		return err
@@ -217,7 +199,6 @@ func (m *tlsManager) WatchClientTLSConf(clientName ClientName, handler func(conf
 
 	ctx := context.Background()
 	return m.k.WatchSecretData(ctx, string(secretName), NamespaceDefault, func(t kclient.SecretChangeType, secret *corev1.Secret) {
-		log.Printf("in WatchClientTLSConf, event %v. data = %s\n", t, secret)
 		switch t {
 		case kclient.SecretChangeTypeAdd:
 			fallthrough
@@ -235,7 +216,6 @@ func (m *tlsManager) WatchClientTLSConf(clientName ClientName, handler func(conf
 }
 
 func (m *tlsManager) WatchClientTLSPEM(clientName ClientName, namespace string, handler func(certPEM []byte, err error)) error {
-	log.Println("in WatchClientTLSPEM")
 	secretName, err := clientNameToSecretName(clientName)
 	if err != nil {
 		return err
@@ -252,11 +232,9 @@ func (m *tlsManager) WatchClientTLSPEM(clientName ClientName, namespace string, 
 				return
 			}
 
-			log.Printf("in WatchClientTLSPEM, event %v. data = %s\n", t, secret)
 			m.tlsClientCertPEM[clientName] = secret.Data[TLSSecretCrtName]
 			handler(secret.Data[TLSSecretCrtName], nil)
 		case kclient.SecretChangeTypeDelete:
-			log.Printf("in WatchClientTLSPEM, event %v. data = %s\n", t, secret)
 			delete(m.tlsClientCertPEM, clientName)
 			handler(nil, nil)
 		}
@@ -264,7 +242,6 @@ func (m *tlsManager) WatchClientTLSPEM(clientName ClientName, namespace string, 
 }
 
 func (m *tlsManager) WatchKafkaTLSConf(handler func(config *tls.Config, err error)) error {
-	log.Println("in WatchClientTLSConf")
 	secretName, err := clientNameToSecretName(ClientKafka)
 	if err != nil {
 		return err
@@ -281,7 +258,6 @@ func (m *tlsManager) WatchKafkaTLSConf(handler func(config *tls.Config, err erro
 				return
 			}
 
-			log.Printf("in WatchClientTLSConf, event %v. data = %s\n", t, secret)
 			rootCA := m.BestEffortSystemCertPool()
 			rootCA.AppendCertsFromPEM(crt)
 			conf := &tls.Config{RootCAs: rootCA}
@@ -289,7 +265,6 @@ func (m *tlsManager) WatchKafkaTLSConf(handler func(config *tls.Config, err erro
 			m.tlsClientCertPEM[ClientKafka] = crt
 			handler(conf, nil)
 		case kclient.SecretChangeTypeDelete:
-			log.Printf("in WatchClientTLSConf, event %v. data = %s\n", t, secret)
 			delete(m.tlsClientConfigs, ClientKafka)
 			m.tlsClientCertPEM[ClientKafka] = nil
 			handler(nil, nil)
@@ -298,23 +273,19 @@ func (m *tlsManager) WatchKafkaTLSConf(handler func(config *tls.Config, err erro
 }
 
 func (m *tlsManager) getTLSConf(serverName ClientName) (*tls.Config, error) {
-	log.Println("in GetServerTLSConf")
 	if m.tlsConf != nil {
 		return m.tlsConf, nil
 	}
 
 	conf, err := m.getTLSConfFromSecrets(serverName)
-	log.Printf("in GetServerTLSConf, tlsConf = %v\n", conf)
 	if err != nil {
 		return nil, err
 	}
 	if conf != nil {
-		log.Println("CERT FOUND IN SECRETS")
 		conf.InsecureSkipVerify = false
 		return conf, nil
 	}
 
-	log.Println("in GetServerTLSConf, before getSelfSignedTLSConf")
 	conf, err = m.getSelfSignedTLSConf(serverName)
 	if err != nil {
 		return nil, err
@@ -325,34 +296,26 @@ func (m *tlsManager) getTLSConf(serverName ClientName) (*tls.Config, error) {
 }
 
 func (m *tlsManager) getTLSClientConf(clientName ClientName) (*tls.Config, error) {
-	log.Println("in getTLSClientConf")
 	if m.tlsClientConfigs[clientName] != nil {
 		return m.tlsClientConfigs[clientName], nil
 	}
 
 	secretName, err := clientNameToSecretName(clientName)
-	log.Printf("in getTLSClientConf secretName = %s", secretName)
 	if err != nil {
 		return nil, err
 	}
 
 	secret := m.k.FetchSecretData(string(secretName), NamespaceDefault)
-	log.Printf("in getTLSClientConf secret = %s", secret)
 	if secret == nil || len(secret.Data) == 0 {
-		log.Printf("in getTLSClientConf for %s secret is nil, setting insecure to true", string(clientName))
 		return &tls.Config{InsecureSkipVerify: true}, nil
 	}
-	log.Printf("in getTLSClientConf for %s secret is not nil, setting insecure to false", string(clientName))
 
-	log.Println("in getTLSClientConf before getting root ca")
 	rootCA := m.BestEffortSystemCertPool()
 	rootCA.AppendCertsFromPEM(secret.Data[TLSSecretCrtName])
-	log.Printf("in getTLSClientConf appending %v to root ca", secret.Data[TLSSecretCrtName])
 	return &tls.Config{RootCAs: rootCA}, nil
 }
 
 func (m *tlsManager) getSelfSignedTLSConf(serverName ClientName) (*tls.Config, error) {
-	log.Println("in getSelfSignedTLSConf")
 	if m.selfSignedConf != nil {
 		return m.selfSignedConf, nil
 	}
@@ -361,28 +324,20 @@ func (m *tlsManager) getSelfSignedTLSConf(serverName ClientName) (*tls.Config, e
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("in getSelfSignedTLSConf, tlsConf = %v\n", conf)
 
 	m.selfSignedConf = conf
 	return conf, nil
 }
 
 func (m *tlsManager) getTLSConfFromSecrets(serverName ClientName) (*tls.Config, error) {
-	log.Println("in getTLSConfFromSecrets")
 	secretName, err := clientNameToSecretName(serverName)
-	log.Printf("in getTLSConfFromSecrets secretName = %s", secretName)
 	if err != nil {
 		return nil, err
 	}
 	secret := m.k.FetchSecretData(string(secretName), NamespaceDefault)
-	log.Printf("in getTLSConfFromSecrets secret = %s", secret)
-	log.Println("in getTLSConfFromSecrets, secret: ", secret)
 	if secret == nil || len(secret.Data) == 0 {
 		return nil, nil
 	}
-
-	log.Printf("in getTLSConfFromSecrets received secret, data = %v", secret.Data)
-	log.Printf("in getTLSConfFromSecrets received secret, cert = %s, key = %s", secret.Data[TLSSecretCrtName], secret.Data[TLSSecretKeyName])
 
 	conf, err := m.generateTLSConfFromKeyPair(secret.Data[TLSSecretCrtName], secret.Data[TLSSecretKeyName])
 	if err != nil {
@@ -392,18 +347,12 @@ func (m *tlsManager) getTLSConfFromSecrets(serverName ClientName) (*tls.Config, 
 }
 
 func (m *tlsManager) generateTLSConfFromKeyPair(certPEM []byte, keyPEM []byte) (*tls.Config, error) {
-	log.Printf("in generateTLSConfFromKeyPair cert = %s, key = %s\n", string(certPEM), string(keyPEM))
 	c, err := tls.X509KeyPair(certPEM, keyPEM)
-	log.Printf("in generateTLSConfFromKeyPair c = %v\n", c)
 	if err != nil {
-		log.Println("error in generateTLSConfFromKeyPair: ", err.Error())
 		return nil, err
 	}
-	log.Println("in generateTLSConfFromKeyPair getting pool")
 	rootCAs := m.BestEffortSystemCertPool()
-	log.Println("in generateTLSConfFromKeyPair appending cert to pool")
 	rootCAs.AppendCertsFromPEM(certPEM)
-	log.Println("in generateTLSConfFromKeyPair returning tls conf")
 	return &tls.Config{
 		Certificates:             []tls.Certificate{c},
 		MinVersion:               tls.VersionTLS13,
@@ -475,10 +424,6 @@ func (m *tlsManager) generateSelfSignedTLSConf(serverName ClientName) (*tls.Conf
 		return nil, err
 	}
 
-	log.Println("cert = ", certPEM)
-	log.Println("key = ", certPrivateKeyPEM)
-
-	log.Printf("in generateSelfSignedTLSConf, serverCert = %v\n", serverCert)
 	return &tls.Config{
 		Certificates:             []tls.Certificate{serverCert},
 		MinVersion:               tls.VersionTLS13,

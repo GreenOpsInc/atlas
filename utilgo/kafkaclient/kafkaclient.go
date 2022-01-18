@@ -15,9 +15,9 @@ type KafkaClient interface {
 }
 
 type kafkaClient struct {
-	address     string
-	kafkaWriter *kafka.Writer
-	tm          tlsmanager.Manager
+	address string
+	tlsConf *tls.Config
+	tm      tlsmanager.Manager
 }
 
 const (
@@ -26,16 +26,18 @@ const (
 
 func New(address string, tm tlsmanager.Manager) (KafkaClient, error) {
 	k := &kafkaClient{address: address, tm: tm}
-	writer, err := k.initWriter()
-	if err != nil {
+	if err := k.initWriter(); err != nil {
 		return nil, err
 	}
-	k.kafkaWriter = writer
 	return k, nil
 }
 
 func (k *kafkaClient) SendMessage(data string) error {
-	err := k.kafkaWriter.WriteMessages(context.Background(),
+	writer, err := k.configureWriter(k.tlsConf)
+	if err != nil {
+		return err
+	}
+	err = writer.WriteMessages(context.Background(),
 		kafka.Message{
 			Value: []byte(data),
 		},
@@ -44,23 +46,20 @@ func (k *kafkaClient) SendMessage(data string) error {
 		log.Printf("Failed to write messages: %s", err)
 		return err
 	}
-	return k.kafkaWriter.Close()
+	return writer.Close()
 }
 
-func (k *kafkaClient) initWriter() (*kafka.Writer, error) {
-	log.Println("in kafka initWriter")
+func (k *kafkaClient) initWriter() error {
 	tlsConf, err := k.tm.GetKafkaTLSConf()
-	log.Println("received kafka tls conf ", tlsConf)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return k.configureWriter(tlsConf)
+	k.tlsConf = tlsConf
+	return nil
 }
 
 func (k *kafkaClient) configureWriter(tlsConf *tls.Config) (*kafka.Writer, error) {
-	log.Println("in configureWriter tlsConf = ", tlsConf)
 	if tlsConf == nil || tlsConf.InsecureSkipVerify {
-		log.Println("kafka tls config is not contains certificates, returning non-secured kafka writer")
 		return &kafka.Writer{
 			Addr:     kafka.TCP(k.address),
 			Topic:    kafkaTopic,
@@ -68,7 +67,6 @@ func (k *kafkaClient) configureWriter(tlsConf *tls.Config) (*kafka.Writer, error
 		}, nil
 	}
 	if err := k.watchWriter(); err != nil {
-		log.Println("started kafka watcher err = ", err)
 		return nil, err
 	}
 	return &kafka.Writer{
@@ -83,11 +81,10 @@ func (k *kafkaClient) configureWriter(tlsConf *tls.Config) (*kafka.Writer, error
 
 func (k *kafkaClient) watchWriter() error {
 	err := k.tm.WatchKafkaTLSConf(func(conf *tls.Config, err error) {
-		log.Printf("in watchClient, conf = %v, err = %v\n", conf, err)
 		if err != nil {
 			log.Fatalf("an error occurred in the watch %s client: %s", tlsmanager.ClientKafka, err.Error())
 		}
-		k.kafkaWriter, err = k.configureWriter(conf)
+		k.tlsConf = conf
 		if err != nil {
 			log.Fatal("cannot apply new kafka tls configuration, exiting: ", err.Error())
 		}

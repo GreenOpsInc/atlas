@@ -278,10 +278,10 @@ spec:
     spec:
       containers:
         - env:
-            #            - name: KAFKA_BOOTSTRAP_SERVERS # docker-compose
-            #              value: LOCALHOSTDYNAMICADDRESS:29092
-            - name: KAFKA_BOOTSTRAP_SERVERS # strimzi
-              value: my-cluster-kafka-0.my-cluster-kafka-brokers.kafka.svc.cluster.local:9093
+            - name: KAFKA_BOOTSTRAP_SERVERS # docker-compose
+              value: LOCALHOSTDYNAMICADDRESS:29092
+#            - name: KAFKA_BOOTSTRAP_SERVERS # strimzi
+#              value: atlas-kafka-0.atlas-kafka-brokers.kafka.svc.cluster.local:9092
             - name: ATLAS_DB_ADDRESS
               value: redisserver.default.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
@@ -388,10 +388,10 @@ spec:
         - env:
             - name: CLIENT_WRAPPER_ENDPOINT
               value: https://atlasclientwrapper.default.svc.cluster.local:9091
-#            - name: KAFKA_BOOTSTRAP_SERVERS # docker-compose
-#              value: LOCALHOSTDYNAMICADDRESS:29092
-            - name: KAFKA_BOOTSTRAP_SERVERS # strimzi
-              value: my-cluster-kafka-0.my-cluster-kafka-brokers.kafka.svc.cluster.local:9093
+            - name: KAFKA_BOOTSTRAP_SERVERS # docker-compose
+              value: LOCALHOSTDYNAMICADDRESS:29092
+#            - name: KAFKA_BOOTSTRAP_SERVERS # strimzi
+#              value: atlas-kafka-0.atlas-kafka-brokers.kafka.svc.cluster.local:9092
             - name: REDIS_ENDPOINT
               value: redisserver.default.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT

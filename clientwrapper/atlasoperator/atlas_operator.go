@@ -598,7 +598,6 @@ func main() {
 	getRestrictedArgoClient = argoDriver
 	go progressionchecker.Start(getRestrictedKubernetesClient, getRestrictedArgoClient, eventGenerationApi, pluginList, channel)
 	for {
-		log.Printf("Atlas operator starting...")
 		handleRequests()
 	}
 }

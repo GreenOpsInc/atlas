@@ -20,7 +20,6 @@ type client struct {
 }
 
 func New(clientName tlsmanager.ClientName, tm tlsmanager.Manager) (HttpClient, error) {
-	log.Printf("creating new client for %s", string(clientName))
 	c := &client{clientName: clientName, tm: tm}
 	httpClient, err := c.initHttpClient()
 	if err != nil {
@@ -48,7 +47,6 @@ func (c *client) initHttpClient() (*http.Client, error) {
 }
 
 func (c *client) configureClient(tlsConf *tls.Config) *http.Client {
-	log.Printf("configuring http client <%s>, tls insecure skip = %v", c.clientName, tlsConf.InsecureSkipVerify)
 	return &http.Client{
 		Timeout: time.Second * 10,
 		Transport: &http.Transport{
@@ -59,7 +57,6 @@ func (c *client) configureClient(tlsConf *tls.Config) *http.Client {
 
 func (c *client) watchClient() error {
 	err := c.tm.WatchClientTLSConf(c.clientName, func(conf *tls.Config, err error) {
-		log.Printf("in watchClient, conf = %v, err = %v\n", conf, err)
 		if err != nil {
 			log.Fatalf("an error occurred in the watch %s client: %s", c.clientName, err.Error())
 		}

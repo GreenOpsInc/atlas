@@ -131,15 +131,6 @@ public class SpringConfiguration {
 
     @Bean
     DbClient dbClient(@Value("${application.redis-url}") String redisUrl, ObjectMapper objectMapper) {
-//        try {
-////            File keyStoreFile = new File("/tls_cert/kafka.keystore.jks");
-////            byte[] keystoreContents = Files.readAllBytes(keyStoreFile.toPath());
-////            System.out.println("saved keystore file contents = " + new String(keystoreContents));
-//
-//            Thread.sleep(300000);
-//        }catch (Exception e) {
-//            System.out.println(e);
-//        }
         return new RedisDbClient(redisUrl, objectMapper);
     }
 
@@ -148,9 +139,7 @@ public class SpringConfiguration {
         KubernetesClient kclient;
         try {
             kclient = new KubernetesClientImpl(objectMapper);
-            System.out.println("in getHttpConnector created k client");
         } catch (IOException exc) {
-            System.out.println("in getHttpConnector k client creation exception");
             throw new RuntimeException("Could not initialize Kubernetes Client", exc);
         }
         return kclient;
@@ -158,7 +147,7 @@ public class SpringConfiguration {
 
     @Bean
     TLSManager tlsManager(KubernetesClient kclient) {
-        return new TLSManagerImpl(kclient, "pipelinereposerver_tls_cert", "keystore.pipelinereposerver_tls_cert");
+        return new TLSManagerImpl(kclient);
     }
 
     @Bean
@@ -201,11 +190,6 @@ public class SpringConfiguration {
             @Value("${application.kafka.ssl.keystore-location}") String keystoreLocation,
             @Value("${application.kafka.ssl.truststore-location}") String truststoreLocation
     ) {
-        System.out.println("in kafkaTemplate Bean bootstrapServers = " + bootstrapServers
-                + " keySerializer" + keySerializer
-                + " valueSerializer" + valueSerializer
-                + " keystoreLocation" + keystoreLocation
-                + " truststoreLocation" + truststoreLocation);
         ProducerFactory<String, String> factory = producerFactory(tlsManager,bootstrapServers, keySerializer, valueSerializer, keystoreLocation, truststoreLocation);
         return new KafkaTemplate<>(factory);
     }
@@ -222,14 +206,6 @@ public class SpringConfiguration {
             @Value("${application.kafka.ssl.keystore-location}") String keystoreLocation,
             @Value("${application.kafka.ssl.truststore-location}") String truststoreLocation
     ) {
-        System.out.println("in kafkaListenerContainerFactory Bean groupId = " + groupId
-                + " autoOffsetReset" + autoOffsetReset
-                + " enableAutoCommit" + enableAutoCommit
-                + " bootstrapServers" + bootstrapServers
-                + " keyDeserializer" + keyDeserializer
-                + " valueDeserializer" + valueDeserializer
-                + " keystoreLocation" + keystoreLocation
-                + " truststoreLocation" + truststoreLocation);
         ConcurrentKafkaListenerContainerFactory<String, String> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         ConsumerFactory<String, String> consumerFactory = consumerFactory(tlsManager,groupId, autoOffsetReset, enableAutoCommit, bootstrapServers, keyDeserializer, valueDeserializer, keystoreLocation, truststoreLocation);
@@ -256,7 +232,6 @@ public class SpringConfiguration {
 
         Map<String, Object> sslConfigProps = getKafkaSSLConfigProps(tlsManager,keystoreLocation, truststoreLocation);
         if (sslConfigProps != null) {
-            System.out.println("in getKafkaProducerConfigProps sslConfigProps = " + sslConfigProps);
             configProps.putAll(sslConfigProps);
         }
         return configProps;
@@ -273,7 +248,6 @@ public class SpringConfiguration {
 
         Map<String, Object> sslConfigProps = getKafkaSSLConfigProps(tlsManager,keystoreLocation, truststoreLocation);
         if (sslConfigProps != null) {
-            System.out.println("in getKafkaConsumerConfigProps sslConfigProps = " + sslConfigProps);
             configProps.putAll(sslConfigProps);
         }
         return configProps;

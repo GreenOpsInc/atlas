@@ -126,9 +126,7 @@ func getHttpClient() *http.Client {
 func bestEffortSystemCertPool() *x509.CertPool {
 	rootCAs, _ := x509.SystemCertPool()
 	if rootCAs == nil {
-		log.Println("root ca not found, returning new...")
 		return x509.NewCertPool()
 	}
-	log.Println("root ca found")
 	return rootCAs
 }

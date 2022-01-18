@@ -53,6 +53,5 @@ func main() {
 	api.InitStatusEndpoints(r)
 	api.InitClusterEndpoints(r)
 
-	log.Println("before create and watch server...")
 	httpserver.CreateAndWatchServer(tlsmanager.ClientWorkflowTrigger, tlsManager, r)
 }
