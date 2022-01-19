@@ -22,7 +22,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.io.IOException;
-import java.security.SecureRandom;
 
 @Configuration
 public class SpringConfiguration {
@@ -36,11 +35,6 @@ public class SpringConfiguration {
                 .addMixIn(GitCredMachineUser.class, GitCredMachineUserMixin.class)
                 .addMixIn(GitCredToken.class, GitCredTokenMixin.class)
                 .addMixIn(GetFileRequest.class, GetFileRequestMixin.class);
-    }
-
-    @Bean
-    SecureRandom secureRandom() {
-        return new SecureRandom();
     }
 
     @Bean

@@ -61,7 +61,7 @@ will be updated for future commands after executing this command.`,
 
 		yamlFile, err := ioutil.ReadFile(confFilePath)
 		if err != nil {
-			fmt.Println("Unable to update atlas config.")
+			fmt.Println("Unable to read atlas config.")
 			return
 		}
 

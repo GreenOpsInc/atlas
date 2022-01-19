@@ -37,10 +37,8 @@ import com.greenops.workfloworchestrator.datamodel.pipelinedata.*;
 import com.greenops.workfloworchestrator.datamodel.requests.*;
 import com.greenops.workfloworchestrator.ingest.kafka.KafkaClient;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.config.SslConfigs;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -52,17 +50,13 @@ import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.SeekToCurrentErrorHandler;
 import org.springframework.util.backoff.FixedBackOff;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
 @Configuration
 public class SpringConfiguration {
-    
-    private boolean kafkaWatcherStarted = false;
 
     @Bean
     @Qualifier("yamlObjectMapper")
@@ -255,12 +249,7 @@ public class SpringConfiguration {
 
     private Map<String, Object> getKafkaSSLConfigProps(TLSManager tlsManager,String keystoreLocation, String truststoreLocation) {
         try {
-            Map<String, Object> configProps = tlsManager.getKafkaSSLConfProps(keystoreLocation, truststoreLocation);
-            if (configProps != null && configProps.containsKey(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG) && !kafkaWatcherStarted) {
-                kafkaWatcherStarted = true;
-                tlsManager.watchKafkaKeystore(keystoreLocation, truststoreLocation);
-            }
-            return configProps;
+            return tlsManager.getKafkaSSLConfProps(keystoreLocation, truststoreLocation);
         } catch (Exception exc) {
             throw new RuntimeException("Could not configure Kafka with TLS configuration", exc);
         }

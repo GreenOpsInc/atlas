@@ -11,7 +11,6 @@ import org.springframework.stereotype.Component;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -26,7 +25,6 @@ public class TLSManagerImpl implements TLSManager {
     private static final String SECRET_KAFKA_KEY_CREDENTIALS = "kafka.key.credentials";
     private static final String SECRET_KAFKA_KEYSTORE_CREDENTIALS = "kafka.keystore.credentials";
     private static final String SECRET_KAFKA_TRUSTSTORE_CREDENTIALS = "kafka.truststore.credentials";
-    private static byte[] kafkaKeystoreBytes;
     private final KubernetesClient kclient;
 
     @Autowired
@@ -69,8 +67,6 @@ public class TLSManagerImpl implements TLSManager {
         truststoreFile.createNewFile();
         Files.write(truststoreFile.toPath(), truststoreData);
 
-        kafkaKeystoreBytes = keystoreData;
-
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL");
         configProps.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, keystoreLocation);
@@ -79,27 +75,5 @@ public class TLSManagerImpl implements TLSManager {
         configProps.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, kafkaTruststoreCreds);
         configProps.put(SslConfigs.SSL_KEY_PASSWORD_CONFIG, kafkaKeyCreds);
         return configProps;
-    }
-
-    @Override
-    public void watchKafkaKeystore(String keystoreLocation, String trueStoreLocation) {
-        this.kclient.watchSecretData(KAFKA_SECRET_NAME, NAMESPACE, secret -> {
-            if (secret == null) {
-                if (kafkaKeystoreBytes != null) {
-                    System.out.println("Exiting due to Kafka tls certificate change (deleted).");
-                    System.exit(0);
-                    return;
-                }
-                return;
-            }
-
-            byte[] keystoreData = secret.getData().get(SECRET_KAFKA_KEYSTORE_NAME);
-            if (kafkaKeystoreBytes == null || !Arrays.equals(keystoreData, kafkaKeystoreBytes)) {
-                System.out.println("Exiting due to Kafka tls certificate change (updated).");
-                System.exit(0);
-                return;
-            }
-            System.out.println("Kafka TLS cert is not changed but update event is handled.");
-        });
     }
 }

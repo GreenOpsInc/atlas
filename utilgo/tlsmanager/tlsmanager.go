@@ -132,6 +132,7 @@ func (m *tlsManager) GetClientCertPEM(clientName ClientName) ([]byte, error) {
 	if secret == nil || len(secret.Data) == 0 {
 		return nil, nil
 	}
+	m.tlsClientCertPEM[clientName] = secret.Data[TLSSecretCrtName]
 	return secret.Data[TLSSecretCrtName], nil
 }
 
@@ -173,9 +174,18 @@ func (m *tlsManager) WatchServerTLSConf(serverName ClientName, handler func(conf
 		case kclient.SecretChangeTypeAdd:
 			fallthrough
 		case kclient.SecretChangeTypeUpdate:
+			if m.tlsClientCertPEM[serverName] != nil && bytes.Compare(secret.Data[TLSSecretCrtName], m.tlsClientCertPEM[serverName]) == 0 {
+				return
+			}
+
+			m.tlsClientCertPEM[serverName] = secret.Data[TLSSecretCrtName]
 			config, err = m.generateTLSConfFromKeyPair(secret.Data[TLSSecretCrtName], secret.Data[TLSSecretKeyName])
+			m.tlsConf = config
 			insecure = false
 		case kclient.SecretChangeTypeDelete:
+			if m.tlsConf == nil {
+				return
+			}
 			config, err = m.getSelfSignedTLSConf(serverName)
 			insecure = true
 		}
@@ -203,12 +213,21 @@ func (m *tlsManager) WatchClientTLSConf(clientName ClientName, handler func(conf
 		case kclient.SecretChangeTypeAdd:
 			fallthrough
 		case kclient.SecretChangeTypeUpdate:
+			if m.tlsClientCertPEM[clientName] != nil && bytes.Compare(secret.Data[TLSSecretCrtName], m.tlsClientCertPEM[clientName]) == 0 {
+				return
+			}
+
+			m.tlsClientCertPEM[clientName] = secret.Data[TLSSecretCrtName]
 			rootCA := m.BestEffortSystemCertPool()
 			rootCA.AppendCertsFromPEM(secret.Data[TLSSecretCrtName])
 			conf := &tls.Config{RootCAs: rootCA}
 			m.tlsClientConfigs[clientName] = conf
 			handler(conf, nil)
 		case kclient.SecretChangeTypeDelete:
+			if m.tlsClientCertPEM[clientName] == nil {
+				return
+			}
+
 			delete(m.tlsClientConfigs, clientName)
 			handler(&tls.Config{InsecureSkipVerify: true}, nil)
 		}
@@ -235,6 +254,10 @@ func (m *tlsManager) WatchClientTLSPEM(clientName ClientName, namespace string, 
 			m.tlsClientCertPEM[clientName] = secret.Data[TLSSecretCrtName]
 			handler(secret.Data[TLSSecretCrtName], nil)
 		case kclient.SecretChangeTypeDelete:
+			if m.tlsClientCertPEM[clientName] == nil {
+				return
+			}
+
 			delete(m.tlsClientCertPEM, clientName)
 			handler(nil, nil)
 		}
@@ -265,6 +288,9 @@ func (m *tlsManager) WatchKafkaTLSConf(handler func(config *tls.Config, err erro
 			m.tlsClientCertPEM[ClientKafka] = crt
 			handler(conf, nil)
 		case kclient.SecretChangeTypeDelete:
+			if m.tlsClientCertPEM[ClientKafka] == nil {
+				return
+			}
 			delete(m.tlsClientConfigs, ClientKafka)
 			m.tlsClientCertPEM[ClientKafka] = nil
 			handler(nil, nil)
@@ -292,6 +318,7 @@ func (m *tlsManager) getTLSConf(serverName ClientName) (*tls.Config, error) {
 	}
 
 	conf.InsecureSkipVerify = true
+	m.tlsConf = conf
 	return conf, nil
 }
 
@@ -312,6 +339,7 @@ func (m *tlsManager) getTLSClientConf(clientName ClientName) (*tls.Config, error
 
 	rootCA := m.BestEffortSystemCertPool()
 	rootCA.AppendCertsFromPEM(secret.Data[TLSSecretCrtName])
+	m.tlsClientCertPEM[clientName] = secret.Data[TLSSecretCrtName]
 	return &tls.Config{RootCAs: rootCA}, nil
 }
 

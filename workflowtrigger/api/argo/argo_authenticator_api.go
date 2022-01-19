@@ -2,6 +2,7 @@ package argo
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -75,11 +76,7 @@ func (a *ArgoApiImpl) CheckRbacPermissions(action RbacAction, resource RbacResou
 	if err != nil {
 		log.Fatalf("account client could not be made for Argo: %s", err)
 	}
-	defer func() {
-		if err = closer.Close(); err != nil {
-			log.Println("failed to close argocd client: ", err.Error())
-		}
-	}()
+	defer closer.Close()
 
 	canI, err := client.CanI(context.TODO(), &account.CanIRequest{
 		Resource:    string(resource),
@@ -87,7 +84,7 @@ func (a *ArgoApiImpl) CheckRbacPermissions(action RbacAction, resource RbacResou
 		Subresource: subresource,
 	})
 	if err != nil {
-		log.Fatalf("Request to Argo server failed: %s", err)
+		panic(fmt.Sprintf("Request to Argo server failed: %s", err))
 	}
 	return canI.Value == "yes"
 }

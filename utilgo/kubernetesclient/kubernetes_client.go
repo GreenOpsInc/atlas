@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/greenopsinc/util/git"
 	"github.com/greenopsinc/util/serializer"
@@ -103,7 +104,7 @@ func (k KubernetesClientDriver) FetchSecretData(name string, namespace string) *
 }
 
 func (k KubernetesClientDriver) WatchSecretData(ctx context.Context, name string, namespace string, handler WatchSecretHandler) error {
-	factory := informers.NewSharedInformerFactoryWithOptions(k.client, 0, informers.WithNamespace(namespace))
+	factory := informers.NewSharedInformerFactoryWithOptions(k.client, time.Second*30, informers.WithNamespace(namespace))
 	informer := factory.Core().V1().Secrets().Informer()
 
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{

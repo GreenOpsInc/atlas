@@ -11,5 +11,4 @@ public interface KubernetesClient {
 
     V1Secret fetchSecretData(String name, String namespace);
 
-    void watchSecretData(String name, String namespace, WatchSecretHandler handler);
 }
