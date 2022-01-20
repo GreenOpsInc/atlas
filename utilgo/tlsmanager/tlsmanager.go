@@ -31,11 +31,11 @@ type Manager interface {
 }
 
 type tlsManager struct {
-	k                kclient.KubernetesClient
-	tlsConf          *tls.Config
-	selfSignedConf   *tls.Config
-	tlsClientConfigs map[ClientName]*tls.Config
-	tlsClientCertPEM map[ClientName][]byte
+	k                       kclient.KubernetesClient
+	serverTLSConf           *tls.Config
+	serverSelfSignedTLSConf *tls.Config
+	tlsClientConfigs        map[ClientName]*tls.Config
+	tlsClientCertPEM        map[ClientName][]byte
 }
 
 const (
@@ -105,7 +105,7 @@ func (m *tlsManager) GetServerTLSConf(serverName ClientName) (*tls.Config, error
 	if err != nil {
 		return nil, err
 	}
-	m.tlsConf = conf
+	m.serverTLSConf = conf
 	return conf, nil
 }
 
@@ -152,8 +152,11 @@ func (m *tlsManager) GetKafkaTLSConf() (*tls.Config, error) {
 	}
 	rootCA := m.BestEffortSystemCertPool()
 	rootCA.AppendCertsFromPEM(secret.Data[TLSSecretKafkaCrtName])
+
+	conf := &tls.Config{RootCAs: rootCA}
+	m.tlsClientConfigs[ClientKafka] = conf
 	m.tlsClientCertPEM[ClientKafka] = secret.Data[TLSSecretKafkaCrtName]
-	return &tls.Config{RootCAs: rootCA}, nil
+	return conf, nil
 }
 
 func (m *tlsManager) WatchServerTLSConf(serverName ClientName, handler func(conf *tls.Config, err error)) error {
@@ -182,7 +185,7 @@ func (m *tlsManager) WatchServerTLSConf(serverName ClientName, handler func(conf
 			config, err = m.generateTLSConfFromKeyPair(secret.Data[TLSSecretCrtName], secret.Data[TLSSecretKeyName])
 			insecure = false
 		case kclient.SecretChangeTypeDelete:
-			if m.tlsConf == m.selfSignedConf {
+			if m.serverTLSConf == m.serverSelfSignedTLSConf {
 				return
 			}
 			config, err = m.getSelfSignedTLSConf(serverName)
@@ -195,7 +198,7 @@ func (m *tlsManager) WatchServerTLSConf(serverName ClientName, handler func(conf
 		}
 
 		config.InsecureSkipVerify = insecure
-		m.tlsConf = config
+		m.serverTLSConf = config
 		handler(config, nil)
 	})
 }
@@ -300,8 +303,8 @@ func (m *tlsManager) WatchKafkaTLSConf(handler func(config *tls.Config, err erro
 }
 
 func (m *tlsManager) getTLSConf(serverName ClientName) (*tls.Config, error) {
-	if m.tlsConf != nil {
-		return m.tlsConf, nil
+	if m.serverTLSConf != nil {
+		return m.serverTLSConf, nil
 	}
 
 	conf, err := m.getTLSConfFromSecrets(serverName)
@@ -319,7 +322,7 @@ func (m *tlsManager) getTLSConf(serverName ClientName) (*tls.Config, error) {
 	}
 
 	conf.InsecureSkipVerify = true
-	m.tlsConf = conf
+	m.serverTLSConf = conf
 	return conf, nil
 }
 
@@ -345,8 +348,8 @@ func (m *tlsManager) getTLSClientConf(clientName ClientName) (*tls.Config, error
 }
 
 func (m *tlsManager) getSelfSignedTLSConf(serverName ClientName) (*tls.Config, error) {
-	if m.selfSignedConf != nil {
-		return m.selfSignedConf, nil
+	if m.serverSelfSignedTLSConf != nil {
+		return m.serverSelfSignedTLSConf, nil
 	}
 
 	conf, err := m.generateSelfSignedTLSConf(serverName)
@@ -354,7 +357,7 @@ func (m *tlsManager) getSelfSignedTLSConf(serverName ClientName) (*tls.Config, e
 		return nil, err
 	}
 
-	m.selfSignedConf = conf
+	m.serverSelfSignedTLSConf = conf
 	return conf, nil
 }
 
