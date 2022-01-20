@@ -296,7 +296,6 @@ func (m *tlsManager) WatchKafkaTLSConf(handler func(config *tls.Config, err erro
 			}
 			delete(m.tlsClientCertPEM, ClientKafka)
 			delete(m.tlsClientConfigs, ClientKafka)
-			m.tlsClientCertPEM[ClientKafka] = nil
 			handler(nil, nil)
 		}
 	})
