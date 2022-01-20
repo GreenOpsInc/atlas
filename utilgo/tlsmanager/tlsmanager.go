@@ -180,12 +180,8 @@ func (m *tlsManager) WatchServerTLSConf(serverName ClientName, handler func(conf
 
 			m.tlsClientCertPEM[serverName] = secret.Data[TLSSecretCrtName]
 			config, err = m.generateTLSConfFromKeyPair(secret.Data[TLSSecretCrtName], secret.Data[TLSSecretKeyName])
-			m.tlsConf = config
 			insecure = false
 		case kclient.SecretChangeTypeDelete:
-			if m.tlsConf == nil {
-				return
-			}
 			config, err = m.getSelfSignedTLSConf(serverName)
 			insecure = true
 		}
@@ -228,6 +224,7 @@ func (m *tlsManager) WatchClientTLSConf(clientName ClientName, handler func(conf
 				return
 			}
 
+			delete(m.tlsClientCertPEM, clientName)
 			delete(m.tlsClientConfigs, clientName)
 			handler(&tls.Config{InsecureSkipVerify: true}, nil)
 		}
@@ -291,6 +288,7 @@ func (m *tlsManager) WatchKafkaTLSConf(handler func(config *tls.Config, err erro
 			if m.tlsClientCertPEM[ClientKafka] == nil {
 				return
 			}
+			delete(m.tlsClientCertPEM, ClientKafka)
 			delete(m.tlsClientConfigs, ClientKafka)
 			m.tlsClientCertPEM[ClientKafka] = nil
 			handler(nil, nil)
