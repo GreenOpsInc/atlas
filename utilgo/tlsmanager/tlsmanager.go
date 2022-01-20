@@ -182,6 +182,9 @@ func (m *tlsManager) WatchServerTLSConf(serverName ClientName, handler func(conf
 			config, err = m.generateTLSConfFromKeyPair(secret.Data[TLSSecretCrtName], secret.Data[TLSSecretKeyName])
 			insecure = false
 		case kclient.SecretChangeTypeDelete:
+			if m.tlsConf == m.selfSignedConf {
+				return
+			}
 			config, err = m.getSelfSignedTLSConf(serverName)
 			insecure = true
 		}
@@ -369,6 +372,7 @@ func (m *tlsManager) getTLSConfFromSecrets(serverName ClientName) (*tls.Config, 
 	if err != nil {
 		return nil, err
 	}
+	m.tlsClientCertPEM[serverName] = secret.Data[TLSSecretCrtName]
 	return conf, nil
 }
 
@@ -450,6 +454,7 @@ func (m *tlsManager) generateSelfSignedTLSConf(serverName ClientName) (*tls.Conf
 		return nil, err
 	}
 
+	m.tlsClientCertPEM[serverName] = certPEM.Bytes()
 	return &tls.Config{
 		Certificates:             []tls.Certificate{serverCert},
 		MinVersion:               tls.VersionTLS13,
