@@ -15,13 +15,13 @@ import (
 	"github.com/greenopsinc/util/db"
 	"github.com/greenopsinc/util/event"
 	"github.com/greenopsinc/util/git"
+	"github.com/greenopsinc/util/kafkaclient"
 	"github.com/greenopsinc/util/kubernetesclient"
 	"github.com/greenopsinc/util/pipeline"
 	"github.com/greenopsinc/util/team"
 	"greenops.io/workflowtrigger/api/argo"
 	"greenops.io/workflowtrigger/api/commanddelegator"
 	"greenops.io/workflowtrigger/api/reposerver"
-	"greenops.io/workflowtrigger/kafka"
 	"greenops.io/workflowtrigger/schemavalidation"
 	"greenops.io/workflowtrigger/serializer"
 )
@@ -39,7 +39,7 @@ const (
 )
 
 var dbOperator db.DbOperator
-var kafkaClient kafka.KafkaClient
+var kafkaClient kafkaclient.KafkaClient
 var kubernetesClient kubernetesclient.KubernetesClient
 var repoManagerApi reposerver.RepoManagerApi
 var argoClusterApi argo.ArgoClusterApi
@@ -317,12 +317,12 @@ func syncPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, gitRepo.GitRepo, revisionHash,
-		string(argo.SyncAction), string(argo.ApplicationResource),
-		string(argo.SyncAction), string(argo.ClusterResource)) {
-		http.Error(w, "Not enough permissions", http.StatusForbidden)
-		return
-	}
+	//if !schemaValidator.ValidateSchemaAccess(orgName, teamName, gitRepo.GitRepo, revisionHash,
+	//	string(argo.SyncAction), string(argo.ApplicationResource),
+	//	string(argo.SyncAction), string(argo.ClusterResource)) {
+	//	http.Error(w, "Not enough permissions", http.StatusForbidden)
+	//	return
+	//}
 
 	triggerEvent := event.NewPipelineTriggerEvent(orgName, teamName, pipelineName)
 	triggerEvent.(*event.PipelineTriggerEvent).RevisionHash = revisionHash
@@ -541,7 +541,7 @@ func InitPipelineTeamEndpoints(r *mux.Router) {
 	r.HandleFunc("/client/{orgName}/{clusterName}/generateEvent", generateEventEndpoint).Methods("POST")
 }
 
-func InitClients(dbOperatorCopy db.DbOperator, kafkaClientCopy kafka.KafkaClient, kubernetesClientCopy kubernetesclient.KubernetesClient, repoManagerApiCopy reposerver.RepoManagerApi, argoClusterApiCopy argo.ArgoClusterApi, commandDelegatorApiCopy commanddelegator.CommandDelegatorApi, schemaValidatorCopy schemavalidation.RequestSchemaValidator) {
+func InitClients(dbOperatorCopy db.DbOperator, kafkaClientCopy kafkaclient.KafkaClient, kubernetesClientCopy kubernetesclient.KubernetesClient, repoManagerApiCopy reposerver.RepoManagerApi, argoClusterApiCopy argo.ArgoClusterApi, commandDelegatorApiCopy commanddelegator.CommandDelegatorApi, schemaValidatorCopy schemavalidation.RequestSchemaValidator) {
 	dbOperator = dbOperatorCopy
 	kafkaClient = kafkaClientCopy
 	kubernetesClient = kubernetesClientCopy

@@ -35,5 +35,9 @@ spec:
       size: 100Gi
       deleteClaim: false
   entityOperator:
-    topicOperator: {}
+    template:
+      topicOperatorContainer:
+        env:
+          - name: STRIMZI_USE_ZOOKEEPER_TOPIC_STORE
+            value: "true"
     userOperator: {}

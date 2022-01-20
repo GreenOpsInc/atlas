@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strconv"
+
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	"github.com/argoproj/argo-cd/v2/util/errors"
 	"github.com/argoproj/argo-cd/v2/util/localconfig"
 	"github.com/spf13/cobra"
-	"io/ioutil"
-	"net/http"
-	"strconv"
-	"time"
 )
 
 var (
@@ -62,7 +62,7 @@ Example usage:
 			} else {
 				count = 15
 			}
-			url = fmt.Sprintf("http://%s/status/%s/%s/pipeline/%s/history/%s", atlasURL, orgName, teamName, pipelineName, strconv.Itoa(count))
+			url = fmt.Sprintf("https://%s/status/%s/%s/pipeline/%s/history/%s", atlasURL, orgName, teamName, pipelineName, strconv.Itoa(count))
 		} else if stepFlagSet {
 			stepName, _ := cmd.Flags().GetString("step")
 			countFlagSet := cmd.Flags().Lookup("count").Changed
@@ -72,7 +72,7 @@ Example usage:
 			} else {
 				count = 15
 			}
-			url = fmt.Sprintf("http://%s/status/%s/%s/pipeline/%s/step/%s/%s", atlasURL, orgName, teamName, pipelineName, stepName, strconv.Itoa(count))
+			url = fmt.Sprintf("https://%s/status/%s/%s/pipeline/%s/step/%s/%s", atlasURL, orgName, teamName, pipelineName, stepName, strconv.Itoa(count))
 		} else {
 			var uvn string
 			if uvnFlagSet {
@@ -80,7 +80,7 @@ Example usage:
 			} else {
 				uvn = "LATEST"
 			}
-			url = fmt.Sprintf("http://%s/status/%s/%s/pipeline/%s/%s", atlasURL, orgName, teamName, pipelineName, uvn)
+			url = fmt.Sprintf("https://%s/status/%s/%s/pipeline/%s/%s", atlasURL, orgName, teamName, pipelineName, uvn)
 		}
 
 		defaultLocalConfigPath, err := localconfig.DefaultLocalConfigPath()
@@ -90,7 +90,7 @@ Example usage:
 
 		req, _ = http.NewRequest("GET", url, nil)
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
-		client := &http.Client{Timeout: 20 * time.Second}
+		client := getHttpClient()
 		resp, err := client.Do(req)
 		if err != nil {
 			fmt.Println("Request failed with the following error:", err)

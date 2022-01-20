@@ -1,9 +1,9 @@
 package com.greenops.pipelinereposerver.repomanager;
 
 import com.greenops.pipelinereposerver.dbclient.DbKey;
-import com.greenops.pipelinereposerver.kubernetesclient.KubernetesClient;
 import com.greenops.util.datamodel.git.GitRepoSchema;
 import com.greenops.util.dbclient.DbClient;
+import com.greenops.util.kubernetesclient.KubernetesClient;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -162,8 +162,7 @@ public class RepoManagerImpl implements RepoManager {
             log.info("No copies of {} exists", gitRepoSchema.getGitRepo());
             //The size should never be greater than 1
             return false;
-        }
-        else if (listOfGitRepos.size() > 1) {
+        } else if (listOfGitRepos.size() > 1) {
             log.info("More than one copy of {} exists", gitRepoSchema.getGitRepo());
             //The size should never be greater than 1
             return false;

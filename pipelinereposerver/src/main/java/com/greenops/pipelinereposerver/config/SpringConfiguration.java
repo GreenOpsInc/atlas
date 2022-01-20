@@ -15,9 +15,13 @@ import com.greenops.util.datamodel.pipeline.TeamSchemaImpl;
 import com.greenops.util.datamodel.request.GetFileRequest;
 import com.greenops.util.dbclient.DbClient;
 import com.greenops.util.dbclient.redis.RedisDbClient;
+import com.greenops.util.kubernetesclient.KubernetesClient;
+import com.greenops.util.kubernetesclient.KubernetesClientImpl;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.io.IOException;
 
 @Configuration
 public class SpringConfiguration {
@@ -36,5 +40,16 @@ public class SpringConfiguration {
     @Bean
     DbClient dbClient(@Value("${application.redis-url}") String redisUrl, ObjectMapper objectMapper) {
         return new RedisDbClient(redisUrl, objectMapper);
+    }
+
+    @Bean
+    KubernetesClient kubernetesClient(ObjectMapper objectMapper) {
+        KubernetesClient kclient;
+        try {
+            kclient = new KubernetesClientImpl(objectMapper);
+        } catch (IOException exc) {
+            throw new RuntimeException("Could not initialize Kubernetes Client", exc);
+        }
+        return kclient;
     }
 }

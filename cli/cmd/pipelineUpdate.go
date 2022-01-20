@@ -58,7 +58,7 @@ Example usage:
 
 		var req *http.Request
 		client := &http.Client{Timeout: 20 * time.Second}
-		url := "http://" + atlasURL + "/pipeline/" + orgName + "/" + teamName + "/" + pipelineName
+		url := "https://" + atlasURL + "/pipeline/" + orgName + "/" + teamName + "/" + pipelineName
 
 		if !tokenFlagSet && !usernameFlagSet {
 			body := GitRepoSchemaOpen{
@@ -71,7 +71,6 @@ Example usage:
 			json, _ := json.Marshal(body)
 			req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(json))
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
-
 		} else if tokenFlagSet {
 			token, _ := cmd.Flags().GetString("token")
 

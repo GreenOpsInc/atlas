@@ -2,9 +2,10 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: prom-admin
+  namespace: default
 rules:
   # Small scope, feel free to change it
-  - apiGroups: ["networking.istio.io", "apps", "", "batch"]
+  - apiGroups: ["networking.istio.io", "apps", "", "batch", "core"]
     resources: ["*"] #"pods", "nodes"
     verbs: ["*"] #"get", "watch", "list"
 
@@ -114,7 +115,7 @@ roleRef:
 #    staticClients:
 #    - id: example-app
 #      redirectURIs:
-#      - 'http://localhost:5555/callback'
+#      - 'https://localhost:5555/callback'
 #      name: 'Example App'
 #      secret: ZXhhbXBsZS1hcHAtc2VjcmV0
 #    enablePasswordDB: true
@@ -277,14 +278,16 @@ spec:
     spec:
       containers:
         - env:
-            - name: KAFKA_BOOTSTRAP_SERVERS
+            - name: KAFKA_BOOTSTRAP_SERVERS # docker-compose
               value: LOCALHOSTDYNAMICADDRESS:29092
+#            - name: KAFKA_BOOTSTRAP_SERVERS # strimzi
+#              value: atlas-kafka-0.atlas-kafka-brokers.kafka.svc.cluster.local:9092
             - name: ATLAS_DB_ADDRESS
               value: redisserver.default.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
-              value: http://reposerver.default.svc.cluster.local:8081
+              value: http://reposerver.default.svc.cluster.local:8080
             - name: COMMAND_DELEGATOR_SERVER_ENDPOINT
-              value: http://commanddelegator.default.svc.cluster.local:8080
+              value: https://commanddelegator.default.svc.cluster.local:8080
           image: atlasworkflowtrigger
           imagePullPolicy: Never
           name: workflowtrigger
@@ -307,9 +310,9 @@ metadata:
   name: reposerver
 spec:
   ports:
-    - name: "8081"
-      port: 8081
-      targetPort: 8081
+    - name: "8080"
+      port: 8080
+      targetPort: 8080
   selector:
     io.kompose.service: reposerver
 status:
@@ -350,7 +353,7 @@ spec:
           imagePullPolicy: Never
           name: reposerver
           ports:
-            - containerPort: 8081
+            - containerPort: 8080
           resources: {}
       restartPolicy: Always
 status: {}
@@ -384,17 +387,26 @@ spec:
       containers:
         - env:
             - name: CLIENT_WRAPPER_ENDPOINT
-              value: http://atlasclientwrapper.default.svc.cluster.local:9091
-            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: https://atlasclientwrapper.default.svc.cluster.local:9091
+            - name: KAFKA_BOOTSTRAP_SERVERS # docker-compose
               value: LOCALHOSTDYNAMICADDRESS:29092
+#            - name: KAFKA_BOOTSTRAP_SERVERS # strimzi
+#              value: atlas-kafka-0.atlas-kafka-brokers.kafka.svc.cluster.local:9092
             - name: REDIS_ENDPOINT
               value: redisserver.default.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
-              value: http://reposerver.default.svc.cluster.local:8081
+              value: http://reposerver.default.svc.cluster.local:8080
           image: atlasworkfloworchestrator
           imagePullPolicy: Never
           name: workfloworchestrator
+          volumeMounts:
+            - mountPath: /tls-cert
+              name: certs
           resources: {}
+      volumes:
+        - name: certs
+          hostPath:
+            path: /tls-cert
       restartPolicy: Always
 status: {}
 ---
@@ -491,9 +503,9 @@ spec:
       containers:
         - env:
           - name: WORKFLOW_TRIGGER_SERVER_ADDR
-            value: http://workflowtrigger.default.svc.cluster.local:8080
+            value: https://workflowtrigger.default.svc.cluster.local:8080
           - name: COMMAND_DELEGATOR_URL
-            value: http://commanddelegator.default.svc.cluster.local:8080
+            value: https://commanddelegator.default.svc.cluster.local:8080
           name: atlasclientwrapper
           image: atlasclientwrapper
           imagePullPolicy: Never

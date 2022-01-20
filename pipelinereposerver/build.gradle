@@ -1,15 +1,15 @@
 plugins {
-	id 'org.springframework.boot' version '2.4.5'
-	id 'io.spring.dependency-management' version '1.0.11.RELEASE'
-	id 'java'
-	id 'com.google.cloud.tools.jib' version '3.0.0'
-	id 'application'
+    id 'org.springframework.boot' version '2.4.5'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+    id 'java'
+    id 'com.google.cloud.tools.jib' version '3.0.0'
+    id 'application'
 }
 
 jib {
-	configurations {
-		from.image = 'docker.io/1mihirpandya/misc:repobase' // or ":java8"
-	}
+    configurations {
+        from.image = 'docker.io/1mihirpandya/misc:repobase' // or ":java8"
+    }
 }
 
 group = 'com.greenops'
@@ -17,28 +17,28 @@ version = '0.0.1-SNAPSHOT'
 sourceCompatibility = '11'
 
 repositories {
-	mavenCentral()
+    mavenCentral()
 }
 
 dependencies {
-	//This util line is added in via Gradle composition
-	implementation 'com.greenops:util'
-	implementation 'org.springframework.boot:spring-boot-starter-actuator'
-	implementation 'org.springframework.boot:spring-boot-starter'
-	implementation 'org.springframework.boot:spring-boot-starter-web'
-	implementation 'io.lettuce:lettuce-core:6.1.2.RELEASE'
-	// https://mvnrepository.com/artifact/org.json/json
-	implementation 'org.json:json:20090211'
-	implementation 'org.projectlombok:lombok:1.18.20'
-	annotationProcessor 'org.projectlombok:lombok:1.18.20'
-	implementation 'com.fasterxml.jackson.core:jackson-databind:2.11.1'
-	implementation 'org.apache.commons:commons-lang3:3.12.0'
-	implementation 'io.kubernetes:client-java:5.0.0'
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testImplementation 'org.junit.jupiter:junit-jupiter-api:5.3.1'
-	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.3.1'
+    //This util line is added in via Gradle composition
+    implementation 'com.greenops:util'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'io.lettuce:lettuce-core:6.1.2.RELEASE'
+    // https://mvnrepository.com/artifact/org.json/json
+    implementation 'org.json:json:20090211'
+    implementation 'org.projectlombok:lombok:1.18.20'
+    annotationProcessor 'org.projectlombok:lombok:1.18.20'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.11.1'
+    implementation 'org.apache.commons:commons-lang3:3.12.0'
+    implementation 'io.kubernetes:client-java:5.0.0'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.3.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.3.1'
 }
 
 test {
-	useJUnitPlatform()
+    useJUnitPlatform()
 }

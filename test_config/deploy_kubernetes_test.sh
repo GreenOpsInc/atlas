@@ -1,3 +1,5 @@
+export SHELL=/bin/bash
+
 minikubestatus=$(minikube status | grep host)
 if [[ $minikubestatus != 'host: Running' ]]
 then
@@ -20,10 +22,11 @@ cd ../clientwrapper
 env GOOS=linux go build -v ./atlasoperator/atlas_operator.go
 docker build -f test/Dockerfile -t atlasclientwrapper .
 minikube image load atlasclientwrapper
-eval $(minikube -p minikube docker-env)
 cd ../PipelineRepoServer/
 ./gradlew jibDockerBuild --image=atlasreposerver
+minikube image load atlasreposerver
 cd ../WorkflowOrchestrator/
 ./gradlew jibDockerBuild --image=atlasworkfloworchestrator
+minikube image load atlasworkfloworchestrator
 cd ../test_config
 perl -p -e "s/LOCALHOSTDYNAMICADDRESS/$localhostip/g" atlasinfrastructure.yaml | kubectl apply -f -

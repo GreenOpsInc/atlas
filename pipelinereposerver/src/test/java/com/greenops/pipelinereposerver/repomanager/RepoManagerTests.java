@@ -1,11 +1,11 @@
 package com.greenops.pipelinereposerver.repomanager;
 
-import com.greenops.pipelinereposerver.kubernetesclient.KubernetesClient;
 import com.greenops.util.datamodel.git.GitCredMachineUser;
 import com.greenops.util.datamodel.git.GitCredOpen;
 import com.greenops.util.datamodel.git.GitCredToken;
 import com.greenops.util.datamodel.git.GitRepoSchema;
 import com.greenops.util.dbclient.DbClient;
+import com.greenops.util.kubernetesclient.KubernetesClient;
 import org.apache.tomcat.util.http.fileupload.FileUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,19 +21,13 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class RepoManagerTests {
-    private RepoManager repoManager;
-    private DbClient dbClient;
-    private KubernetesClient kubernetesClient;
-    private Path testFolderPath;
     private final String oldCommitHashPrivate = "43ffa3176fe4442b68eb52300721b03916f35fdd";
     private final String latestCommitHashPrivate = "36773475e7d293f94d2c26db5ec7b1cfb9ad0458";
-
     private final String oldCommitHashPublic = "50fc45eb4f22d09039e160c4c477d8cc1dc55912";
     private final String latestCommitHashPublic = "918405d162384c4a8680f98666cefea6821319c5";
     private final String token = "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";
     private final String username = "dummyaccount-test";
     private final String pwd = "FakeAcc123";
-
     private final String yamlContents = "# Build a service with Dockerfile\n" +
             "version: '1.0'\n" +
             "\n" +
@@ -44,7 +38,10 @@ public class RepoManagerTests {
             "    image-name: codefresh-io/image\n" +
             "    dockerfile: Dockerfile\n" +
             "    tag: latest";
-
+    private RepoManager repoManager;
+    private DbClient dbClient;
+    private KubernetesClient kubernetesClient;
+    private Path testFolderPath;
 
     @BeforeEach
     public void beforeEach() throws IOException {
