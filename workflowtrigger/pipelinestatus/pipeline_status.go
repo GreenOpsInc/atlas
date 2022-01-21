@@ -77,6 +77,7 @@ func MarshallPipelineStatus(status PipelineStatus) *ordered.OrderedMap {
 
 	mapObj.Set("progressingSteps", status.ProgressingSteps)
 	mapObj.Set("stable", status.Stable)
+	mapObj.Set("complete", status.Complete)
 	mapObj.Set("cancelled", status.Cancelled)
 	mapObj.Set("failedSteps", failedStepsList)
 	return mapObj
