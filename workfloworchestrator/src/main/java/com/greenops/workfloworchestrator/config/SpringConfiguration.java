@@ -83,6 +83,7 @@ public class SpringConfiguration {
                 .addMixIn(ClientDeployRequest.class, ClientDeployRequestMixin.class)
                 .addMixIn(ClientRollbackAndWatchRequest.class, ClientRollbackAndWatchRequestMixin.class)
                 .addMixIn(GetFileRequest.class, GetFileRequestMixin.class)
+                .addMixIn(GitRepoSchemaInfo.class, GitRepoSchemaInfoMixin.class)
                 .addMixIn(WatchRequest.class, WatchRequestMixin.class)
                 .addMixIn(KubernetesCreationRequest.class, KubernetesCreationRequestMixin.class)
                 .addMixIn(ResourcesGvkRequest.class, ResourcesGvkRequestMixin.class)
@@ -191,6 +192,7 @@ public class SpringConfiguration {
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory(
             TLSManager tlsManager,
+            KafkaClient kafkaClient,
             @Value("${application.kafka.consumer.group-id}") String groupId,
             @Value("${application.kafka.consumer.auto-offset-reset}") String autoOffsetReset,
             @Value("${application.kafka.consumer.enable-auto-commit}") String enableAutoCommit,
@@ -204,6 +206,7 @@ public class SpringConfiguration {
                 new ConcurrentKafkaListenerContainerFactory<>();
         ConsumerFactory<String, String> consumerFactory = consumerFactory(tlsManager,groupId, autoOffsetReset, enableAutoCommit, bootstrapServers, keyDeserializer, valueDeserializer, keystoreLocation, truststoreLocation);
         factory.setConsumerFactory(consumerFactory);
+        factory.setErrorHandler(errorHandler(kafkaClient));
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
         return factory;
     }

@@ -121,7 +121,7 @@ Example usage:
 			fmt.Println("Successfully force-deployed step:", stepName, "in pipeline:", pipelineName)
 		} else {
 			body, _ := io.ReadAll(resp.Body)
-			fmt.Printf("An error occurred: %s", body)
+			fmt.Printf("Error: %d - %s", statusCode, string(body))
 		}
 	},
 }

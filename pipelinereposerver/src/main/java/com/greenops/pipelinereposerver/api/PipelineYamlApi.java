@@ -28,37 +28,22 @@ public class PipelineYamlApi {
     public ResponseEntity<String> getPipelineConfig(@PathVariable("orgName") String orgName,
                                                     @PathVariable("teamName") String teamName,
                                                     @RequestBody GetFileRequest fileRequest) {
+        var gitRepoSchema = new GitRepoSchema(fileRequest.getGitRepoSchemaInfo().getGitRepo(), fileRequest.getGitRepoSchemaInfo().getPathToRoot(), null);
         if (repoManager.getOrgName().equals(orgName) &&
-                repoManager.containsGitRepoSchema(new GitRepoSchema(fileRequest.getGitRepoUrl(), null, null))) {
+                repoManager.containsGitRepoSchema(gitRepoSchema)) {
+            //gitCommitHash should never be ROOT_COMMIT
             var desiredGitCommit = fileRequest.getGitCommitHash();
             if (desiredGitCommit.equals(ROOT_COMMIT)) {
-                desiredGitCommit = repoManager.getRootCommit(fileRequest.getGitRepoUrl());
+                desiredGitCommit = repoManager.getCurrentCommit(gitRepoSchema.getGitRepo());
             }
-            if (!repoManager.getCurrentCommit(fileRequest.getGitRepoUrl()).equals(desiredGitCommit)) {
-                var success = repoManager.resetToVersion(desiredGitCommit, fileRequest.getGitRepoUrl());
-                if (!success) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            if (!repoManager.resetToVersion(desiredGitCommit, gitRepoSchema)) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Could not switch to right revision");
             }
-            String fileContents = repoManager.getYamlFileContents(fileRequest.getGitRepoUrl(), fileRequest.getFilename());
+            String fileContents = repoManager.getYamlFileContents(fileRequest.getFilename(), gitRepoSchema);
             if (fileContents == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Couldn't find contents");
             }
             return ResponseEntity.ok(fileContents);
-        }
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-    }
-
-    @PostMapping("/version/{orgName}/{teamName}")
-    public ResponseEntity<String> getCurrentPipelineCommitHash(@PathVariable("orgName") String orgName,
-                                                    @PathVariable("teamName") String teamName,
-                                                    @RequestBody String gitRepoUrl) {
-        if (repoManager.getOrgName().equals(orgName) &&
-                repoManager.containsGitRepoSchema(new GitRepoSchema(gitRepoUrl, null, null))) {
-            String commitHash = repoManager.getLatestCommitFromCache(gitRepoUrl);
-            if (commitHash == null) {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            }
-            return ResponseEntity.ok(commitHash);
         }
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();

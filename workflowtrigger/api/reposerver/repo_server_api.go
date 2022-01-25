@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -20,17 +21,22 @@ const (
 	getFileExtension string = "file"
 )
 
+type GitRepoSchemaInfo struct {
+	GitRepoUrl string `json:"gitRepoUrl"`
+	PathToRoot string `json:"pathToRoot"`
+}
+
 type GetFileRequest struct {
-	GitRepoUrl    string `json:"gitRepoUrl"`
-	Filename      string `json:"filename"`
-	GitCommitHash string `json:"gitCommitHash"`
+	GitRepoSchemaInfo GitRepoSchemaInfo `json:"gitRepoSchemaInfo"`
+	Filename          string            `json:"filename"`
+	GitCommitHash     string            `json:"gitCommitHash"`
 }
 
 type RepoManagerApi interface {
 	CloneRepo(orgName string, gitRepoSchema git.GitRepoSchema) bool
 	DeleteRepo(gitRepoSchema git.GitRepoSchema) bool
 	UpdateRepo(orgName string, oldGitRepoSchema git.GitRepoSchema, newGitRepoSchema git.GitRepoSchema) bool
-	SyncRepo(gitRepoSchema git.GitRepoSchema) bool
+	SyncRepo(gitRepoSchema git.GitRepoSchema) string
 	GetFileFromRepo(getFileRequest GetFileRequest, orgName string, teamName string) string
 }
 
@@ -98,7 +104,7 @@ func (r *RepoManagerApiImpl) UpdateRepo(orgName string, oldGitRepoSchema git.Git
 	return r.CloneRepo(orgName, newGitRepoSchema)
 }
 
-func (r *RepoManagerApiImpl) SyncRepo(gitRepoSchema git.GitRepoSchema) bool {
+func (r *RepoManagerApiImpl) SyncRepo(gitRepoSchema git.GitRepoSchema) string {
 	var err error
 	var payload []byte
 	var request *http.Request
@@ -114,7 +120,15 @@ func (r *RepoManagerApiImpl) SyncRepo(gitRepoSchema git.GitRepoSchema) bool {
 	}
 	defer resp.Body.Close()
 	log.Printf("Sync repo request returned status code %d", resp.StatusCode)
-	return resp.StatusCode == 200
+	if resp.StatusCode == 200 {
+		revisionHash, err := io.ReadAll(resp.Body)
+		if err != nil {
+			panic(fmt.Sprintf("unexpected err %s", err.Error()))
+		}
+		return string(revisionHash)
+	} else {
+		return ""
+	}
 }
 
 func (r *RepoManagerApiImpl) GetFileFromRepo(getFileRequest GetFileRequest, orgName string, teamName string) string {

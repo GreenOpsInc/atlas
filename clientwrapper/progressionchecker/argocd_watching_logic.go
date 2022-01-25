@@ -91,6 +91,9 @@ func CheckArgoCdNonSyncedStatus(watchKey datamodel.WatchKey, appInfo datamodel.A
 			}
 			eventInfo = datamodel.MakeApplicationEvent(watchKey, appInfo, healthStatus, watchKey.SyncStatus, resourceStatuses, revisionHash)
 			createdEvent = true
+		} else {
+			//Status is either terminating or running (not complete), so this iteration should be skipped and revisted
+			return GetEmptyWatchKey(), nil
 		}
 	}
 	if oldSyncStatus == watchKey.SyncStatus && oldHealthStatus == watchKey.HealthStatus && !createdEvent {

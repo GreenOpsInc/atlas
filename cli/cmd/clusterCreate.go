@@ -135,7 +135,7 @@ func NewClusterAddCommand(pathOpts *clientcmd.PathOptions) *cobra.Command {
 			if statusCode == 200 {
 				fmt.Printf("Successfully created cluster %s for org %s", name, orgName)
 			} else {
-				fmt.Printf("Error creating cluster: %s", errBody)
+				fmt.Printf("Error creating cluster: %s", string(errBody))
 			}
 		},
 	}

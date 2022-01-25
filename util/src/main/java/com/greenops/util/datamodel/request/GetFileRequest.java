@@ -1,18 +1,20 @@
 package com.greenops.util.datamodel.request;
 
+import com.greenops.util.datamodel.git.GitRepoSchemaInfo;
+
 public class GetFileRequest {
-    private final String gitRepoUrl;
+    private final GitRepoSchemaInfo gitRepoSchemaInfo;
     private final String filename;
     private final String gitCommitHash;
 
-    public GetFileRequest(String gitRepoUrl, String filename, String gitCommitHash) {
-        this.gitRepoUrl = gitRepoUrl;
+    public GetFileRequest(GitRepoSchemaInfo gitRepoSchemaInfo, String filename, String gitCommitHash) {
+        this.gitRepoSchemaInfo = gitRepoSchemaInfo;
         this.filename = filename;
         this.gitCommitHash = gitCommitHash;
     }
 
-    public String getGitRepoUrl() {
-        return gitRepoUrl;
+    public GitRepoSchemaInfo getGitRepoSchemaInfo() {
+        return gitRepoSchemaInfo;
     }
 
     public String getFilename() {

@@ -30,7 +30,8 @@ func getStepLogs(w http.ResponseWriter, r *http.Request) {
 	defer dbClient.Close()
 
 	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, pipelineSchema.GetGitRepoSchema().GitRepo, reposerver.RootCommit,
+	gitRepo := pipelineSchema.GetGitRepoSchema()
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit,
 		string(argo.GetAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
@@ -67,7 +68,8 @@ func getPipelineUvns(w http.ResponseWriter, r *http.Request) {
 	defer dbClient.Close()
 
 	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, pipelineSchema.GetGitRepoSchema().GitRepo, reposerver.RootCommit,
+	gitRepo := pipelineSchema.GetGitRepoSchema()
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit,
 		string(argo.GetAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
@@ -107,7 +109,8 @@ func getPipelineStatus(w http.ResponseWriter, r *http.Request) {
 	defer dbClient.Close()
 
 	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, pipelineSchema.GetGitRepoSchema().GitRepo, reposerver.RootCommit,
+	gitRepo := pipelineSchema.GetGitRepoSchema()
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit,
 		string(argo.GetAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
@@ -256,9 +259,9 @@ func cancelLatestPipeline(w http.ResponseWriter, r *http.Request) {
 	defer dbClient.Close()
 
 	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, pipelineSchema.GetGitRepoSchema().GitRepo, reposerver.RootCommit,
-		string(argo.SyncAction), string(argo.ApplicationResource),
-		string(argo.SyncAction), string(argo.ClusterResource)) {
+	gitRepo := pipelineSchema.GetGitRepoSchema()
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit,
+		string(argo.SyncAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}

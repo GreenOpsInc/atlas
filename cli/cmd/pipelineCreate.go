@@ -113,13 +113,11 @@ Example usage:
 		statusCode := resp.StatusCode
 		if statusCode == 200 {
 			fmt.Println("Successfully created pipeline:", pipelineName, "for team:", teamName)
-		} else if statusCode == 400 {
-			fmt.Println("Pipeline creation failed because the request was invalid.\nPlease check if the team and org names are correct, a pipeline with the specified name doesn't already exist, and the Git credentials are valid.")
 		} else if statusCode == 409 {
 			fmt.Println("Pipeline named", pipelineName, "already exists for team:", teamName)
 		} else {
 			body, _ := io.ReadAll(resp.Body)
-			fmt.Printf("An error occurred: %s", body)
+			fmt.Printf("Error: %d - %s", statusCode, string(body))
 		}
 	},
 }

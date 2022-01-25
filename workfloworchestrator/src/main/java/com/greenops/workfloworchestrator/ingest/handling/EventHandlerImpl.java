@@ -5,8 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.auditlog.Log;
 import com.greenops.util.datamodel.auditlog.PipelineInfo;
 import com.greenops.util.datamodel.auditlog.RemediationLog;
+import com.greenops.util.datamodel.clientmessages.ResourceGvk;
 import com.greenops.util.datamodel.event.*;
-import com.greenops.util.datamodel.git.ArgoRepoSchema;
+import com.greenops.util.datamodel.git.GitRepoSchemaInfo;
 import com.greenops.util.datamodel.pipeline.TeamSchema;
 import com.greenops.util.datamodel.request.GetFileRequest;
 import com.greenops.util.dbclient.DbClient;
@@ -14,7 +15,6 @@ import com.greenops.util.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.PipelineData;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.Test;
-import com.greenops.util.datamodel.clientmessages.ResourceGvk;
 import com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManagerApi;
 import com.greenops.workfloworchestrator.ingest.dbclient.DbKey;
 import com.greenops.workfloworchestrator.ingest.kafka.KafkaClient;
@@ -30,7 +30,6 @@ import java.util.stream.Collectors;
 import static com.greenops.util.datamodel.event.ClientCompletionEvent.*;
 import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.ROOT_STEP_NAME;
 import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.createRootStep;
-import static com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManagerApi.ROOT_COMMIT;
 import static com.greenops.workfloworchestrator.ingest.handling.util.deployment.ArgoDeploymentInfo.NO_OP_ARGO_DEPLOYMENT;
 
 @Slf4j
@@ -85,7 +84,7 @@ public class EventHandlerImpl implements EventHandler {
             return;
         }
 
-        var gitCommit = ROOT_COMMIT;
+        var gitCommit = "";
         if (event instanceof TriggerStepEvent) {
             gitCommit = ((TriggerStepEvent) event).getGitCommitHash();
         } else if (event instanceof PipelineTriggerEvent) {
@@ -93,22 +92,24 @@ public class EventHandlerImpl implements EventHandler {
         } else if (!event.getStepName().equals(ROOT_STEP_NAME)) {
             gitCommit = deploymentLogHandler.getCurrentGitCommitHash(event, event.getStepName());
         }
-        var gitRepoUrl = teamSchema.getPipelineSchema(event.getPipelineName()).getGitRepoSchema().getGitRepo();
-        var pipelineData = fetchPipelineData(event, gitRepoUrl, gitCommit);
+
+        var tempGitRepoSchema = teamSchema.getPipelineSchema(event.getPipelineName()).getGitRepoSchema();
+        var gitRepoSchemaInfo = new GitRepoSchemaInfo(tempGitRepoSchema.getGitRepo(), tempGitRepoSchema.getPathToRoot());
+        var pipelineData = fetchPipelineData(event, gitRepoSchemaInfo, gitCommit);
         if (pipelineData == null) throw new AtlasNonRetryableError("The pipeline doesn't exist");
 
         if (event instanceof PipelineTriggerEvent) {
-            handlePipelineTriggerEvent(pipelineData, gitRepoUrl, (PipelineTriggerEvent) event);
+            handlePipelineTriggerEvent(pipelineData, gitRepoSchemaInfo, (PipelineTriggerEvent) event);
         } else if (event instanceof ClientCompletionEvent) {
-            handleClientCompletionEvent(pipelineData, gitRepoUrl, (ClientCompletionEvent) event);
+            handleClientCompletionEvent(pipelineData, gitRepoSchemaInfo, (ClientCompletionEvent) event);
         } else if (event instanceof TestCompletionEvent) {
-            handleTestCompletion(pipelineData, gitRepoUrl, (TestCompletionEvent) event);
+            handleTestCompletion(pipelineData, gitRepoSchemaInfo, (TestCompletionEvent) event);
         } else if (event instanceof ApplicationInfraTriggerEvent) {
-            handleApplicationInfraTrigger(teamSchema, pipelineData, gitRepoUrl, (ApplicationInfraTriggerEvent) event);
+            handleApplicationInfraTrigger(teamSchema, pipelineData, gitRepoSchemaInfo, (ApplicationInfraTriggerEvent) event);
         } else if (event instanceof ApplicationInfraCompletionEvent) {
-            handleApplicationInfraCompletion(gitRepoUrl, pipelineData, (ApplicationInfraCompletionEvent) event);
+            handleApplicationInfraCompletion(gitRepoSchemaInfo, pipelineData, (ApplicationInfraCompletionEvent) event);
         } else if (event instanceof TriggerStepEvent) {
-            handleTriggerStep(pipelineData, gitRepoUrl, (TriggerStepEvent) event);
+            handleTriggerStep(pipelineData, gitRepoSchemaInfo, (TriggerStepEvent) event);
         }
     }
 
@@ -129,7 +130,7 @@ public class EventHandlerImpl implements EventHandler {
         return currentUvn != null && !event.getPipelineUvn().equals(currentUvn);
     }
 
-    private void handlePipelineTriggerEvent(PipelineData pipelineData, String pipelineRepoUrl, PipelineTriggerEvent event) {
+    private void handlePipelineTriggerEvent(PipelineData pipelineData, GitRepoSchemaInfo gitRepoSchemaInfo, PipelineTriggerEvent event) {
         var pipelineInfoKey = DbKey.makeDbPipelineInfoKey(event.getOrgName(), event.getTeamName(), event.getPipelineName());
         var pipelineInfo = dbClient.fetchLatestPipelineInfo(pipelineInfoKey);
         var listOfSteps = pipelineInfo != null ? pipelineInfo.getStepList() : null;
@@ -145,11 +146,11 @@ public class EventHandlerImpl implements EventHandler {
                     queueNewPipelineRun(event, latestUvn);
                 } else {
                     //Errors combined with no logs for the first step means there was an error and the pipeline is complete
-                    initializeNewPipelineRun(event, pipelineRepoUrl, pipelineData);
+                    initializeNewPipelineRun(event, gitRepoSchemaInfo, pipelineData);
                 }
                 return;
             }
-            currentPipelineData = fetchPipelineData(event, pipelineRepoUrl, deploymentLog.getGitCommitVersion());
+            currentPipelineData = fetchPipelineData(event, gitRepoSchemaInfo, deploymentLog.getGitCommitVersion());
 
             //There are two options for starting steps:
             //1. Either the pipeline was run normally, and the starting steps are the root steps
@@ -199,7 +200,7 @@ public class EventHandlerImpl implements EventHandler {
                 return;
             }
         }
-        initializeNewPipelineRun(event, pipelineRepoUrl, pipelineData);
+        initializeNewPipelineRun(event, gitRepoSchemaInfo, pipelineData);
     }
 
     private void queueNewPipelineRun(PipelineTriggerEvent event, String latestUvn) {
@@ -207,19 +208,19 @@ public class EventHandlerImpl implements EventHandler {
         log.info("Pipeline {} in progress, queueing up pipeline {}.", latestUvn, event.getPipelineUvn());
     }
 
-    private void initializeNewPipelineRun(PipelineTriggerEvent event, String pipelineRepoUrl, PipelineData pipelineData) {
+    private void initializeNewPipelineRun(PipelineTriggerEvent event, GitRepoSchemaInfo gitRepoSchemaInfo, PipelineData pipelineData) {
         var pipelineInfoKey = DbKey.makeDbPipelineInfoKey(event.getOrgName(), event.getTeamName(), event.getPipelineName());
         log.info("Starting new run for pipeline {}", event.getPipelineName());
         if (event.getStepName().equals(ROOT_STEP_NAME)) {
             dbClient.insertValueInList(pipelineInfoKey, new PipelineInfo(event.getPipelineUvn(), List.of(), pipelineData.getAllStepsOrdered()));
-            triggerNextSteps(pipelineData, createRootStep(), pipelineRepoUrl, event);
+            triggerNextSteps(pipelineData, createRootStep(), gitRepoSchemaInfo, event);
         } else {
             dbClient.insertValueInList(pipelineInfoKey, new PipelineInfo(event.getPipelineUvn(), List.of(), List.of(event.getStepName())));
             kafkaClient.sendMessage(new TriggerStepEvent(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName(), event.getPipelineUvn(), event.getRevisionHash(), false));
         }
     }
 
-    private void handleClientCompletionEvent(PipelineData pipelineData, String pipelineRepoUrl, ClientCompletionEvent event) {
+    private void handleClientCompletionEvent(PipelineData pipelineData, GitRepoSchemaInfo gitRepoSchemaInfo, ClientCompletionEvent event) {
         if (event.getHealthStatus().equals(PROGRESSING)) {
             return;
         }
@@ -268,7 +269,7 @@ public class EventHandlerImpl implements EventHandler {
                     resourceGvkList.add(new ResourceGvk(resource.getResourceName(), resource.getResourceNamespace(), resource.getGroup(), resource.getVersion(), resource.getKind()));
                 }
                 deploymentLogHandler.initializeNewRemediationLog(event, step.getName(), deploymentLog.getPipelineUniqueVersionNumber(), resourceGvkList);
-                deploymentHandler.triggerStateRemediation(event, pipelineRepoUrl, step, deploymentLog.getArgoApplicationName(), deploymentLog.getArgoRevisionHash(), resourceGvkList);
+                deploymentHandler.triggerStateRemediation(event, gitRepoSchemaInfo, step, deploymentLog.getArgoApplicationName(), deploymentLog.getArgoRevisionHash(), resourceGvkList);
             } else if (event.getHealthStatus().equals(HEALTHY)) {
                 deploymentLogHandler.markStateRemediated(event, step.getName());
             }
@@ -283,14 +284,14 @@ public class EventHandlerImpl implements EventHandler {
 
             var afterTestsExist = step.getTests().stream().anyMatch(test -> !test.shouldExecuteBefore());
             if (afterTestsExist) {
-                testHandler.triggerTest(pipelineRepoUrl, step, false, deploymentLogHandler.getCurrentGitCommitHash(event, step.getName()), event);
+                testHandler.triggerTest(gitRepoSchemaInfo, step, false, deploymentLogHandler.getCurrentGitCommitHash(event, step.getName()), event);
             } else {
-                triggerNextSteps(pipelineData, step, pipelineRepoUrl, event);
+                triggerNextSteps(pipelineData, step, gitRepoSchemaInfo, event);
             }
         }
     }
 
-    private void handleTestCompletion(PipelineData pipelineData, String pipelineRepoUrl, TestCompletionEvent event) {
+    private void handleTestCompletion(PipelineData pipelineData, GitRepoSchemaInfo gitRepoSchemaInfo, TestCompletionEvent event) {
         var step = pipelineData.getStep(event.getStepName());
         if (!event.getSuccessful()) {
             deploymentLogHandler.markStepFailedWithBrokenTest(event, event.getStepName(), event.getTestName(), event.getLog());
@@ -311,13 +312,13 @@ public class EventHandlerImpl implements EventHandler {
         } else if (!completedTest.shouldExecuteBefore() && completedTestNumber == step.getTests().size() - 1) {
             //If there are before tasks, the numbering for "after" tasks won't be exact.
             //The completed test number may go past the number of after tests.
-            triggerNextSteps(pipelineData, step, pipelineRepoUrl, event);
+            triggerNextSteps(pipelineData, step, gitRepoSchemaInfo, event);
         } else if ((completedTest.shouldExecuteBefore() && completedTestNumber < tests.size())
                 || (!completedTest.shouldExecuteBefore() && completedTestNumber < step.getTests().size())) {
             testHandler.createAndRunTest(
                     step.getClusterName(),
                     step,
-                    pipelineRepoUrl,
+                    gitRepoSchemaInfo,
                     step.getTests().get(completedTestNumber + 1),
                     completedTestNumber + 1,
                     deploymentLogHandler.getCurrentGitCommitHash(event, step.getName()),
@@ -329,7 +330,7 @@ public class EventHandlerImpl implements EventHandler {
         }
     }
 
-    private void handleApplicationInfraTrigger(TeamSchema teamSchema, PipelineData pipelineData, String pipelineRepoUrl, ApplicationInfraTriggerEvent event) {
+    private void handleApplicationInfraTrigger(TeamSchema teamSchema, PipelineData pipelineData, GitRepoSchemaInfo gitRepoSchemaInfo, ApplicationInfraTriggerEvent event) {
         //Right now it is assumed that the step names do not change
         var stepData = pipelineData.getStep(event.getStepName());
         if (stepData.getOtherDeploymentsPath() == null) {
@@ -341,15 +342,15 @@ public class EventHandlerImpl implements EventHandler {
                 //TODO: Add deploymentInfraSuccessful variable in deployment log, and replace method below with one that checks for the deployment infra deploying successfully
                 : deploymentLogHandler.getLastSuccessfulDeploymentGitCommitHash(event, event.getStepName());
         if (oldGitCommitHash != null) {
-            var oldPipelineData = fetchPipelineData(event, pipelineRepoUrl, oldGitCommitHash);
+            var oldPipelineData = fetchPipelineData(event, gitRepoSchemaInfo, oldGitCommitHash);
             var oldStepData = oldPipelineData.getStep(event.getStepName());
             //TODO: Two separate events cannot be sent for deleting then deploying. The deployment handler has to version application infrastructure with Kubernetes labels
-            deploymentHandler.deleteApplicationInfrastructure(event, pipelineRepoUrl, oldStepData, oldGitCommitHash);
+            deploymentHandler.deleteApplicationInfrastructure(event, gitRepoSchemaInfo, oldStepData, oldGitCommitHash);
         }
-        deploymentHandler.deployApplicationInfrastructure(event, pipelineRepoUrl, pipelineData.getStep(event.getStepName()), deploymentLogHandler.getCurrentGitCommitHash(event, event.getStepName()));
+        deploymentHandler.deployApplicationInfrastructure(event, gitRepoSchemaInfo, pipelineData.getStep(event.getStepName()), deploymentLogHandler.getCurrentGitCommitHash(event, event.getStepName()));
     }
 
-    private void handleApplicationInfraCompletion(String pipelineRepoUrl, PipelineData pipelineData, ApplicationInfraCompletionEvent event) {
+    private void handleApplicationInfraCompletion(GitRepoSchemaInfo gitRepoSchemaInfo, PipelineData pipelineData, ApplicationInfraCompletionEvent event) {
         var stepData = pipelineData.getStep(event.getStepName());
         if (!event.isSuccess() && stepData.getRollbackLimit() > 0) rollback(event);
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepData.getName());
@@ -357,16 +358,16 @@ public class EventHandlerImpl implements EventHandler {
 
         var argoDeploymentInfo = NO_OP_ARGO_DEPLOYMENT;
         if ((stepData.getArgoApplicationPath() != null || stepData.getArgoApplication() != null) && deploymentLog.getUniqueVersionInstance() > 0) {
-            deploymentHandler.rollbackArgoApplication(event, pipelineRepoUrl, stepData, deploymentLog.getArgoApplicationName(), deploymentLog.getArgoRevisionHash());
+            deploymentHandler.rollbackArgoApplication(event, gitRepoSchemaInfo, stepData, deploymentLog.getArgoApplicationName(), deploymentLog.getArgoRevisionHash());
             return;
         } else if (stepData.getArgoApplicationPath() != null || stepData.getArgoApplication() != null) {
             var argoRevisionHash = deploymentLogHandler.getCurrentArgoRevisionHash(event, stepData.getName());
-            deploymentHandler.deployArgoApplication(event, pipelineRepoUrl, pipelineData, stepData.getName(), argoRevisionHash, deploymentLogHandler.getCurrentGitCommitHash(event, stepData.getName()));
+            deploymentHandler.deployArgoApplication(event, gitRepoSchemaInfo, pipelineData, stepData.getName(), argoRevisionHash, deploymentLogHandler.getCurrentGitCommitHash(event, stepData.getName()));
         }
     }
 
-    private void handleTriggerStep(PipelineData pipelineData, String pipelineRepoUrl, TriggerStepEvent event) {
-        var gitCommit = ROOT_COMMIT;
+    private void handleTriggerStep(PipelineData pipelineData, GitRepoSchemaInfo gitRepoSchemaInfo, TriggerStepEvent event) {
+        var gitCommit = event.getGitCommitHash();
 
         //First cancel any pending remediation steps
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName());
@@ -384,13 +385,13 @@ public class EventHandlerImpl implements EventHandler {
                 //Means there is no stable version that can be found.
                 return;
             }
-            pipelineData = fetchPipelineData(event, pipelineRepoUrl, gitCommit);
+            pipelineData = fetchPipelineData(event, gitRepoSchemaInfo, gitCommit);
         } else {
             deploymentLogHandler.initializeNewStepLog(
                     event,
                     event.getStepName(),
                     event.getPipelineUvn(),
-                    repoManagerApi.getCurrentPipelineCommitHash(pipelineRepoUrl, event.getOrgName(), event.getTeamName())
+                    gitCommit
             );
         }
 
@@ -398,7 +399,7 @@ public class EventHandlerImpl implements EventHandler {
 
         var beforeTestsExist = stepData.getTests().stream().anyMatch(Test::shouldExecuteBefore);
         if (beforeTestsExist) {
-            testHandler.triggerTest(pipelineRepoUrl, stepData, true, gitCommit, event);
+            testHandler.triggerTest(gitRepoSchemaInfo, stepData, true, gitCommit, event);
             return;
         }
 
@@ -409,7 +410,7 @@ public class EventHandlerImpl implements EventHandler {
 
         var afterTestsExist = stepData.getTests().stream().anyMatch(test -> !test.shouldExecuteBefore());
         if (afterTestsExist) {
-            testHandler.triggerTest(pipelineRepoUrl, stepData, false, gitCommit, event);
+            testHandler.triggerTest(gitRepoSchemaInfo, stepData, false, gitCommit, event);
             return;
         }
     }
@@ -418,8 +419,8 @@ public class EventHandlerImpl implements EventHandler {
         deploymentLogHandler.markStepFailedWithProcessingError(event, event.getStepName(), event.getError());
     }
 
-    private void triggerNextSteps(PipelineData pipelineData, StepData step, String pipelineRepoUrl, Event event) {
-        var currentGitCommit = ROOT_COMMIT;
+    private void triggerNextSteps(PipelineData pipelineData, StepData step, GitRepoSchemaInfo gitRepoSchemaInfo, Event event) {
+        var currentGitCommit = "";
         if (event instanceof PipelineTriggerEvent) {
             currentGitCommit = ((PipelineTriggerEvent) event).getRevisionHash();
         } else if (!step.getName().equals(ROOT_STEP_NAME)) {
@@ -479,8 +480,8 @@ public class EventHandlerImpl implements EventHandler {
         return dbClient.fetchTeamSchema(DbKey.makeDbTeamKey(event.getOrgName(), event.getTeamName()));
     }
 
-    private PipelineData fetchPipelineData(Event event, String gitRepoUrl, String gitCommitHash) {
-        var getFileRequest = new GetFileRequest(gitRepoUrl, PIPELINE_FILE_NAME, gitCommitHash);
+    private PipelineData fetchPipelineData(Event event, GitRepoSchemaInfo gitRepoSchemaInfo, String gitCommitHash) {
+        var getFileRequest = new GetFileRequest(gitRepoSchemaInfo, PIPELINE_FILE_NAME, gitCommitHash);
         try {
             return objectMapper.readValue(
                     objectMapper.writeValueAsString(

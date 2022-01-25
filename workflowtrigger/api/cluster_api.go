@@ -40,7 +40,7 @@ func createCluster(w http.ResponseWriter, r *http.Request) {
 
 	key := db.MakeDbClusterKey(orgName, clusterRequest.Name)
 	if dbClient.FetchClusterSchema(key).ClusterIP != "" {
-		w.WriteHeader(http.StatusConflict)
+		http.Error(w, "cluster already exists", http.StatusConflict)
 		return
 	}
 
@@ -75,7 +75,7 @@ func readCluster(w http.ResponseWriter, r *http.Request) {
 	clusterSchema := dbClient.FetchClusterSchema(key)
 	emptyStruct := cluster.ClusterSchema{}
 	if clusterSchema == emptyStruct {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "no cluster found", http.StatusBadRequest)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -113,14 +113,14 @@ func markNoDeployCluster(w http.ResponseWriter, r *http.Request) {
 	_, err := buf.ReadFrom(r.Body)
 	err = json.Unmarshal(buf.Bytes(), &noDeployRequest)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	//if !schemaValidator.VerifyRbac(argo.UpdateAction, argo.ClusterResource, clusterName) {
-	//	http.Error(w, "Not enough permissions", http.StatusForbidden)
-	//	return
-	//}
+	if !schemaValidator.VerifyRbac(argo.UpdateAction, argo.ClusterResource, clusterName) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
+	}
 
 	key := db.MakeDbClusterKey(orgName, clusterName)
 	clusterSchema := dbClient.FetchClusterSchema(key)
@@ -158,14 +158,14 @@ func removeNoDeployCluster(w http.ResponseWriter, r *http.Request) {
 	_, err := buf.ReadFrom(r.Body)
 	err = json.Unmarshal(buf.Bytes(), &noDeployRequest)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	//if !schemaValidator.VerifyRbac(argo.UpdateAction, argo.ClusterResource, clusterName) {
-	//	http.Error(w, "Not enough permissions", http.StatusForbidden)
-	//	return
-	//}
+	if !schemaValidator.VerifyRbac(argo.UpdateAction, argo.ClusterResource, clusterName) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
+	}
 
 	key := db.MakeDbClusterKey(orgName, clusterName)
 	clusterSchema := dbClient.FetchClusterSchema(key)

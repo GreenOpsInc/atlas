@@ -80,7 +80,7 @@ Example usage:
 		if statusCode == 200 {
 			fmt.Println("Successfully created team:", teamName, "under parent team:", parentTeamName)
 		} else {
-			fmt.Println("An error occurred: ", body)
+			fmt.Printf("Error: %d - %s", statusCode, string(body))
 		}
 	},
 }

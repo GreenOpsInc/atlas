@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
@@ -46,10 +47,9 @@ Example usage:
 		statusCode := resp.StatusCode
 		if statusCode == 200 {
 			fmt.Println("Successfully deleted cluster:", clusterName)
-		} else if statusCode == 400 {
-			fmt.Println("Cluster deletion failed. Invalid org name or cluster name provided.")
 		} else {
-			fmt.Println("Internal server error, please try again.")
+			body, _ := io.ReadAll(resp.Body)
+			fmt.Printf("Error: %d - %s", statusCode, string(body))
 		}
 	},
 }

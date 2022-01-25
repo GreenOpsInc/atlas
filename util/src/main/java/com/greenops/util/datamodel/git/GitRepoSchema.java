@@ -54,4 +54,7 @@ public class GitRepoSchema {
         return false;
     }
     
+    public boolean contentsEqual(GitRepoSchema gitRepoSchema) {
+        return gitRepo.equals(gitRepoSchema.gitRepo) && pathToRoot.equals(gitRepoSchema.pathToRoot);
+    }
 }

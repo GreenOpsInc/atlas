@@ -20,7 +20,6 @@ func (a *ArgoClientDriver) SpecMatches(app1 *v1alpha1.Application, app2 *v1alpha
 	}
 	return app1.Name == app2.Name &&
 		app1.Namespace == app2.Namespace &&
-		app1.ResourceVersion == app2.ResourceVersion &&
 		app1.ClusterName == app2.ClusterName &&
 		reflect.DeepEqual(app1.Annotations, app2.Annotations) &&
 		reflect.DeepEqual(app1.Labels, app2.Labels) &&

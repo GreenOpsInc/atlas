@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
@@ -64,10 +65,9 @@ Example usage:
 		statusCode := resp.StatusCode
 		if statusCode == 200 {
 			fmt.Println("Successfully updated team to", newTeamName, "under parent team:", newParentTeamName)
-		} else if statusCode == 400 {
-			fmt.Println("Team update failed because the request was invalid. Please check if the provided arguments are correct.")
 		} else {
-			fmt.Println("Internal server error, please try again.")
+			body, _ := io.ReadAll(resp.Body)
+			fmt.Printf("Error: %d - %s", statusCode, string(body))
 		}
 
 	},
