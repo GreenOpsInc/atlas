@@ -162,7 +162,7 @@ spec:
             - name: ATLAS_DB_ADDRESS
               value: redisserver.atlas.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
-              value: http://reposerver.atlas.svc.cluster.local:8081
+              value: http://reposerver.atlas.svc.cluster.local:8080
             - name: COMMAND_DELEGATOR_SERVER_ENDPOINT
               value: https://commanddelegator.atlas.svc.cluster.local:8080
           image: docker.io/greenopsinc/workflowtrigger:v0.10.0
@@ -251,7 +251,7 @@ spec:
             - name: REDIS_ENDPOINT
               value: redisserver.atlas.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
-              value: http://reposerver.atlas.svc.cluster.local:8081
+              value: http://reposerver.atlas.svc.cluster.local:8080
           image: docker.io/greenopsinc/workfloworchestrator:v0.10.0
           name: workfloworchestrator
           imagePullPolicy: Always

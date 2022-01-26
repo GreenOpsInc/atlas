@@ -15,8 +15,8 @@ Set up Strimzi using:
 
     kubectl create namespace kafka
     kubectl create -f 'https://strimzi.io/install/latest?namespace=kafka' -n kafka
-    kubectl apply -f https://raw.githubusercontent.com/GreenOpsInc/atlas/main/manifest/install/kafka.yaml -n kafka
-    kubectl wait kafka/atlas --for=condition=Ready --timeout=300s -n kafka
+    kubectl apply -f https://strimzi.io/examples/latest/kafka/kafka-persistent-single.yaml -n kafka
+    kubectl wait kafka/my-cluster --for=condition=Ready --timeout=300s -n kafka
 
 These commands will set up the Strimzi Kafka operator in the Kafka namespace, create a single-broker Kafka cluster, and wait for the cluster to be set up correctly.
 
