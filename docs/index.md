@@ -2,7 +2,7 @@
 
 ## What is Atlas?
 
-Atlas is an open-source deployment pipeline platform for Kubernetes applications. Atlas makes it easy to run a continuous deployment pipeline across all environments and clusters, add custom tasks, tests, and plugins, and automatically rollback or remediate your applications. Atlas also has a management plane, allowing highly granular control over deployments and environments. Atlas is built on top of Argo CD.
+Atlas is an open-source deployment pipeline platform for Kubernetes applications. Atlas makes it easy to run a continuous deployment pipeline across all environments and clusters, add custom tasks, tests, and plugins, and automatically rollback or remediate your applications. Atlas also has a management plane, allowing highly granular control over deployments and environments. Atlas is built on top of [Argo CD](https://argo-cd.readthedocs.io/en/stable/), one of the dominant toolchains today for managing Kubernetes-based applications.
 
 ## Why Atlas?
 
