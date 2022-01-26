@@ -19,15 +19,16 @@ spec:
       offsets.topic.replication.factor: 1
       transaction.state.log.replication.factor: 1
       transaction.state.log.min.isr: 1
-#       log.message.format.version: "2.8"
+      default.replication.factor: 1
+      min.insync.replicas: 1
       inter.broker.protocol.version: "3.0"
     storage:
       type: jbod
       volumes:
-        - id: 0
-          type: persistent-claim
-          size: 100Gi
-          deleteClaim: false
+      - id: 0
+        type: persistent-claim
+        size: 100Gi
+        deleteClaim: false
   zookeeper:
     replicas: 1
     storage:
