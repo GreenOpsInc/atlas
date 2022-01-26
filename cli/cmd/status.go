@@ -107,10 +107,8 @@ Example usage:
 				return
 			}
 			fmt.Println(string(prettyJSON.Bytes()))
-		} else if statusCode == 400 {
-			fmt.Println("Invalid org name, team name, pipeline name, or uvn provided.")
 		} else {
-			fmt.Println("Internal server error, please try again.")
+			fmt.Printf("Error: %d - %s", statusCode, string(body))
 		}
 	},
 }

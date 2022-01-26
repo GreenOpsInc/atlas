@@ -20,12 +20,6 @@ const (
 	getFileExtension string = "file"
 )
 
-type GetFileRequest struct {
-	GitRepoUrl    string
-	Filename      string
-	GitCommitHash string
-}
-
 type CommandDelegatorApi interface {
 	SendNotification(orgName string, clusterName string, request clientrequest.NotificationRequestEvent) string
 }

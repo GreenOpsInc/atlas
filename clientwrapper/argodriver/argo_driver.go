@@ -437,16 +437,12 @@ func (a *ArgoClientDriver) GetOperationSuccess(applicationName string) (bool, bo
 	defer ioCloser.Close()
 	app, err := applicationClient.Get(context.TODO(), &application.ApplicationQuery{Name: &applicationName})
 	if err != nil {
-		if strings.Contains(err.Error(), "\""+applicationName+"\" not found") {
-			//TODO: Probably need better handling for this
-			return false, false, "", nil
-		}
 		log.Printf("Getting the application threw an error. Error was %s\n", err)
 		return false, false, "", err
 	}
 
 	if app.Status.OperationState == nil || app.Status.OperationState.SyncResult == nil {
-		return false, false, "", nil
+		return false, false, "", errors.New("couldn't get status information")
 	}
 	return app.Status.OperationState.Phase.Completed(),
 		app.Status.OperationState.Phase.Successful(),
@@ -467,14 +463,14 @@ func (a *ArgoClientDriver) GetCurrentRevisionHash(applicationName string) (strin
 	defer ioCloser.Close()
 	app, err := applicationClient.Get(context.TODO(), &application.ApplicationQuery{Name: &applicationName})
 	if err != nil {
-		if strings.Contains(err.Error(), "\""+applicationName+"\" not found") {
-			return "", nil
-		}
 		log.Printf("Getting the application threw an error. Error was %s\n", err)
 		return "", err
 	}
 	//Note, this is the most recent SYNCED revision. If an operation is still progressing, the revision tied to that operation
 	//will likely not be sent
+	if app.Status.Sync.Revision == "" {
+		return "", errors.New("argo revision is empty")
+	}
 	return app.Status.Sync.Revision, nil
 }
 

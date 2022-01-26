@@ -63,7 +63,7 @@ Example usage:
 			}
 			fmt.Println(string(prettyJSON.Bytes()))
 		} else {
-			fmt.Println("Error reading cluster")
+			fmt.Printf("Error reading cluster: %d - %s", statusCode, string(body))
 		}
 	},
 }

@@ -78,15 +78,15 @@ public class PipelineRepoApiTests {
 
     @Test
     public void testSyncRepoWorks() {
-        when(repoManager.sync(schema)).thenReturn(true);
+        when(repoManager.sync(schema)).thenReturn("123");
         var response = pipelineApi.syncRepo(schema);
 
-        assertEquals(ResponseEntity.ok().build(), response);
+        assertEquals(ResponseEntity.ok("123"), response);
     }
 
     @Test
     public void testSyncRepoFails() {
-        when(repoManager.sync(schema)).thenReturn(false);
+        when(repoManager.sync(schema)).thenReturn(null);
         var response = pipelineApi.syncRepo(schema);
 
         assertEquals(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build(), response);

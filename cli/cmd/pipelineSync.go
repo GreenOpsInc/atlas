@@ -124,7 +124,7 @@ Example usage:
 			fmt.Println("Successfully synced pipeline:", pipelineName, "for team:", teamName)
 		} else {
 			body, _ := io.ReadAll(resp.Body)
-			fmt.Printf("An error occurred: %s", body)
+			fmt.Printf("Error: %d - %s", statusCode, string(body))
 		}
 	},
 }

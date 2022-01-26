@@ -64,7 +64,7 @@ func createTeam(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	w.WriteHeader(http.StatusBadRequest)
+	http.Error(w, "team already exists", http.StatusBadRequest)
 }
 
 func readTeam(w http.ResponseWriter, r *http.Request) {
@@ -77,7 +77,7 @@ func readTeam(w http.ResponseWriter, r *http.Request) {
 	key := db.MakeDbTeamKey(orgName, teamName)
 	teamSchema := dbClient.FetchTeamSchema(key)
 	if teamSchema.GetOrgName() == "" {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "no team found", http.StatusBadRequest)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -110,7 +110,7 @@ func deleteTeam(w http.ResponseWriter, r *http.Request) {
 	teamSchema := dbClient.FetchTeamSchema(key)
 	for _, val := range teamSchema.GetPipelineSchemas() {
 		if kubernetesClient.StoreGitCred(nil, db.MakeSecretName(orgName, teamName, val.GetPipelineName())) {
-			http.Error(w, "Kubernetes secret deletion did not work", http.StatusInternalServerError)
+			http.Error(w, "kubernetes secret deletion did not work", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -131,30 +131,30 @@ func createPipeline(w http.ResponseWriter, r *http.Request) {
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	gitRepo = git.UnmarshallGitRepoSchemaString(string(buf.Bytes()))
 	key := db.MakeDbTeamKey(orgName, teamName)
 	teamSchema := dbClient.FetchTeamSchema(key)
 	if teamSchema.GetOrgName() == "" {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "no team schema found", http.StatusBadRequest)
 		return
 	}
 	if teamSchema.GetPipelineSchema(pipelineName) != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "pipeline already exists", http.StatusBadRequest)
 		return
 	}
 	if !kubernetesClient.StoreGitCred(gitRepo.GetGitCred(), db.MakeSecretName(orgName, teamName, pipelineName)) {
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "storing git credentials failed", http.StatusInternalServerError)
 		return
 	}
 	if !repoManagerApi.CloneRepo(orgName, gitRepo) {
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "cloning repository failed", http.StatusInternalServerError)
 		return
 	}
 
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, gitRepo.GitRepo, reposerver.RootCommit, string(argo.CreateAction), string(argo.ApplicationResource)) {
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit, string(argo.CreateAction), string(argo.ApplicationResource)) {
 		repoManagerApi.DeleteRepo(gitRepo)
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
@@ -181,7 +181,7 @@ func getPipelineEndpoint(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, pipelineSchema.GetGitRepoSchema().GitRepo, reposerver.RootCommit, string(argo.GetAction), string(argo.ApplicationResource)) {
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: pipelineSchema.GetGitRepoSchema().GitRepo, PathToRoot: pipelineSchema.GetGitRepoSchema().PathToRoot}, reposerver.RootCommit, string(argo.GetAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}
@@ -215,24 +215,24 @@ func deletePipeline(w http.ResponseWriter, r *http.Request) {
 	key := db.MakeDbTeamKey(orgName, teamName)
 	teamSchema := dbClient.FetchTeamSchema(key)
 	if teamSchema.GetOrgName() == "" {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "team does not exist", http.StatusBadRequest)
 		return
 	}
 	if teamSchema.GetPipelineSchema(pipelineName) == nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "pipeline does not exist", http.StatusBadRequest)
 		return
 	}
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, teamSchema.GetPipelineSchema(pipelineName).GetGitRepoSchema().GitRepo, reposerver.RootCommit, string(argo.DeleteAction), string(argo.ApplicationResource)) {
+	gitRepo := teamSchema.GetPipelineSchema(pipelineName).GetGitRepoSchema()
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit, string(argo.DeleteAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}
 	kubernetesClient.StoreGitCred(nil, db.MakeSecretName(orgName, teamName, pipelineName))
-	gitRepo := teamSchema.GetPipelineSchema(pipelineName).GetGitRepoSchema()
 
 	teamSchema.RemovePipeline(pipelineName)
 
 	if !repoManagerApi.DeleteRepo(gitRepo) {
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "repository could not be deleted", http.StatusInternalServerError)
 		return
 	}
 	clearPipelineData(orgName, teamName, pipelineName)
@@ -264,30 +264,31 @@ func updatePipeline(w http.ResponseWriter, r *http.Request) {
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	gitRepoUpd = git.UnmarshallGitRepoSchemaString(string(buf.Bytes()))
 
 	teamSchema := dbClient.FetchTeamSchema(key)
 	if teamSchema.GetOrgName() == "" {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "team does not exist", http.StatusBadRequest)
 		return
 	}
 	if teamSchema.GetPipelineSchema(pipelineName) == nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "pipeline does not exist", http.StatusBadRequest)
 		return
 	}
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, teamSchema.GetPipelineSchema(pipelineName).GetGitRepoSchema().GitRepo, reposerver.RootCommit, string(argo.UpdateAction), string(argo.ApplicationResource)) {
+
+	gitRepo := teamSchema.GetPipelineSchema(pipelineName).GetGitRepoSchema()
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit, string(argo.UpdateAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 	}
 	kubernetesClient.StoreGitCred(gitRepoUpd.GetGitCred(), db.MakeSecretName(orgName, teamName, pipelineName))
-	gitRepo := teamSchema.GetPipelineSchema(pipelineName).GetGitRepoSchema()
 
 	teamSchema.UpdatePipeline(pipelineName, gitRepoUpd)
 
 	if !repoManagerApi.UpdateRepo(orgName, gitRepo, gitRepoUpd) {
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "updating the repository failed", http.StatusInternalServerError)
 		return
 	}
 	dbClient.StoreValue(key, teamSchema)
@@ -308,21 +309,25 @@ func syncPipeline(w http.ResponseWriter, r *http.Request) {
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	gitRepo = git.UnmarshallGitRepoSchemaString(string(buf.Bytes()))
-	if !repoManagerApi.SyncRepo(gitRepo) {
-		w.WriteHeader(http.StatusBadRequest)
+	currentRevisionHash := repoManagerApi.SyncRepo(gitRepo)
+	if currentRevisionHash == "" {
+		http.Error(w, "syncing repository failed", http.StatusBadRequest)
 		return
 	}
 
-	//if !schemaValidator.ValidateSchemaAccess(orgName, teamName, gitRepo.GitRepo, revisionHash,
-	//	string(argo.SyncAction), string(argo.ApplicationResource),
-	//	string(argo.SyncAction), string(argo.ClusterResource)) {
-	//	http.Error(w, "Not enough permissions", http.StatusForbidden)
-	//	return
-	//}
+	if revisionHash == reposerver.RootCommit {
+		revisionHash = currentRevisionHash
+	}
+
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, revisionHash,
+		string(argo.SyncAction), string(argo.ApplicationResource)) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
+	}
 
 	triggerEvent := event.NewPipelineTriggerEvent(orgName, teamName, pipelineName)
 	triggerEvent.(*event.PipelineTriggerEvent).RevisionHash = revisionHash
@@ -342,19 +347,23 @@ func runSubPipeline(w http.ResponseWriter, r *http.Request) {
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	gitRepo = git.UnmarshallGitRepoSchemaString(string(buf.Bytes()))
-	if !repoManagerApi.SyncRepo(gitRepo) {
-		w.WriteHeader(http.StatusBadRequest)
+	currentRevisionHash := repoManagerApi.SyncRepo(gitRepo)
+	if currentRevisionHash == "" {
+		http.Error(w, "syncing repository failed", http.StatusBadRequest)
 		return
 	}
 
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, gitRepo.GitRepo, revisionHash,
+	if revisionHash == reposerver.RootCommit {
+		revisionHash = currentRevisionHash
+	}
+
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, revisionHash,
 		string(argo.OverrideAction), string(argo.ApplicationResource),
-		string(argo.SyncAction), string(argo.ApplicationResource),
-		string(argo.SyncAction), string(argo.ClusterResource)) {
+		string(argo.SyncAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}
@@ -382,24 +391,28 @@ func forceDeploy(w http.ResponseWriter, r *http.Request) {
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	gitRepo = git.UnmarshallGitRepoSchemaString(string(buf.Bytes()))
-	if !repoManagerApi.SyncRepo(gitRepo) {
-		w.WriteHeader(http.StatusBadRequest)
+	currentRevisionHash := repoManagerApi.SyncRepo(gitRepo)
+	if currentRevisionHash == "" {
+		http.Error(w, "syncing repository failed", http.StatusBadRequest)
 		return
 	}
 
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, gitRepo.GitRepo, pipelineRevisionHash,
+	if pipelineRevisionHash == reposerver.RootCommit {
+		pipelineRevisionHash = currentRevisionHash
+	}
+
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, pipelineRevisionHash,
 		string(argo.OverrideAction), string(argo.ApplicationResource),
-		string(argo.SyncAction), string(argo.ApplicationResource),
-		string(argo.SyncAction), string(argo.ClusterResource)) {
+		string(argo.SyncAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}
 
-	applicationPayload, clusterName := schemaValidator.GetStepApplicationPayload(orgName, teamName, gitRepo.GitRepo, pipelineRevisionHash, stepName)
+	applicationPayload, clusterName := schemaValidator.GetStepApplicationPayload(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, pipelineRevisionHash, stepName)
 
 	clusterSchema := dbClient.FetchClusterSchema(db.MakeDbClusterKey(orgName, clusterName))
 	emptyStruct := cluster.ClusterSchema{}
@@ -434,17 +447,17 @@ func forceDeploy(w http.ResponseWriter, r *http.Request) {
 }
 
 func generateEventEndpoint(w http.ResponseWriter, r *http.Request) {
-	//vars := mux.Vars(r)
+	vars := mux.Vars(r)
 	//orgName := vars[orgNameField]
-	//clusterName := vars[clusterNameField]
-	//if !schemaValidator.VerifyRbac(argo.UpdateAction, argo.ClusterResource, clusterName) {
-	//	http.Error(w, "Not enough permissions", http.StatusForbidden)
-	//	return
-	//}
+	clusterName := vars[clusterNameField]
+	if !schemaValidator.VerifyRbac(argo.UpdateAction, argo.ClusterResource, clusterName) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
+	}
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	generateEvent(buf.String())
@@ -468,7 +481,7 @@ func generateNotification(w http.ResponseWriter, r *http.Request) {
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	key := db.MakeDbNotificationKey(requestId)

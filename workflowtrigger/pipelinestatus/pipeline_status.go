@@ -70,6 +70,7 @@ func MarshallPipelineStatus(status PipelineStatus) *ordered.OrderedMap {
 	mapObj := ordered.NewOrderedMap()
 
 	var failedStepsList []*ordered.OrderedMap
+	failedStepsList = make([]*ordered.OrderedMap, 0)
 	for _, val := range status.FailedSteps {
 		step := MarshallFailedStep(val)
 		failedStepsList = append(failedStepsList, step)

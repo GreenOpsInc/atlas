@@ -223,6 +223,7 @@ spec:
     spec:
       containers:
         - image: redis
+          imagePullPolicy: IfNotPresent
           name: redisserver
           ports:
             - containerPort: 6379

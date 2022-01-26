@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.clientmessages.ResourceGvk;
 import com.greenops.util.datamodel.clientmessages.ResourcesGvkRequest;
 import com.greenops.util.datamodel.event.Event;
+import com.greenops.util.datamodel.git.GitRepoSchemaInfo;
 import com.greenops.util.datamodel.request.GetFileRequest;
 import com.greenops.util.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.datamodel.pipelinedata.PipelineData;
@@ -45,9 +46,9 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
     }
 
     @Override
-    public void deleteApplicationInfrastructure(Event event, String pipelineRepoUrl, StepData stepData, String gitCommitHash) {
+    public void deleteApplicationInfrastructure(Event event, GitRepoSchemaInfo gitRepoSchemaInfo, StepData stepData, String gitCommitHash) {
         if (stepData.getOtherDeploymentsPath() != null) {
-            var getFileRequest = new GetFileRequest(pipelineRepoUrl, stepData.getOtherDeploymentsPath(), gitCommitHash);
+            var getFileRequest = new GetFileRequest(gitRepoSchemaInfo, stepData.getOtherDeploymentsPath(), gitCommitHash);
             var otherDeploymentsConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
             log.info("Deleting old application infrastructure...");
             if (otherDeploymentsConfig.isBlank()) return;
@@ -58,7 +59,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
                     event.getPipelineName(),
                     event.getPipelineUvn(),
                     event.getStepName(),
-                    getStepNamespace(event, repoManagerApi, yamlObjectMapper, stepData.getArgoApplicationPath(), pipelineRepoUrl, gitCommitHash),
+                    getStepNamespace(event, repoManagerApi, yamlObjectMapper, stepData.getArgoApplicationPath(), gitRepoSchemaInfo, gitCommitHash),
                     ClientRequestQueue.DELETE_KUBERNETES_REQUEST,
                     otherDeploymentsConfig
             );
@@ -66,9 +67,9 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
     }
 
     @Override
-    public void deployApplicationInfrastructure(Event event, String pipelineRepoUrl, StepData stepData, String gitCommitHash) {
+    public void deployApplicationInfrastructure(Event event, GitRepoSchemaInfo gitRepoSchemaInfo, StepData stepData, String gitCommitHash) {
         if (stepData.getOtherDeploymentsPath() != null) {
-            var getFileRequest = new GetFileRequest(pipelineRepoUrl, stepData.getOtherDeploymentsPath(), gitCommitHash);
+            var getFileRequest = new GetFileRequest(gitRepoSchemaInfo, stepData.getOtherDeploymentsPath(), gitCommitHash);
             var otherDeploymentsConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
             log.info("Deploying new application infrastructure...");
             if (otherDeploymentsConfig.isBlank()) return;
@@ -79,7 +80,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
                     event.getPipelineName(),
                     event.getPipelineUvn(),
                     stepData.getName(),
-                    getStepNamespace(event, repoManagerApi, yamlObjectMapper, stepData.getArgoApplicationPath(), pipelineRepoUrl, gitCommitHash),
+                    getStepNamespace(event, repoManagerApi, yamlObjectMapper, stepData.getArgoApplicationPath(), gitRepoSchemaInfo, gitCommitHash),
                     ClientRequestQueue.RESPONSE_EVENT_APPLICATION_INFRA,
                     ClientRequestQueue.DEPLOY_KUBERNETES_REQUEST,
                     ClientRequestQueue.LATEST_REVISION,
@@ -89,10 +90,10 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
     }
 
     @Override
-    public void deployArgoApplication(Event event, String pipelineRepoUrl, PipelineData pipelineData, String stepName, String argoRevisionHash, String gitCommitHash) {
+    public void deployArgoApplication(Event event, GitRepoSchemaInfo gitRepoSchemaInfo, PipelineData pipelineData, String stepName, String argoRevisionHash, String gitCommitHash) {
         var stepData = pipelineData.getStep(stepName);
         if (stepData.getArgoApplicationPath() != null) {
-            var getFileRequest = new GetFileRequest(pipelineRepoUrl, stepData.getArgoApplicationPath(), gitCommitHash);
+            var getFileRequest = new GetFileRequest(gitRepoSchemaInfo, stepData.getArgoApplicationPath(), gitCommitHash);
             var argoApplicationConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
             metadataHandler.assertArgoRepoMetadataExists(event, stepData.getName(), argoApplicationConfig);
             var pipelineLockRevisionHash = pipelineData.isArgoVersionLock() ? metadataHandler.getPipelineLockRevisionHash(event, pipelineData, stepData.getName()) : null;
@@ -104,7 +105,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
                     event.getPipelineName(),
                     event.getPipelineUvn(),
                     event.getStepName(),
-                    getStepNamespace(event, repoManagerApi, yamlObjectMapper, stepData.getArgoApplicationPath(), pipelineRepoUrl, gitCommitHash),
+                    getStepNamespace(event, repoManagerApi, yamlObjectMapper, stepData.getArgoApplicationPath(), gitRepoSchemaInfo, gitCommitHash),
                     ClientRequestQueue.DEPLOY_ARGO_REQUEST,
                     pipelineLockRevisionHash,
                     argoApplicationConfig,
@@ -130,7 +131,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
     }
 
     @Override
-    public void rollbackArgoApplication(Event event, String pipelineRepoUrl, StepData stepData, String argoApplicationName, String argoRevisionHash) {
+    public void rollbackArgoApplication(Event event, GitRepoSchemaInfo gitRepoSchemaInfo, StepData stepData, String argoApplicationName, String argoRevisionHash) {
         clientRequestQueue.rollbackAndWatch(
                 stepData.getClusterName(),
                 event.getOrgName(),
@@ -138,7 +139,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
                 event.getPipelineName(),
                 event.getPipelineUvn(),
                 event.getStepName(),
-                getStepNamespace(event, repoManagerApi, yamlObjectMapper, stepData.getArgoApplicationPath(), pipelineRepoUrl, argoRevisionHash),
+                getStepNamespace(event, repoManagerApi, yamlObjectMapper, stepData.getArgoApplicationPath(), gitRepoSchemaInfo, argoRevisionHash),
                 argoApplicationName,
                 argoRevisionHash,
                 WATCH_ARGO_APPLICATION_KEY
@@ -147,7 +148,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
     }
 
     @Override
-    public void triggerStateRemediation(Event event, String pipelineRepoUrl, StepData stepData, String argoApplicationName, String argoRevisionHash, List<ResourceGvk> resourceStatuses) {
+    public void triggerStateRemediation(Event event, GitRepoSchemaInfo gitRepoSchemaInfo, StepData stepData, String argoApplicationName, String argoRevisionHash, List<ResourceGvk> resourceStatuses) {
         var syncRequestPayload = new ResourcesGvkRequest(resourceStatuses);
         clientRequestQueue.selectiveSyncArgoApplication(
                 stepData.getClusterName(),
@@ -156,7 +157,7 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
                 event.getPipelineName(),
                 event.getPipelineUvn(),
                 stepData.getName(),
-                getStepNamespace(event, repoManagerApi, yamlObjectMapper, stepData.getArgoApplicationPath(), pipelineRepoUrl, argoRevisionHash),
+                getStepNamespace(event, repoManagerApi, yamlObjectMapper, stepData.getArgoApplicationPath(), gitRepoSchemaInfo, argoRevisionHash),
                 argoRevisionHash,
                 syncRequestPayload,
                 argoApplicationName
@@ -176,11 +177,11 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
         return false;
     }
 
-    public static String getStepNamespace(Event event, RepoManagerApi repoManagerApi, ObjectMapper yamlObjectMapper, String argoApplicationPath, String gitRepoUrl, String gitCommitHash) {
+    public static String getStepNamespace(Event event, RepoManagerApi repoManagerApi, ObjectMapper yamlObjectMapper, String argoApplicationPath, GitRepoSchemaInfo gitRepoSchemaInfo, String gitCommitHash) {
         if (event.getStepName().isEmpty() || event.getStepName().equals(ROOT_STEP_NAME)) {
             throw new AtlasNonRetryableError("Could not find a namespace associated with the event");
         }
-        var getFileRequest = new GetFileRequest(gitRepoUrl, argoApplicationPath, gitCommitHash);
+        var getFileRequest = new GetFileRequest(gitRepoSchemaInfo, argoApplicationPath, gitCommitHash);
         var argoAppPayload = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
         String namespace;
         try {

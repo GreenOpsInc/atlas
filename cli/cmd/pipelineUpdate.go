@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -111,10 +112,9 @@ Example usage:
 		statusCode := resp.StatusCode
 		if statusCode == 200 {
 			fmt.Println("Successfully updated pipeline:", pipelineName, "for team:", teamName)
-		} else if statusCode == 400 {
-			fmt.Println("Pipeline update failed because the request was invalid.\nPlease check if the team and org names are correct, a pipeline with the specified name exists, and the Git credentials are valid.")
 		} else {
-			fmt.Println("Internal server error, please try recreating the pipeline and confirm that the provided Git credentials to the new upstream repo are correct.")
+			body, _ := io.ReadAll(resp.Body)
+			fmt.Printf("Error: %d - %s", statusCode, string(body))
 		}
 	},
 }

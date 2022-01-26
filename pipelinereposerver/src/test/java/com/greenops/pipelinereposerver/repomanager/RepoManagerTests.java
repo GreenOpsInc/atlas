@@ -66,11 +66,11 @@ public class RepoManagerTests {
         assertTrue(repoManager.clone(schema));
         Path path = Paths.get(testFolderPath.toString(), "testrepo2");
         assertTrue(Files.exists(path));
-        assertEquals(latestCommitHashPublic, repoManager.getLatestCommitFromCache("https://github.com/dummyaccount-test/testrepo2"));
+        assertEquals(latestCommitHashPublic, repoManager.getCurrentCommit("https://github.com/dummyaccount-test/testrepo2"));
         var repos = repoManager.getGitRepos().stream()
-                .filter(gitRepoCache -> gitRepoCache.getGitRepoSchema().getGitRepo().equals("https://github.com/dummyaccount-test/testrepo2"))
+                .filter(gitRepo -> gitRepo.getGitRepo().equals("https://github.com/dummyaccount-test/testrepo2"))
                 .collect(Collectors.toList());
-        assertEquals(latestCommitHashPublic, repos.get(0).getRootCommitHash());
+        assertEquals(latestCommitHashPublic, repoManager.getCurrentCommit(repos.get(0).getGitRepo()));
     }
 
     @Test
@@ -81,11 +81,11 @@ public class RepoManagerTests {
         assertTrue(repoManager.clone(schema));
         Path path = Paths.get(testFolderPath.toString(), "testrepo");
         assertTrue(Files.exists(path));
-        assertEquals(latestCommitHashPrivate, repoManager.getLatestCommitFromCache("https://github.com/dummyaccount-test/testrepo"));
+        assertEquals(latestCommitHashPrivate, repoManager.getCurrentCommit("https://github.com/dummyaccount-test/testrepo"));
         var repos = repoManager.getGitRepos().stream()
-                .filter(gitRepoCache -> gitRepoCache.getGitRepoSchema().getGitRepo().equals("https://github.com/dummyaccount-test/testrepo"))
+                .filter(gitRepo -> gitRepo.getGitRepo().equals("https://github.com/dummyaccount-test/testrepo"))
                 .collect(Collectors.toList());
-        assertEquals(latestCommitHashPrivate, repos.get(0).getRootCommitHash());
+        assertEquals(latestCommitHashPrivate, repoManager.getCurrentCommit(repos.get(0).getGitRepo()));
     }
 
     @Test
@@ -96,11 +96,11 @@ public class RepoManagerTests {
         assertTrue(repoManager.clone(schema));
         Path path = Paths.get(testFolderPath.toString(), "testrepo");
         assertTrue(Files.exists(path));
-        assertEquals(latestCommitHashPrivate, repoManager.getLatestCommitFromCache("https://github.com/dummyaccount-test/testrepo"));
+        assertEquals(latestCommitHashPrivate, repoManager.getCurrentCommit("https://github.com/dummyaccount-test/testrepo"));
         var repos = repoManager.getGitRepos().stream()
-                .filter(gitRepoCache -> gitRepoCache.getGitRepoSchema().getGitRepo().equals("https://github.com/dummyaccount-test/testrepo"))
+                .filter(gitRepo -> gitRepo.getGitRepo().equals("https://github.com/dummyaccount-test/testrepo"))
                 .collect(Collectors.toList());
-        assertEquals(latestCommitHashPrivate, repos.get(0).getRootCommitHash());
+        assertEquals(latestCommitHashPrivate, repoManager.getCurrentCommit(repos.get(0).getGitRepo()));
     }
 
 
@@ -151,17 +151,17 @@ public class RepoManagerTests {
         Path pathFile2 = Paths.get(testFolderPath.toString(), "testrepo2", "testFile2");
         assertTrue(Files.exists(pathFile1));
         assertTrue(Files.exists(pathFile2));
-        repoManager.resetToVersion(oldCommitHashPublic, "https://github.com/dummyaccount-test/testrepo2");
+        repoManager.resetToVersion(oldCommitHashPublic, schema);
         var repos = repoManager.getGitRepos().stream()
-                .filter(gitRepoCache -> gitRepoCache.getGitRepoSchema().getGitRepo().equals("https://github.com/dummyaccount-test/testrepo2"))
+                .filter(gitRepo -> gitRepo.contentsEqual(schema))
                 .collect(Collectors.toList());
-        assertEquals(latestCommitHashPublic, repos.get(0).getRootCommitHash());
+        assertEquals(latestCommitHashPublic, repoManager.getCurrentCommit(repos.get(0).getGitRepo()));
         assertTrue(Files.exists(pathFile1));
         assertFalse(Files.exists(pathFile2));
-        assertTrue(repoManager.sync(schema));
+        assertNotNull(repoManager.sync(schema));
         assertTrue(Files.exists(pathFile2));
-        assertEquals(latestCommitHashPublic, repoManager.getLatestCommitFromCache("https://github.com/dummyaccount-test/testrepo2"));
-        assertEquals(latestCommitHashPublic, repos.get(0).getRootCommitHash());
+        assertEquals(latestCommitHashPublic, repoManager.getCurrentCommit("https://github.com/dummyaccount-test/testrepo2"));
+        assertEquals(latestCommitHashPublic, repoManager.getCurrentCommit(repos.get(0).getGitRepo()));
 
     }
 
@@ -175,17 +175,17 @@ public class RepoManagerTests {
         Path pathFile2 = Paths.get(testFolderPath.toString(), "testrepo", "codefresh-build-1.yml");
         assertTrue(Files.exists(pathFile1));
         assertTrue(Files.exists(pathFile2));
-        repoManager.resetToVersion(oldCommitHashPrivate, "https://github.com/dummyaccount-test/testrepo");
+        repoManager.resetToVersion(oldCommitHashPrivate, schema);
         var repos = repoManager.getGitRepos().stream()
-                .filter(gitRepoCache -> gitRepoCache.getGitRepoSchema().getGitRepo().equals("https://github.com/dummyaccount-test/testrepo"))
+                .filter(gitRepo -> gitRepo.contentsEqual(schema))
                 .collect(Collectors.toList());
-        assertEquals(latestCommitHashPrivate, repos.get(0).getRootCommitHash());
+        assertEquals(latestCommitHashPrivate, repoManager.getCurrentCommit(repos.get(0).getGitRepo()));
         assertTrue(Files.exists(pathFile1));
         assertFalse(Files.exists(pathFile2));
-        assertTrue(repoManager.sync(schema));
+        assertNotNull(repoManager.sync(schema));
         assertTrue(Files.exists(pathFile2));
-        assertEquals(latestCommitHashPrivate, repoManager.getLatestCommitFromCache("https://github.com/dummyaccount-test/testrepo"));
-        assertEquals(latestCommitHashPrivate, repos.get(0).getRootCommitHash());
+        assertEquals(latestCommitHashPrivate, repoManager.getCurrentCommit("https://github.com/dummyaccount-test/testrepo"));
+        assertEquals(latestCommitHashPrivate, repoManager.getCurrentCommit(repos.get(0).getGitRepo()));
 
     }
 
@@ -199,16 +199,17 @@ public class RepoManagerTests {
         Path pathFile2 = Paths.get(testFolderPath.toString(), "testrepo", "codefresh-build-1.yml");
         assertTrue(Files.exists(pathFile1));
         assertTrue(Files.exists(pathFile2));
-        repoManager.resetToVersion(oldCommitHashPrivate, "https://github.com/dummyaccount-test/testrepo");
+        repoManager.resetToVersion(oldCommitHashPrivate, schema);
         var repos = repoManager.getGitRepos().stream()
-                .filter(gitRepoCache -> gitRepoCache.getGitRepoSchema().getGitRepo().equals("https://github.com/dummyaccount-test/testrepo"))
+                .filter(gitRepo -> gitRepo.contentsEqual(schema))
                 .collect(Collectors.toList());
-        assertEquals(latestCommitHashPrivate, repos.get(0).getRootCommitHash());
+        assertEquals(oldCommitHashPrivate, repoManager.getCurrentCommit(repos.get(0).getGitRepo()));
         assertTrue(Files.exists(pathFile1));
         assertFalse(Files.exists(pathFile2));
-        assertTrue(repoManager.sync(schema));
+        assertNotNull(repoManager.sync(schema));
         assertTrue(Files.exists(pathFile2));
-        assertEquals(latestCommitHashPrivate, repoManager.getLatestCommitFromCache("https://github.com/dummyaccount-test/testrepo"));
+        assertEquals(latestCommitHashPrivate, repoManager.getCurrentCommit("https://github.com/dummyaccount-test/testrepo"));
+        assertEquals(latestCommitHashPrivate, repoManager.getCurrentCommit(repos.get(0).getGitRepo()));
 
     }
 
@@ -231,11 +232,11 @@ public class RepoManagerTests {
         Path pathFile2 = Paths.get(testFolderPath.toString(), "testrepo", "codefresh-build-1.yml");
         assertTrue(Files.exists(pathFile1));
         assertTrue(Files.exists(pathFile2));
-        repoManager.resetToVersion(oldCommitHashPrivate, "https://github.com/dummyaccount-test/testrepo");
+        repoManager.resetToVersion(oldCommitHashPrivate, schema);
         var repos = repoManager.getGitRepos().stream()
-                .filter(gitRepoCache -> gitRepoCache.getGitRepoSchema().getGitRepo().equals("https://github.com/dummyaccount-test/testrepo"))
+                .filter(gitRepo -> gitRepo.getGitRepo().equals("https://github.com/dummyaccount-test/testrepo"))
                 .collect(Collectors.toList());
-        assertEquals(latestCommitHashPrivate, repos.get(0).getRootCommitHash());
+        assertEquals(latestCommitHashPrivate, repoManager.getCurrentCommit(repos.get(0).getGitRepo()));
         assertTrue(Files.exists(pathFile1));
         assertFalse(Files.exists(pathFile2));
     }
@@ -255,7 +256,7 @@ public class RepoManagerTests {
                 "/",
                 new GitCredMachineUser(username, pwd));
         assertTrue(repoManager.clone(schema));
-        assertEquals(yamlContents, repoManager.getYamlFileContents("https://github.com/dummyaccount-test/testrepo", "codefresh-build-1.yml"));
+        assertEquals(yamlContents, repoManager.getYamlFileContents("https://github.com/dummyaccount-test/testrepo", new GitRepoSchema("codefresh-build-1.yml", "/", null)));
 
     }
 

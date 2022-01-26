@@ -59,11 +59,8 @@ Example usage:
 			}
 
 			fmt.Println(string(prettyJSON.Bytes()))
-		} else if statusCode == 400 {
-			fmt.Println("Team cannot be read. Invalid org name or team name provided.")
 		} else {
-			fmt.Println(statusCode)
-			fmt.Println("Internal server error, please try again.")
+			fmt.Printf("Error: %d - %s", statusCode, string(body))
 		}
 	},
 }

@@ -4,12 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.git.GitCredMachineUser;
 import com.greenops.util.datamodel.git.GitCredToken;
 import com.greenops.util.datamodel.git.GitRepoSchema;
+import com.greenops.util.datamodel.git.GitRepoSchemaInfo;
 import com.greenops.util.datamodel.mixin.git.GitCredMachineUserMixin;
 import com.greenops.util.datamodel.mixin.git.GitCredTokenMixin;
 import com.greenops.util.datamodel.mixin.git.GitRepoSchemaMixin;
 import com.greenops.util.datamodel.mixin.pipeline.PipelineSchemaMixin;
 import com.greenops.util.datamodel.mixin.pipeline.TeamSchemaMixin;
 import com.greenops.util.datamodel.mixin.request.GetFileRequestMixin;
+import com.greenops.util.datamodel.mixin.request.GitRepoSchemaInfoMixin;
 import com.greenops.util.datamodel.pipeline.PipelineSchemaImpl;
 import com.greenops.util.datamodel.pipeline.TeamSchemaImpl;
 import com.greenops.util.datamodel.request.GetFileRequest;
@@ -34,7 +36,8 @@ public class SpringConfiguration {
                 .addMixIn(GitRepoSchema.class, GitRepoSchemaMixin.class)
                 .addMixIn(GitCredMachineUser.class, GitCredMachineUserMixin.class)
                 .addMixIn(GitCredToken.class, GitCredTokenMixin.class)
-                .addMixIn(GetFileRequest.class, GetFileRequestMixin.class);
+                .addMixIn(GetFileRequest.class, GetFileRequestMixin.class)
+                .addMixIn(GitRepoSchemaInfo.class, GitRepoSchemaInfoMixin.class);
     }
 
     @Bean

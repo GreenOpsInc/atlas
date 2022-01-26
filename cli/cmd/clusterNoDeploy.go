@@ -78,7 +78,7 @@ Example usage:
 			fmt.Println("Successfully updated cluster nodeploy status")
 		} else {
 			errBody, _ := io.ReadAll(resp.Body)
-			fmt.Printf("Error updating cluster nodeploy status: %s", errBody)
+			fmt.Printf("Error updating cluster nodeploy status: %d - %s", statusCode, string(errBody))
 		}
 	},
 }
