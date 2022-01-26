@@ -284,11 +284,11 @@ spec:
 #            - name: KAFKA_BOOTSTRAP_SERVERS # strimzi
 #              value: atlas-kafka-0.atlas-kafka-brokers.kafka.svc.cluster.local:9092
             - name: ATLAS_DB_ADDRESS
-              value: redisserver.default.svc.cluster.local:6379
+              value: redisserver.atlas.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
-              value: http://reposerver.default.svc.cluster.local:8080
+              value: http://reposerver.atlas.svc.cluster.local:8080
             - name: COMMAND_DELEGATOR_SERVER_ENDPOINT
-              value: https://commanddelegator.default.svc.cluster.local:8080
+              value: https://commanddelegator.atlas.svc.cluster.local:8080
           image: atlasworkflowtrigger
           imagePullPolicy: Never
           name: workflowtrigger
@@ -347,7 +347,7 @@ spec:
       containers:
         - env:
             - name: REDIS_ENDPOINT
-              value: redisserver.default.svc.cluster.local:6379
+              value: redisserver.atlas.svc.cluster.local:6379
             - name: ORG_NAME
               value: org
           image: atlasreposerver
@@ -388,15 +388,15 @@ spec:
       containers:
         - env:
             - name: CLIENT_WRAPPER_ENDPOINT
-              value: https://atlasclientwrapper.default.svc.cluster.local:9091
+              value: https://atlasclientwrapper.atlas.svc.cluster.local:9091
             - name: KAFKA_BOOTSTRAP_SERVERS # docker-compose
               value: LOCALHOSTDYNAMICADDRESS:29092
 #            - name: KAFKA_BOOTSTRAP_SERVERS # strimzi
 #              value: atlas-kafka-0.atlas-kafka-brokers.kafka.svc.cluster.local:9092
             - name: REDIS_ENDPOINT
-              value: redisserver.default.svc.cluster.local:6379
+              value: redisserver.atlas.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
-              value: http://reposerver.default.svc.cluster.local:8080
+              value: http://reposerver.atlas.svc.cluster.local:8080
           image: atlasworkfloworchestrator
           imagePullPolicy: Never
           name: workfloworchestrator
@@ -460,7 +460,7 @@ spec:
       containers:
         - env:
             - name: ATLAS_DB_ADDRESS
-              value: redisserver.default.svc.cluster.local:6379
+              value: redisserver.atlas.svc.cluster.local:6379
           image: atlascommanddelegator
           imagePullPolicy: Never
           name: commanddelegator
@@ -504,9 +504,9 @@ spec:
       containers:
         - env:
           - name: WORKFLOW_TRIGGER_SERVER_ADDR
-            value: https://workflowtrigger.default.svc.cluster.local:8080
+            value: https://workflowtrigger.atlas.svc.cluster.local:8080
           - name: COMMAND_DELEGATOR_URL
-            value: https://commanddelegator.default.svc.cluster.local:8080
+            value: https://commanddelegator.atlas.svc.cluster.local:8080
           name: atlasclientwrapper
           image: atlasclientwrapper
           imagePullPolicy: Never

@@ -29,4 +29,4 @@ cd ../WorkflowOrchestrator/
 ./gradlew jibDockerBuild --image=atlasworkfloworchestrator
 minikube image load atlasworkfloworchestrator
 cd ../test_config
-perl -p -e "s/LOCALHOSTDYNAMICADDRESS/$localhostip/g" atlasinfrastructure.yaml | kubectl apply -f -
+perl -p -e "s/LOCALHOSTDYNAMICADDRESS/$localhostip/g" atlasinfrastructure.yaml | kubectl apply -n atlas -f -

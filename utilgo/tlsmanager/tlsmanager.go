@@ -73,9 +73,9 @@ type DNSName string
 const (
 	NotValidDNSName     DNSName = "not-valid"
 	DNSLocalhost        DNSName = "localhost"
-	DNSRepoServer       DNSName = "reposerver.default.svc.cluster.local"
-	DNSWorkflowTrigger  DNSName = "workflowtrigger.default.svc.cluster.local"
-	DNSCommandDelegator DNSName = "commanddelegator.default.svc.cluster.local"
+	DNSRepoServer       DNSName = "reposerver.atlas.svc.cluster.local"
+	DNSWorkflowTrigger  DNSName = "workflowtrigger.atlas.svc.cluster.local"
+	DNSCommandDelegator DNSName = "commanddelegator.atlas.svc.cluster.local"
 	DNSArgoCDRepoServer DNSName = "argocd-server.argocd.svc.cluster.local"
 )
 
