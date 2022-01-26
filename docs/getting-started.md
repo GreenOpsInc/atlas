@@ -7,7 +7,9 @@
 
 ## 1. Set up Kafka
 
-In case you do not have a Kafka instance, you can use [Strimzi](https://strimzi.io/) (a CNCF cloud-native Kafka project) to set up a Kafka cluster in your Kubernetes environment. If you are using minikube, it is recommended to have 4 GB memory for the VM, as 2 GB isnt always enough.
+In case you do not have a Kafka instance, you can use [Strimzi](https://strimzi.io/) (a CNCF cloud-native Kafka project) to set up a Kafka cluster in your Kubernetes environment. If you are using minikube, it is recommended to have 4 GB memory for the VM, as 2 GB isnt always enough:
+
+    minikube start --memory=4096
 
 Set up Strimzi using:
 
