@@ -67,9 +67,9 @@ spec:
         - name: clientwrapper
           env:
           - name: WORKFLOW_TRIGGER_SERVER_ADDR
-            value: <http/s address>
+            value: <https address>
           - name: COMMAND_DELEGATOR_URL
-            value: <http/s address>
+            value: <https address>
           - name: CLUSTER_NAME
             value: <cluster name>
           - name: ARGOCD_SERVER
