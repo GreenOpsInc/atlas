@@ -158,7 +158,7 @@ spec:
       containers:
         - env:
             - name: KAFKA_BOOTSTRAP_SERVERS
-              value: atlas-kafka-bootstrap.kafka.svc.cluster.local:9092
+              value: my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
             - name: ATLAS_DB_ADDRESS
               value: redisserver.atlas.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
@@ -247,7 +247,7 @@ spec:
             - name: CLIENT_WRAPPER_ENDPOINT
               value: https://atlasclientwrapper.atlas.svc.cluster.local:9091
             - name: KAFKA_BOOTSTRAP_SERVERS
-              value: atlas-kafka-bootstrap.kafka.svc.cluster.local:9092
+              value: my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
             - name: REDIS_ENDPOINT
               value: redisserver.atlas.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
