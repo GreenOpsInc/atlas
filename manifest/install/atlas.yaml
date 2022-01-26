@@ -164,8 +164,8 @@ spec:
             - name: REPO_SERVER_ENDPOINT
               value: http://reposerver.atlas.svc.cluster.local:8081
             - name: COMMAND_DELEGATOR_SERVER_ENDPOINT
-              value: http://commanddelegator.atlas.svc.cluster.local:8080
-          image: docker.io/greenopsinc/workflowtrigger:0.10.0
+              value: https://commanddelegator.atlas.svc.cluster.local:8080
+          image: docker.io/greenopsinc/workflowtrigger:v0.10.0
           name: workflowtrigger
           imagePullPolicy: Always
           ports:
@@ -184,9 +184,9 @@ metadata:
   name: reposerver
 spec:
   ports:
-    - name: "8081"
-      port: 8081
-      targetPort: 8081
+    - name: "8080"
+      port: 8080
+      targetPort: 8080
   selector:
     app.kubernetes.io/name: reposerver
 ---
@@ -214,11 +214,11 @@ spec:
               value: redisserver.atlas.svc.cluster.local:6379
             - name: ORG_NAME
               value: org
-          image: docker.io/greenopsinc/reposerver:0.10.0
+          image: docker.io/greenopsinc/reposerver:v0.10.0
           name: reposerver
           imagePullPolicy: Always
           ports:
-            - containerPort: 8081
+            - containerPort: 8080
           resources: {}
       restartPolicy: Always
       serviceAccountName: reposerver
@@ -245,19 +245,26 @@ spec:
       containers:
         - env:
             - name: CLIENT_WRAPPER_ENDPOINT
-              value: http://atlasclientwrapper.atlas.svc.cluster.local:9091
+              value: https://atlasclientwrapper.atlas.svc.cluster.local:9091
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: atlas-kafka-bootstrap.kafka.svc.cluster.local:9092
             - name: REDIS_ENDPOINT
               value: redisserver.atlas.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
               value: http://reposerver.atlas.svc.cluster.local:8081
-          image: docker.io/greenopsinc/workfloworchestrator:0.10.0
+          image: docker.io/greenopsinc/workfloworchestrator:v0.10.0
           name: workfloworchestrator
           imagePullPolicy: Always
+          volumeMounts:
+            - mountPath: /tls-cert
+              name: certs
           resources: {}
       restartPolicy: Always
       serviceAccountName: workfloworchestrator
+      volumes:
+        - name: certs
+          hostPath:
+            path: /tls-cert
 ---
 #CommandDelegator Service & Deployment
 apiVersion: v1
@@ -297,7 +304,7 @@ spec:
         - env:
             - name: ATLAS_DB_ADDRESS
               value: redisserver.atlas.svc.cluster.local:6379
-          image: docker.io/greenopsinc/commanddelegator:0.10.0
+          image: docker.io/greenopsinc/commanddelegator:v0.10.0
           name: commanddelegator
           imagePullPolicy: Always
           ports:
@@ -340,12 +347,12 @@ spec:
     spec:
       containers:
         - name: clientwrapper
-          image: docker.io/greenopsinc/clientwrapper:0.10.0
+          image: docker.io/greenopsinc/clientwrapper:v0.10.0
           env:
           - name: WORKFLOW_TRIGGER_SERVER_ADDR
-            value: http://workflowtrigger.atlas.svc.cluster.local:8080
+            value: https://workflowtrigger.atlas.svc.cluster.local:8080
           - name: COMMAND_DELEGATOR_URL
-            value: http://commanddelegator.atlas.svc.cluster.local:8080
+            value: https://commanddelegator.atlas.svc.cluster.local:8080
           imagePullPolicy: Always
           resources:
             requests:
