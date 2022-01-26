@@ -8,6 +8,8 @@ Pipelines can be run again using syncs. When a sync is triggered, the latest ver
 atlas pipeline sync pipeline_name --team team_name  --repo git_repo --root path_to_root (No flags specified means open access)
 ```
 
+If there is a specific revision that you want to deploy, you can add the `--pipelineRevisionHash <pipeline repo revision>` flag.
+
 ## Queueing Pipeline Runs
 
 Only one instance of a pipeline can be running at any given time. If a pipeline run is triggered while it is already running, the triggered run will be queued up and run once the current pipeline has finished running or is cancelled.

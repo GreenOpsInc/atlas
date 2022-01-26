@@ -27,6 +27,8 @@ This will create the atlas namespace and provision the atlas control plane in sa
 
 During deployment, the Atlas Client Wrapper (which acts as the delegate in clusters and communicates with Argo) reads the ArgoCD ConfigMap to get the admin username and password. If you want to provide a different set of credentials, add environment variables `ARGOCD_USER_ACCOUNT` and `ARGOCD_USER_PASSWORD` to the Client Wrapper Deployment in the manifest file.
 
+NOTE: The Atlas Client Wrapper requires admin-level privileges.
+
 ## 3. Download Atlas CLI
 
 === "Linux"
@@ -70,7 +72,23 @@ Set the Atlas CLI to use the new <IP address\>:8080 address as the default URL.
 
 Running the command above will allow the Atlas API to be accessible at localhost:8081. By default the Atlas CLI will point to that URL.
 
-## 5. Set Up and Run Your First Pipeline
+## 5. Login
+
+Atlas delegates authentication and authorization to Argo CD. Logging in queries the Argo CD endpoint, so it needs to be accessible.
+
+    kubectl port-forward svc/argocd-server -n argocd 8080:80
+
+Next, get the Argo CD admin password:
+
+    kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
+
+Now, you can login:
+
+    atlas login <Argo CD server>
+
+If you port forwarded as shown above, the Argo CD server will be accessible at localhost:8080. The username is `admin`, and password is the output of the command run above.
+
+## 6. Set Up and Run Your First Pipeline
 
 Now that you have access to the Atlas API and have the set up completed, you can now create a team and run a pipeline.
 
@@ -78,7 +96,7 @@ First, create a team using the CLI:
 
     atlas team create exampleTeam
 
-The team is what has ownership over the pipeline. Multiple pipelines can be created per team, and teams can also be created under other teams.
+The team is what has ownership over the pipeline. Multiple pipelines can be created per team.
 
 Atlas follows a GitOps approach to pipeline management. We have set up an [example pipeline repository](https://github.com/GreenOpsInc/atlasexamples/tree/main/basic) that you can run. The repository contains the pipeline schema (information on how many steps there are, what each step does), tests, and the ArgoCD deployment manifest/Kubernetes manifest. For the sake of simplicity, all the files are on the same level. For more specifics on the schema and pipeline structure, check out the [Build Book](buildbook/step.md).
 
@@ -88,9 +106,11 @@ Create the pipeline:
 
     atlas pipeline create examplePipeline --repo https://github.com/GreenOpsInc/atlasexamples.git --team exampleTeam --root basic/
 
-Creating a new pipeline will automatically trigger the pipeline run.
+Now run it:
 
-## 6. Check the Audit Logs
+    atlas pipeline sync examplePipeline --repo https://github.com/GreenOpsInc/atlasexamples.git --team exampleTeam --root basic/
+
+## 7. Check the Audit Logs
 
 You can view the status of the pipeline run by running:
 
