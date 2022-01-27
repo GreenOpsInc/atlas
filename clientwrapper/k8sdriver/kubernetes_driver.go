@@ -9,8 +9,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"log"
 	"strings"
+
+	"github.com/greenopsinc/util/clientrequest"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -35,7 +38,27 @@ const (
 	PodType          string = "Pod"
 	ServiceType      string = "Service"
 	ReplicaSetType   string = "ReplicaSet"
+	DeploymentType   string = "Deployment"
+	DaemonSetType    string = "DaemonSet"
+	StatefulSetType  string = "StatefulSet"
 )
+
+type AggregateResult struct {
+	Cluster      string     `json:"cluster"`
+	ResourceList []Resource `json:"resourceList"`
+}
+
+type Resource struct {
+	Kind         string     `json:"kind"`
+	Name         string     `json:"name"`
+	Version      string     `json:"version"`
+	ResourceList []Resource `json:"resource_list"`
+}
+type patchStringValue struct {
+	Op    string `json:"op"`
+	Path  string `json:"path"`
+	Value string `json:"value"`
+}
 
 type KubernetesClientGetRestricted interface {
 	GetJob(name string, namespace string) (batchv1.JobStatus, metav1.LabelSelector, int32)
@@ -59,6 +82,9 @@ type KubernetesClient interface {
 	GetLogs(podNamespace string, selector metav1.LabelSelector) (string, error)
 	GetJob(name string, namespace string) (batchv1.JobStatus, metav1.LabelSelector, int32)
 	GetSecret(name string, namespace string) map[string][]byte
+	Label(gvkGroup clientrequest.GvkGroupRequest, resourcesLabel string) error
+	Aggregate(cluster string, namespace string) (AggregateResult, error)
+	DeleteByLabel(label string, namespace string) error
 	//TODO: Update parameters & return type for CheckStatus
 	CheckHealthy() bool
 	//TODO: Update parameters for ExecInPod
@@ -463,6 +489,413 @@ func (k KubernetesClientDriver) GetSecret(name string, namespace string) map[str
 		return nil
 	}
 	return secret.Data
+}
+
+func (k KubernetesClientDriver) Label(gvkGroup clientrequest.GvkGroupRequest, resourcesLabel string) error {
+	var label_path string
+	label_path = "/metadata/labels/" + resourcesLabel
+	payload := []patchStringValue{{
+		Op:    "replace",
+		Path:  label_path,
+		Value: "True",
+	}}
+	payloadBytes, _ := json.Marshal(payload)
+	for _, value := range gvkGroup.ResourceList {
+		switch value.Kind {
+		case PodType:
+			_, err := k.client.CoreV1().Pods(value.ResourceNamespace).Patch(context.TODO(), value.ResourceName, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+			if err != nil {
+				if strings.Contains(err.Error(), "does not exist") || strings.Contains(err.Error(), "doesn't exist") || strings.Contains(err.Error(), "not found") {
+					return nil
+				}
+				log.Printf("The label step threw an error. Error was %s\n", err)
+				return err
+			}
+		case ReplicaSetType:
+			_, err := k.client.AppsV1().ReplicaSets(value.ResourceNamespace).Patch(context.TODO(), value.ResourceName, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+			if err != nil {
+				if strings.Contains(err.Error(), "does not exist") || strings.Contains(err.Error(), "doesn't exist") || strings.Contains(err.Error(), "not found") {
+					return nil
+				}
+				log.Printf("The label step threw an error. Error was %s\n", err)
+				return err
+			}
+			log.Printf("Successfully labeled replica set with label ", resourcesLabel)
+		case DaemonSetType:
+			_, err := k.client.AppsV1().DaemonSets(value.ResourceNamespace).Patch(context.TODO(), value.ResourceName, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+			if err != nil {
+				if strings.Contains(err.Error(), "does not exist") || strings.Contains(err.Error(), "doesn't exist") || strings.Contains(err.Error(), "not found") {
+					return nil
+				}
+				log.Printf("The label step threw an error. Error was %s\n", err)
+				return err
+			}
+		case StatefulSetType:
+			_, err := k.client.AppsV1().StatefulSets(value.ResourceNamespace).Patch(context.TODO(), value.ResourceName, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+			if err != nil {
+				if strings.Contains(err.Error(), "does not exist") || strings.Contains(err.Error(), "doesn't exist") || strings.Contains(err.Error(), "not found") {
+					return nil
+				}
+				log.Printf("The label step threw an error. Error was %s\n", err)
+				return err
+			}
+		case DeploymentType:
+			_, err := k.client.AppsV1().Deployments(value.ResourceNamespace).Patch(context.TODO(), value.ResourceName, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+			if err != nil {
+				if strings.Contains(err.Error(), "does not exist") || strings.Contains(err.Error(), "doesn't exist") || strings.Contains(err.Error(), "not found") {
+					return nil
+				}
+				log.Printf("The label step threw an error. Error was %s\n", err)
+				return err
+			}
+			log.Printf("Successfully labeled deployment ", resourcesLabel)
+		case ServiceType:
+			_, err := k.client.CoreV1().Services(value.ResourceNamespace).Patch(context.TODO(), value.ResourceName, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+			if err != nil {
+				if strings.Contains(err.Error(), "does not exist") || strings.Contains(err.Error(), "doesn't exist") || strings.Contains(err.Error(), "not found") {
+					return nil
+				}
+				log.Printf("The label step threw an error. Error was %s\n", err)
+				return err
+			}
+		default:
+			//GVK may not be fully populated. If it isn't this will fail.
+			log.Printf("Default case. Unstructured of kind %s. Labeling...\n", value.Kind)
+			namespace, _ := k.CheckAndCreateNamespace(value.ResourceNamespace)
+			_, err := k.dynamicClient.Resource(schema.GroupVersionResource{
+				Group:    value.Group,
+				Version:  value.Version,
+				Resource: getPluralResourceNameFromKind(value.Kind),
+			}).Namespace(namespace).Patch(context.TODO(), value.ResourceName, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+			if err != nil {
+				if strings.Contains(err.Error(), "does not exist") || strings.Contains(err.Error(), "doesn't exist") || strings.Contains(err.Error(), "not found") {
+					return nil
+				}
+				log.Printf("The label step threw an error. Error was %s\n", err)
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (k KubernetesClientDriver) Aggregate(cluster string, namespace string) (AggregateResult, error) {
+	groupNameSuffix := "-group"
+
+	var data AggregateResult
+	data.Cluster = cluster
+
+	var atlasGroupsList []Resource
+
+	podsMap := make(map[string]corev1.Pod)
+	pods, err := k.client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Printf("The aggregate step threw an error fetching pods. Error was %s\n", err)
+		return data, err
+	}
+
+	log.Printf("Number of pods: %d", len(pods.Items))
+
+	// Create a mapping from pod name to k8s client pod object
+	for _, pod := range pods.Items {
+		podsMap[pod.Name] = pod
+	}
+
+	replicaSetsMap := make(map[string]appsv1.ReplicaSet)
+	replicasets, err := k.client.AppsV1().ReplicaSets(namespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Printf("The aggregate step threw an error fetching replica sets. Error was %s\n", err)
+		return data, err
+	}
+	for _, replicaSet := range replicasets.Items {
+		replicaSetsMap[replicaSet.Name] = replicaSet
+	}
+
+	daemonSetsMap := make(map[string]appsv1.DaemonSet)
+	daemonsets, err := k.client.AppsV1().DaemonSets(namespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Printf("The aggregate step threw an error fetching daemon sets. Error was %s\n", err)
+		return data, err
+	}
+	for _, daemonSet := range daemonsets.Items {
+		daemonSetsMap[daemonSet.Name] = daemonSet
+	}
+
+	statefulSetsMap := make(map[string]appsv1.StatefulSet)
+	statefulSets, err := k.client.AppsV1().StatefulSets(namespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Printf("The aggregate step threw an error fetching stateful sets. Error was %s\n", err)
+		return data, err
+	}
+	for _, statefulSet := range statefulSets.Items {
+		statefulSetsMap[statefulSet.Name] = statefulSet
+	}
+
+	services, err := k.client.CoreV1().Services(namespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Printf("The aggregate step threw an error fetching services. Error was %s\n", err)
+		return data, err
+	}
+
+	log.Printf("Number of services: %d", len(services.Items))
+
+	//deploymentsMap := make(map[string]appsv1.Deployment)
+	deployments, err := k.client.AppsV1().Deployments(namespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Printf("The aggregate step threw an error fetching deployments. Error was %s\n", err)
+		return data, err
+	}
+
+	log.Printf("Number of deployments: %d", len(deployments.Items))
+
+	endpoints, err := k.client.CoreV1().Endpoints(namespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Printf("The aggregate step threw an error fetching endpoints. Error was %s\n", err)
+		return data, err
+	}
+
+	// This map is used to track which AtlasGroup index a replica set, daemon set, or stateful set belongs to
+	indexMap := make(map[string]int)
+
+	// Go through the services and find the corresponding endpoints to get the pods
+	for _, service := range services.Items {
+		if service.Name == "kubernetes" {
+			continue
+		}
+		log.Printf("Going through %s endpoints", len(endpoints.Items))
+		for _, ep := range endpoints.Items {
+			if ep.Name == service.Name {
+				if len(ep.Subsets) == 0 {
+					// Lone service
+					data.ResourceList = append(data.ResourceList, Resource{ServiceType, service.Name, "core/v1", []Resource{}})
+					continue
+				}
+				for _, subset := range ep.Subsets {
+					addresses := append(append([]corev1.EndpointAddress{}, subset.Addresses...), subset.NotReadyAddresses...)
+
+					for _, addr := range addresses {
+						log.Printf("Found addresses for service: %s", service.Name)
+						// Means that service is not part of an AtlasGroup
+						if addr.TargetRef == nil || addr.TargetRef.Kind != "Pod" {
+							data.ResourceList = append(data.ResourceList, Resource{ServiceType, service.Name, "core/v1", []Resource{}})
+						} else {
+							podName := addr.TargetRef.Name
+							log.Printf("Pod for this service is: %s", podName)
+							owners := podsMap[podName].OwnerReferences
+							log.Printf("Number of owners for pod: %d", len(owners))
+							// This case means the pod is part of a service, but not a set or deployment so ignore it :)
+							if len(owners) <= 0 {
+								continue
+							}
+
+							// Get the name of the replica set or daemon set that this pod belongs to
+							owner := owners[0]
+							log.Printf("Owner for this pod: %s", owner.Name)
+
+							// We have seen this set before, so it already is part of an AtlasGroup
+							if _, ok := indexMap[owner.Name]; ok {
+								continue
+							} else {
+								// This set has not been seen, so mark which AtlasGroup it will belong to and add the service to this group
+								indexMap[owner.Name] = len(atlasGroupsList)
+								log.Printf("Adding service to atlas group at index %d", len(atlasGroupsList))
+								atlasGroupsList = append(atlasGroupsList, Resource{"AtlasGroup", service.Name + groupNameSuffix, "N/A", []Resource{{ServiceType, service.Name, "core/v1", []Resource{}}}})
+							}
+
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Go through pods, find the owning sets and add them to their respective AtlasGroups (create the group if
+	// the set doesn't have a service and therefore hasn't been seen yet).
+
+	// Make sure we don't reprocess a set more than once since multiple pods belong to the same set
+	marked := make(map[string]bool)
+
+	for _, pod := range podsMap {
+		owners := pod.OwnerReferences
+		if len(owners) > 0 {
+			owner := owners[0]
+			setName := owner.Name
+			if _, ok := marked[setName]; ok {
+				continue
+			}
+			marked[setName] = true
+
+			// Check if the set has an owning deployment. If it does, and we already have a group for them, add it.
+			// Create the AtlasGroup if the set does have an owning deployment, but we have not seen it yet and add both.
+			// If the set is not part of any deployment we will cover it later.
+
+			if replicaSet, ok := replicaSetsMap[setName]; ok {
+				// Find all owning deployments of this set
+				for _, rsOwner := range replicaSet.OwnerReferences {
+					if rsOwner.Kind != DeploymentType {
+						continue
+					}
+
+					replicaSetResource := Resource{ReplicaSetType, setName, owner.APIVersion, []Resource{}}
+					deploymentResource := Resource{DeploymentType, rsOwner.Name, rsOwner.APIVersion, []Resource{}}
+
+					if _, in := indexMap[setName]; in {
+						atlasGroupsList[indexMap[setName]].ResourceList = append(atlasGroupsList[indexMap[setName]].ResourceList, replicaSetResource)
+						atlasGroupsList[indexMap[setName]].ResourceList = append(atlasGroupsList[indexMap[setName]].ResourceList, deploymentResource)
+					} else {
+						atlasGroupsList = append(atlasGroupsList, Resource{"AtlasGroup", rsOwner.Name + groupNameSuffix, "N/A", []Resource{replicaSetResource, deploymentResource}})
+					}
+				}
+			} else if daemonSet, ok := daemonSetsMap[setName]; ok {
+				// Find all owning deployments of this set
+				for _, dsOwner := range daemonSet.OwnerReferences {
+					if dsOwner.Kind != DeploymentType {
+						continue
+					}
+
+					daemonSetResource := Resource{DaemonSetType, setName, owner.APIVersion, []Resource{}}
+					deploymentResource := Resource{DeploymentType, dsOwner.Name, dsOwner.APIVersion, []Resource{}}
+
+					if _, in := indexMap[setName]; in {
+						atlasGroupsList[indexMap[setName]].ResourceList = append(atlasGroupsList[indexMap[setName]].ResourceList, daemonSetResource)
+						atlasGroupsList[indexMap[setName]].ResourceList = append(atlasGroupsList[indexMap[setName]].ResourceList, deploymentResource)
+					} else {
+						atlasGroupsList = append(atlasGroupsList, Resource{"AtlasGroup", dsOwner.Name + groupNameSuffix, "N/A", []Resource{daemonSetResource, deploymentResource}})
+					}
+
+				}
+			} else if statefulSet, ok := statefulSetsMap[setName]; ok {
+				// Find all owning deployments of this set
+				for _, ssOwner := range statefulSet.OwnerReferences {
+					if ssOwner.Kind != DeploymentType {
+						continue
+					}
+					statefulSetResource := Resource{StatefulSetType, setName, owner.APIVersion, []Resource{}}
+					deploymentResource := Resource{DeploymentType, ssOwner.Name, ssOwner.APIVersion, []Resource{}}
+
+					if _, in := indexMap[setName]; in {
+						atlasGroupsList[indexMap[setName]].ResourceList = append(atlasGroupsList[indexMap[setName]].ResourceList, statefulSetResource)
+						atlasGroupsList[indexMap[setName]].ResourceList = append(atlasGroupsList[indexMap[setName]].ResourceList, deploymentResource)
+					} else {
+						atlasGroupsList = append(atlasGroupsList, Resource{"AtlasGroup", ssOwner.Name + groupNameSuffix, "N/A", []Resource{statefulSetResource, deploymentResource}})
+					}
+				}
+			}
+
+			//Identify any lone pods and add them to the pods list.
+		} else {
+			data.ResourceList = append(data.ResourceList, Resource{PodType, pod.Name, "core/v1", []Resource{}})
+		}
+	}
+
+	// Now add any sets without pods or owning deployments to their respective lists
+	for _, replicaSet := range replicaSetsMap {
+		if _, ok := indexMap[replicaSet.Name]; ok {
+			continue
+		} else {
+			data.ResourceList = append(data.ResourceList, Resource{ReplicaSetType, replicaSet.Name, "apps/v1", []Resource{}})
+		}
+	}
+
+	for _, daemonSet := range daemonSetsMap {
+		if _, ok := indexMap[daemonSet.Name]; ok {
+			continue
+		} else {
+			data.ResourceList = append(data.ResourceList, Resource{DaemonSetType, daemonSet.Name, "apps/v1", []Resource{}})
+		}
+	}
+
+	for _, statefulSet := range statefulSetsMap {
+		if _, ok := indexMap[statefulSet.Name]; ok {
+			continue
+		} else {
+			data.ResourceList = append(data.ResourceList, Resource{StatefulSetType, statefulSet.Name, "apps/v1", []Resource{}})
+		}
+	}
+
+	data.ResourceList = append(data.ResourceList, atlasGroupsList...)
+
+	return data, nil
+}
+
+func (k KubernetesClientDriver) DeleteByLabel(label string, namespace string) error {
+	labelDeployment := labels.SelectorFromSet(labels.Set(map[string]string{label: "True"}))
+	listDeploymentOptions := metav1.ListOptions{
+		LabelSelector: labelDeployment.String(),
+	}
+	err := k.client.AppsV1().Deployments(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, listDeploymentOptions)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			log.Printf("Error when deleting by label. Error was %s\n", err)
+			return err
+		}
+	}
+
+	labelService := labels.SelectorFromSet(labels.Set(map[string]string{label: "True"}))
+	listServiceOptions := metav1.ListOptions{
+		LabelSelector: labelService.String(),
+	}
+	services, err := k.client.CoreV1().Services(namespace).List(context.TODO(), listServiceOptions)
+	for _, service := range services.Items {
+		err = k.client.CoreV1().Services(namespace).Delete(context.TODO(), service.Name, metav1.DeleteOptions{})
+		if !errors.IsNotFound(err) {
+			log.Printf("Error when deleting by label. Error was %s\n", err)
+			return err
+		}
+	}
+
+	labelReplicaSet := labels.SelectorFromSet(labels.Set(map[string]string{label: "True"}))
+	listReplicaSetOptions := metav1.ListOptions{
+		LabelSelector: labelReplicaSet.String(),
+	}
+	err = k.client.AppsV1().ReplicaSets(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, listReplicaSetOptions)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			log.Printf("Error when deleting by label. Error was %s\n", err)
+			return err
+		}
+	}
+
+	labelDaemonSet := labels.SelectorFromSet(labels.Set(map[string]string{label: "True"}))
+	listDaemonSetOptions := metav1.ListOptions{
+		LabelSelector: labelDaemonSet.String(),
+	}
+	err = k.client.AppsV1().DaemonSets(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, listDaemonSetOptions)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			log.Printf("Error when deleting by label. Error was %s\n", err)
+			return err
+		}
+	}
+
+	labelStatefulSet := labels.SelectorFromSet(labels.Set(map[string]string{label: "True"}))
+	listStatefulSetOptions := metav1.ListOptions{
+		LabelSelector: labelStatefulSet.String(),
+	}
+	err = k.client.AppsV1().StatefulSets(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, listStatefulSetOptions)
+
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			log.Printf("Error when deleting by label. Error was %s\n", err)
+			return err
+		}
+	}
+
+	labelPod := labels.SelectorFromSet(labels.Set(map[string]string{label: "True"}))
+	listPodOptions := metav1.ListOptions{
+		LabelSelector: labelPod.String(),
+	}
+	err = k.client.CoreV1().Pods(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, listPodOptions)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			log.Printf("Error when deleting by label. Error was %s\n", err)
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (k KubernetesClientDriver) CheckHealthy() bool {

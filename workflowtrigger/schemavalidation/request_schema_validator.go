@@ -24,6 +24,15 @@ type StepData struct {
 	ApplicationPath string `yaml:"application_path"`
 }
 
+type ClusterNamespaceGroup struct {
+	ClusterName string `json:"clusterName"`
+	Namespace   string `json:"namespace"`
+}
+
+type ClusterNamespaceGroups struct {
+	Groups []ClusterNamespaceGroup `json:"groups"`
+}
+
 func (p *PipelineData) initClusterNames() {
 	for idx, val := range p.Steps {
 		if val.ClusterName == "" {
@@ -113,6 +122,30 @@ func (r RequestSchemaValidator) getPipelineData(orgName string, teamName string,
 	}
 	pipelineData.initClusterNames()
 	return pipelineData
+}
+
+func (r RequestSchemaValidator) GetClusterNamespaceCombinations(orgName string, teamName string, gitRepoSchemaInfo git.GitRepoSchemaInfo, gitCommitHash string) ClusterNamespaceGroups {
+	data := r.getPipelineData(orgName, teamName, gitRepoSchemaInfo, gitCommitHash)
+	marked := make(map[string]bool)
+	var groups ClusterNamespaceGroups
+
+	for _, step := range data.Steps {
+		payload, _ := r.GetStepApplicationPayload(orgName, teamName, gitRepoSchemaInfo, gitCommitHash, step.Name)
+		stepNamespace := r.GetArgoApplicationNamespace(payload)
+		var namespace string
+		if stepNamespace == "" {
+			namespace = defaultProject
+		} else {
+			namespace = stepNamespace
+		}
+		if _, ok := marked[step.ClusterName+"_"+namespace]; ok {
+			continue
+		}
+		groups.Groups = append(groups.Groups, ClusterNamespaceGroup{step.ClusterName, namespace})
+		marked[step.ClusterName+"_"+namespace] = true
+	}
+
+	return groups
 }
 
 func (r RequestSchemaValidator) getArgoApplicationProjectAndName(orgName string, teamName string, gitRepoSchemaInfo git.GitRepoSchemaInfo, gitCommitHash string, applicationPath string) string {
