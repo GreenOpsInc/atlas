@@ -3,22 +3,21 @@
 ## Requirements
 
 - The kubectl command-line tool
-- ArgoCD installed in the cluster
+- [ArgoCD installed](https://argo-cd.readthedocs.io/en/stable/#quick-start) in the cluster
 
 ## 1. Set up Kafka
 
-In case you do not have a Kafka instance, you can use [Strimzi](https://strimzi.io/) (a CNCF cloud-native Kafka project) to set up a Kafka cluster in your Kubernetes environment. If you are using minikube, it is recommended to have 4 GB memory for the VM, as 2 GB isnt always enough:
+In case you do not have a Kafka instance, you can use the Helm Bitnami chart to set up a Kafka cluster in your Kubernetes environment. If you are using minikube, it is recommended to have 4 GB memory for the VM, as 2 GB isnt always enough:
 
     minikube start --memory=4096
 
-Set up Strimzi using:
+Set up Kafka using:
 
-    kubectl create namespace kafka
-    kubectl create -f 'https://strimzi.io/install/latest?namespace=kafka' -n kafka
-    kubectl apply -f https://strimzi.io/examples/latest/kafka/kafka-persistent-single.yaml -n kafka
-    kubectl wait kafka/my-cluster --for=condition=Ready --timeout=300s -n kafka
+    helm repo add bitnami https://charts.bitnami.com/bitnami
+    helm install my-release bitnami/kafka
+    kubectl wait pod/my-release-kafka-0 --for=condition=Ready --timeout=300s
 
-These commands will set up the Strimzi Kafka operator in the Kafka namespace, create a single-broker Kafka cluster, and wait for the cluster to be set up correctly.
+These commands will set up a Zookeeper pod and Kafka broker pod in the default namespace.
 
 ## 2. Set up Atlas
 
@@ -156,4 +155,4 @@ Step-specific logs contain information like the application name, Argo revision,
 
 The Argo visualization tools are also still active. The Argo UI can be used to see the state of the application/deployment.
 
-![Placeholder](https://argoproj.github.io/argo-cd/assets/guestbook-tree.png)
+![Placeholder](https://argoproj.github.io/argo-cd/assets/guestbook-tree.png){ loading=lazy }

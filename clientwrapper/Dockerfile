@@ -1,14 +1,14 @@
 # syntax=docker/dockerfile:1
+#Build in parent folder
 FROM golang:1.16
-WORKDIR /ClientWrapper
-COPY go.mod .
-COPY go.sum .
+WORKDIR /Atlas/ClientWrapper
+COPY clientwrapper/go.mod .
+COPY clientwrapper/go.sum .
+COPY utilgo /Atlas/utilgo
 RUN go mod download
-COPY . .
+COPY clientwrapper .
 RUN CGO_ENABLED=0 go build -v ./atlasoperator/atlas_operator.go
-#RUN go build -i -v ./atlasoperator/atlas_operator.go
 
 FROM alpine:latest
-#RUN apk --no-cache add ca-certificates
-COPY --from=0 /ClientWrapper/atlas_operator /
+COPY --from=0 /Atlas/ClientWrapper/atlas_operator /
 CMD ["./atlas_operator"]
