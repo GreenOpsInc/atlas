@@ -4,16 +4,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/greenopsinc/util/clientrequest"
-	"github.com/greenopsinc/util/cluster"
-	"github.com/greenopsinc/util/serializer"
-	"github.com/greenopsinc/util/serializerutil"
-	"greenops.io/client/argodriver"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/greenopsinc/util/clientrequest"
+	"github.com/greenopsinc/util/cluster"
+	"github.com/greenopsinc/util/httpclient"
+	"github.com/greenopsinc/util/serializer"
+	"github.com/greenopsinc/util/serializerutil"
+	"github.com/greenopsinc/util/tlsmanager"
+	"greenops.io/client/argodriver"
 )
 
 const (
@@ -40,9 +43,10 @@ type CommandDelegatorImpl struct {
 	clusterName         string
 	orgName             string
 	argoAuthClient      argodriver.ArgoAuthClient
+	client              httpclient.HttpClient
 }
 
-func Create(argoClient argodriver.ArgoAuthClient) CommandDelegatorApi {
+func Create(argoClient argodriver.ArgoAuthClient, tm tlsmanager.Manager) (CommandDelegatorApi, error) {
 	commandDelegatorUrl := os.Getenv(EnvCommandDelegatorUrl)
 	if commandDelegatorUrl == "" {
 		commandDelegatorUrl = DefaultCommandDelegatorUrl
@@ -58,11 +62,20 @@ func Create(argoClient argodriver.ArgoAuthClient) CommandDelegatorApi {
 	if orgName == "" {
 		orgName = DefaultOrgName
 	}
-	return CommandDelegatorImpl{commandDelegatorUrl: commandDelegatorUrl, clusterName: clusterName, orgName: orgName, argoAuthClient: argoClient}
+	httpClient, err := httpclient.New(tlsmanager.ClientCommandDelegator, tm)
+	if err != nil {
+		return nil, err
+	}
+	return CommandDelegatorImpl{
+		commandDelegatorUrl: commandDelegatorUrl,
+		clusterName:         clusterName,
+		orgName:             orgName,
+		argoAuthClient:      argoClient,
+		client:              httpClient,
+	}, nil
 }
 
 func (c CommandDelegatorImpl) GetCommands() (*[]clientrequest.ClientRequestEvent, error) {
-	client := &http.Client{}
 	req, err := http.NewRequest("GET", c.commandDelegatorUrl+fmt.Sprintf("/requests/%s/%s", c.orgName, c.clusterName), nil)
 	if err != nil {
 		log.Printf("Error while making getting commands request: %s", err)
@@ -71,7 +84,7 @@ func (c CommandDelegatorImpl) GetCommands() (*[]clientrequest.ClientRequestEvent
 	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", "application/json")
-	resp, err := client.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		log.Printf("Error while getting commands: %s", err)
 		return nil, err
@@ -91,14 +104,13 @@ func (c CommandDelegatorImpl) GetCommands() (*[]clientrequest.ClientRequestEvent
 }
 
 func (c CommandDelegatorImpl) AckHeadOfRequestList() error {
-	client := &http.Client{}
 	req, err := http.NewRequest("DELETE", c.commandDelegatorUrl+fmt.Sprintf("/requests/ackHead/%s/%s", c.orgName, c.clusterName), nil)
 	if err != nil {
 		log.Printf("Error while making ack head request: %s", err)
 		return err
 	}
 	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
-	resp, err := client.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		log.Printf("Error while acking head: %s", err)
 		return err
@@ -111,14 +123,13 @@ func (c CommandDelegatorImpl) AckHeadOfRequestList() error {
 }
 
 func (c CommandDelegatorImpl) AckHeadOfNotificationList() error {
-	client := &http.Client{}
 	req, err := http.NewRequest("DELETE", c.commandDelegatorUrl+fmt.Sprintf("/notifications/ackHead/%s/%s", c.orgName, c.clusterName), nil)
 	if err != nil {
 		log.Printf("Error while making ack head request: %s", err)
 		return err
 	}
 	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
-	resp, err := client.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		log.Printf("Error while acking notifications head: %s", err)
 		return err
@@ -132,14 +143,13 @@ func (c CommandDelegatorImpl) AckHeadOfNotificationList() error {
 }
 
 func (c CommandDelegatorImpl) RetryRequest() error {
-	client := &http.Client{}
 	req, err := http.NewRequest("DELETE", c.commandDelegatorUrl+fmt.Sprintf("/requests/retry/%s/%s", c.orgName, c.clusterName), nil)
 	if err != nil {
 		log.Printf("Error while making retry request: %s", err)
 		return err
 	}
 	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
-	resp, err := client.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		log.Printf("Error while sending retry message: %s", err)
 		return err

@@ -3,6 +3,7 @@ package argo
 import (
 	"context"
 	"fmt"
+
 	"github.com/argoproj/argo-cd/pkg/apiclient/cluster"
 	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 )
@@ -38,8 +39,8 @@ func (a *ArgoApiImpl) DeleteCluster(name string, server string) {
 	}
 	defer closer.Close()
 	_, err = client.Delete(context.TODO(), &cluster.ClusterQuery{
-		Server:               server,
-		Name:                 name,
+		Server: server,
+		Name:   name,
 	})
 	if err != nil {
 		panic(fmt.Sprintf("Deleting the cluster failed with error: %s", err))

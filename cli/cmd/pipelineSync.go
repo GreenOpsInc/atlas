@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	"github.com/argoproj/argo-cd/v2/util/errors"
@@ -63,9 +62,9 @@ Example usage:
 		var url string
 		if stepFlagSet {
 			stepName, _ := cmd.Flags().GetString("step")
-			url = fmt.Sprintf("http://%s/sync/%s/%s/%s/%s/%s", atlasURL, orgName, teamName, pipelineName, pipelineRevisionHash, stepName)
+			url = fmt.Sprintf("https://%s/sync/%s/%s/%s/%s/%s", atlasURL, orgName, teamName, pipelineName, pipelineRevisionHash, stepName)
 		} else {
-			url = fmt.Sprintf("http://%s/sync/%s/%s/%s/%s", atlasURL, orgName, teamName, pipelineName, pipelineRevisionHash)
+			url = fmt.Sprintf("https://%s/sync/%s/%s/%s/%s", atlasURL, orgName, teamName, pipelineName, pipelineRevisionHash)
 		}
 		var req *http.Request
 
@@ -113,7 +112,7 @@ Example usage:
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
 
-		client := &http.Client{Timeout: 20 * time.Second}
+		client := getHttpClient()
 		resp, err := client.Do(req)
 		if err != nil {
 			fmt.Println("Request failed with the following error:", err)
@@ -124,7 +123,7 @@ Example usage:
 			fmt.Println("Successfully synced pipeline:", pipelineName, "for team:", teamName)
 		} else {
 			body, _ := io.ReadAll(resp.Body)
-			fmt.Printf("An error occurred: %s", body)
+			fmt.Printf("Error: %d - %s", statusCode, string(body))
 		}
 	},
 }

@@ -8,7 +8,7 @@ public interface RepoManager {
 
     String getOrgName();
 
-    Set<GitRepoCache> getGitRepos();
+    Set<GitRepoSchema> getGitRepos();
 
     boolean clone(GitRepoSchema gitRepoSchema);
 
@@ -16,17 +16,13 @@ public interface RepoManager {
 
     boolean delete(GitRepoSchema gitRepoSchema);
 
-    String getYamlFileContents(String gitRepoUrl, String filename);
+    String getYamlFileContents(String filename, GitRepoSchema gitRepoSchema);
 
-    boolean sync(GitRepoSchema gitRepoSchema);
+    String sync(GitRepoSchema gitRepoSchema);
 
-    boolean resetToVersion(String gitCommit, String gitRepoUrl);
-
-    String getLatestCommitFromCache(String gitRepoUrl);
+    boolean resetToVersion(String gitCommit, GitRepoSchema gitRepoSchema);
 
     boolean containsGitRepoSchema(GitRepoSchema gitRepoSchema);
-
-    public String getRootCommit(String gitRepoUrl);
 
     String getCurrentCommit(String gitRepoURL);
 }

@@ -36,7 +36,7 @@ func (a *ArgoApiImpl) Middleware(next http.Handler) http.Handler {
 		token := r.Header.Get("Authorization")
 		splitToken := strings.Split(token, "Bearer ")
 		token = splitToken[1]
-		a.getConfiguredArgoClient(token)
+		a.configureArgoClient(token)
 
 		defer func() {
 			if err := recover(); err != nil {
@@ -74,9 +74,10 @@ func (a *ArgoApiImpl) Middleware(next http.Handler) http.Handler {
 func (a *ArgoApiImpl) CheckRbacPermissions(action RbacAction, resource RbacResource, subresource string) bool {
 	closer, client, err := a.configuredClient.NewAccountClient()
 	if err != nil {
-		panic(fmt.Sprintf("account client could not be made for Argo: %s", err))
+		log.Fatalf("account client could not be made for Argo: %s", err)
 	}
 	defer closer.Close()
+
 	canI, err := client.CanI(context.TODO(), &account.CanIRequest{
 		Resource:    string(resource),
 		Action:      string(action),

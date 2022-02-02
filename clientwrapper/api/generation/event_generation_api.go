@@ -4,21 +4,24 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/greenopsinc/util/clientrequest"
-	"github.com/greenopsinc/util/cluster"
-	"greenops.io/client/api/ingest"
-	"greenops.io/client/argodriver"
-	"greenops.io/client/progressionchecker/datamodel"
 	"log"
 	"net/http"
 	"os"
 	"strings"
-	"time"
+
+	"github.com/greenopsinc/util/clientrequest"
+	"github.com/greenopsinc/util/cluster"
+	"github.com/greenopsinc/util/httpclient"
+	"github.com/greenopsinc/util/kubernetesclient"
+	"github.com/greenopsinc/util/tlsmanager"
+	"greenops.io/client/api/ingest"
+	"greenops.io/client/argodriver"
+	"greenops.io/client/progressionchecker/datamodel"
 )
 
 const (
 	WorkflowTriggerEnvVar         string = "WORKFLOW_TRIGGER_SERVER_ADDR"
-	DefaultWorkflowTriggerAddress string = "http://workflowtrigger.atlas.svc.cluster.local:8080"
+	DefaultWorkflowTriggerAddress string = "https://workflowtrigger.atlas.svc.cluster.local:8080"
 )
 
 type Notification struct {
@@ -35,11 +38,12 @@ type EventGenerationApi interface {
 
 type EventGenerationImpl struct {
 	workflowTriggerAddress string
-	client                 *http.Client
+	client                 httpclient.HttpClient
 	argoAuthClient         argodriver.ArgoAuthClient
+	kclient                kubernetesclient.KubernetesClient
 }
 
-func Create(argoClient argodriver.ArgoAuthClient) EventGenerationApi {
+func Create(argoClient argodriver.ArgoAuthClient, kclient kubernetesclient.KubernetesClient, tm tlsmanager.Manager) (EventGenerationApi, error) {
 	workflowTriggerAddress := os.Getenv(WorkflowTriggerEnvVar)
 	if workflowTriggerAddress == "" {
 		workflowTriggerAddress = DefaultWorkflowTriggerAddress
@@ -47,10 +51,11 @@ func Create(argoClient argodriver.ArgoAuthClient) EventGenerationApi {
 	if strings.HasSuffix(workflowTriggerAddress, "/") {
 		workflowTriggerAddress = strings.TrimSuffix(workflowTriggerAddress, "/")
 	}
-	httpClient := &http.Client{
-		Timeout: time.Second * 10,
+	httpClient, err := httpclient.New(tlsmanager.ClientWorkflowTrigger, tm)
+	if err != nil {
+		return nil, err
 	}
-	return EventGenerationImpl{workflowTriggerAddress: workflowTriggerAddress, client: httpClient, argoAuthClient: argoClient}
+	return EventGenerationImpl{workflowTriggerAddress: workflowTriggerAddress, client: httpClient, argoAuthClient: argoClient, kclient: kclient}, nil
 }
 
 func (c EventGenerationImpl) GenerateEvent(eventInfo datamodel.EventInfo) bool {

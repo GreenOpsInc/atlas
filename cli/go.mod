@@ -3,11 +3,10 @@ module atlas
 go 1.16
 
 require (
-	github.com/argoproj/argo-cd v1.8.7 // indirect
+	github.com/argoproj/argo-cd v1.8.7
 	github.com/argoproj/argo-cd/v2 v2.1.7
 	github.com/coreos/go-oidc v2.1.0+incompatible
 	github.com/dgrijalva/jwt-go/v4 v4.0.0-preview1
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/greenopsinc/util v0.0.0-00010101000000-000000000000
 	github.com/sirupsen/logrus v1.7.0
 	github.com/skratchdot/open-golang v0.0.0-20160302144031-75fb7ed4208c

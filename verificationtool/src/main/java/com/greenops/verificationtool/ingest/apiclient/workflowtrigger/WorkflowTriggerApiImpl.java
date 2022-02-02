@@ -8,15 +8,27 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.socket.PlainConnectionSocketFactory;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.apache.http.ssl.SSLContextBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import javax.net.ssl.SSLContext;
 import java.io.IOException;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
 import static com.greenops.verificationtool.ingest.apiclient.util.ApiClientUtil.checkResponseStatus;
@@ -26,17 +38,35 @@ import static com.greenops.verificationtool.ingest.apiclient.util.ApiClientUtil.
 public class WorkflowTriggerApiImpl implements WorkflowTriggerApi {
     private final String UVN = "LATEST";
     private final String pathToRoot = "basic/";
-    private final String authToken = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NDM3Nzg3NTksImp0aSI6IjgyMzNkYzZhLTZlN2QtNGVjNi05MTRhLWQyNTc2YjEyNTNjNiIsImlhdCI6MTY0MzY5MjM1OSwiaXNzIjoiYXJnb2NkIiwibmJmIjoxNjQzNjkyMzU5LCJzdWIiOiJhZG1pbjpsb2dpbiJ9.WWPDN7xJrLli34VngJKkqRQuR1BPtWqb3IPjQ0nHu20";
+    private final String authToken = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NDM4ODAzNzAsImp0aSI6IjQ0NDdhZGI0LTdkYjAtNDljYy1iNTcxLTFmZTk0NzM4YzE4NSIsImlhdCI6MTY0Mzc5Mzk3MCwiaXNzIjoiYXJnb2NkIiwibmJmIjoxNjQzNzkzOTcwLCJzdWIiOiJhZG1pbjpsb2dpbiJ9.cql8ets7xzgxwEiAu0lJCfvlJKMRgvWjqmwcOPPLdWU";
     private final String pipelineRevisionHash = "ROOT_COMMIT";
     private final String serverWorkflowTriggerEndpoint;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
 
     @Autowired
-    public WorkflowTriggerApiImpl(@Value("${application.workflowtrigger-url}") String serverEndpoint, @Qualifier("objectMapper") ObjectMapper objectMapper) {
+    public WorkflowTriggerApiImpl(@Value("${application.workflowtrigger-url}") String serverEndpoint, @Qualifier("objectMapper") ObjectMapper objectMapper) throws NoSuchAlgorithmException, KeyManagementException, KeyStoreException {
         this.serverWorkflowTriggerEndpoint = serverEndpoint;
         this.objectMapper = objectMapper;
-        httpClient = HttpClientBuilder.create().build();
+        this.httpClient = createHttpClient();
+    }
+
+    private CloseableHttpClient createHttpClient() throws NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
+        final SSLContext sslContext = new SSLContextBuilder()
+                .loadTrustMaterial(null, (x509CertChain, authType) -> true)
+                .build();
+
+        return HttpClientBuilder.create()
+                .setSSLContext(sslContext)
+                .setConnectionManager(
+                        new PoolingHttpClientConnectionManager(
+                                RegistryBuilder.<ConnectionSocketFactory>create()
+                                        .register("http", PlainConnectionSocketFactory.INSTANCE)
+                                        .register("https", new SSLConnectionSocketFactory(sslContext,
+                                                NoopHostnameVerifier.INSTANCE))
+                                        .build()
+                        ))
+                .build();
     }
 
     @Override

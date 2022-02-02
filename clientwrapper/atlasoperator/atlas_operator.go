@@ -3,11 +3,18 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"log"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/gorilla/mux"
 	"github.com/greenopsinc/util/clientrequest"
+	"github.com/greenopsinc/util/kubernetesclient"
 	"github.com/greenopsinc/util/serializerutil"
+	"github.com/greenopsinc/util/tlsmanager"
 	"greenops.io/client/api/generation"
 	"greenops.io/client/api/ingest"
 	"greenops.io/client/argodriver"
@@ -16,10 +23,6 @@ import (
 	"greenops.io/client/progressionchecker"
 	"greenops.io/client/progressionchecker/datamodel"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"log"
-	"net/http"
-	"strings"
-	"time"
 )
 
 const (
@@ -567,10 +570,20 @@ func requestPostProcessing(command clientrequest.ClientRequestEvent, err error) 
 }
 
 func main() {
+	var err error
 	kubernetesDriver := k8sdriver.New()
-	argoDriver := argodriver.New(&kubernetesDriver)
-	commandDelegatorApi = ingest.Create(argoDriver.(argodriver.ArgoAuthClient))
-	eventGenerationApi = generation.Create(argoDriver.(argodriver.ArgoAuthClient))
+	kubernetesClient := kubernetesclient.New()
+	tm := tlsmanager.New(kubernetesClient)
+	argoDriver := argodriver.New(&kubernetesDriver, tm)
+	commandDelegatorApi, err = ingest.Create(argoDriver.(argodriver.ArgoAuthClient), tm)
+	if err != nil {
+		log.Fatal("command delegator API setup failed: ", err.Error())
+	}
+	eventGenerationApi, err = generation.Create(argoDriver.(argodriver.ArgoAuthClient), kubernetesClient, tm)
+	if err != nil {
+		log.Fatal("event generation API setup failed: ", err.Error())
+	}
+
 	var pluginList plugins.Plugins
 	pluginList = make([]plugins.Plugin, 0)
 	drivers = Drivers{
@@ -585,7 +598,6 @@ func main() {
 	getRestrictedArgoClient = argoDriver
 	go progressionchecker.Start(getRestrictedKubernetesClient, getRestrictedArgoClient, eventGenerationApi, pluginList, channel)
 	for {
-		log.Printf("Atlas operator starting...")
 		handleRequests()
 	}
 }

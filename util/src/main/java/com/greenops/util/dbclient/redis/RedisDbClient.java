@@ -1,7 +1,6 @@
 package com.greenops.util.dbclient.redis;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.auditlog.DeploymentLog;
 import com.greenops.util.datamodel.auditlog.Log;
@@ -11,7 +10,6 @@ import com.greenops.util.datamodel.clientmessages.ClientRequestPacket;
 import com.greenops.util.datamodel.cluster.ClusterSchema;
 import com.greenops.util.datamodel.metadata.StepMetadata;
 import com.greenops.util.datamodel.pipeline.TeamSchema;
-import com.greenops.util.datamodel.clientmessages.ClientRequest;
 import com.greenops.util.dbclient.DbClient;
 import com.greenops.util.error.AtlasBadKeyError;
 import com.greenops.util.error.AtlasNonRetryableError;

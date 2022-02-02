@@ -21,4 +21,4 @@ application:
   repo-server-url: ${REPO_SERVER_ENDPOINT:http://localhost:8081}
   client-wrapper-url: ${CLIENT_WRAPPER_ENDPOINT:http://localhost:9091}
   redis-url: ${REDIS_ENDPOINT:localhost:6379}
-  workflowtrigger-url: ${WORKFLOW_TRIGGER_ENDPOINT:http://localhost:8081}
+  workflowtrigger-url: ${WORKFLOWTRIGGER_ENDPOINT:http://localhost:8080}

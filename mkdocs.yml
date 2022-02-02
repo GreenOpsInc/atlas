@@ -21,6 +21,8 @@ nav:
     - 'userguide/pipeline.md'
     - 'userguide/stability.md'
     - 'userguide/audit.md'
+    - 'userguide/management.md'
+    - 'userguide/security.md'
     - 'Command Reference':
       - 'userguide/commandreference/atlas.md'
       - 'userguide/commandreference/team.md'
@@ -32,4 +34,5 @@ nav:
     - 'tasktestregistry/contributing.md'
     - 'tasktestregistry/scriptinjection.md'
     - 'tasktestregistry/k8sjob.md'
+    - 'tasktestregistry/workflows.md'
   - 'roadmap.md'

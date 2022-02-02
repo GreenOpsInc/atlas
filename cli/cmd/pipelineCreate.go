@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	"github.com/argoproj/argo-cd/v2/util/errors"
@@ -57,7 +56,7 @@ Example usage:
 		config, _ := localconfig.ReadLocalConfig(defaultLocalConfigPath)
 		context, _ := config.ResolveContext(apiclient.ClientOptions{}.Context)
 
-		url := "http://" + atlasURL + "/pipeline/" + orgName + "/" + teamName + "/" + pipelineName
+		url := "https://" + atlasURL + "/pipeline/" + orgName + "/" + teamName + "/" + pipelineName
 
 		var req *http.Request
 
@@ -105,7 +104,7 @@ Example usage:
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
 
-		client := &http.Client{Timeout: 20 * time.Second}
+		client := getHttpClient()
 		resp, err := client.Do(req)
 		if err != nil {
 			fmt.Println("Request failed with the following error:", err)
@@ -114,13 +113,11 @@ Example usage:
 		statusCode := resp.StatusCode
 		if statusCode == 200 {
 			fmt.Println("Successfully created pipeline:", pipelineName, "for team:", teamName)
-		} else if statusCode == 400 {
-			fmt.Println("Pipeline creation failed because the request was invalid.\nPlease check if the team and org names are correct, a pipeline with the specified name doesn't already exist, and the Git credentials are valid.")
 		} else if statusCode == 409 {
 			fmt.Println("Pipeline named", pipelineName, "already exists for team:", teamName)
 		} else {
 			body, _ := io.ReadAll(resp.Body)
-			fmt.Printf("An error occurred: %s", body)
+			fmt.Printf("Error: %d - %s", statusCode, string(body))
 		}
 	},
 }

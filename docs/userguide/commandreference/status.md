@@ -1,6 +1,6 @@
 # status
 
-## Fetch the status of a pipeline or specific pipeline step 
+## Fetch the status of a pipeline or specific pipeline step
 
 ```
 atlas status <pipeline name> [flags]
@@ -20,6 +20,7 @@ atlas status <pipeline name> [flags]
 -s, --step string   step name
     --team string   team name
 -u, --uvn string    Pipeline UVN (default "LATEST")
+  --history string  gets list of previous pipeline run's UVNs
 ```
 
 

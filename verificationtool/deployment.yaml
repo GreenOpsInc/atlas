@@ -17,15 +17,15 @@ spec:
       containers:
         - env:
             - name: CLIENT_WRAPPER_ENDPOINT
-              value: http://atlasclientwrapper.default.svc.cluster.local:9091
+              value: https://atlasclientwrapper.default.svc.cluster.local:9091
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: LOCALHOSTDYNAMICADDRESS:29092
             - name: REDIS_ENDPOINT
               value: redisserver.default.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
-              value: http://reposerver.default.svc.cluster.local:8081
+              value: http://reposerver.default.svc.cluster.local:8080
             - name: WORKFLOWTRIGGER_ENDPOINT
-              value: http://workflowtrigger.default.svc.cluster.local:8080
+              value: https://workflowtrigger.default.svc.cluster.local:8080
             - name: KAFKA_GREENOPS_TOPIC
               value: greenops.eventing
             - name: KAFKA_VERIFICATIONTOOL_TOPIC

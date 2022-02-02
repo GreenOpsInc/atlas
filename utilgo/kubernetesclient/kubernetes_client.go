@@ -3,16 +3,20 @@ package kubernetesclient
 import (
 	"context"
 	"log"
-    "strings"
+	"strings"
+	"time"
 
 	"github.com/greenopsinc/util/git"
 	"github.com/greenopsinc/util/serializer"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -20,10 +24,26 @@ const (
 	gitCredNamespace string = "gitcred"
 )
 
+type SecretChangeType int8
+
+const (
+	SecretChangeTypeAdd    SecretChangeType = 1
+	SecretChangeTypeUpdate SecretChangeType = 2
+	SecretChangeTypeDelete SecretChangeType = 3
+)
+
+type WatchSecretHandler func(action SecretChangeType, secret *corev1.Secret)
+
+type TLSSecretData struct {
+	Crt string `json:"crt"`
+	Key string `json:"key"`
+}
+
 type KubernetesClient interface {
 	StoreGitCred(gitCred git.GitCred, name string) bool
 	FetchGitCred(name string) git.GitCred
-	FetchSecretData(name string, namespace string) map[string][]byte
+	FetchSecretData(name string, namespace string) *v1.Secret
+	WatchSecretData(ctx context.Context, name string, namespace string, handler WatchSecretHandler) error
 }
 
 type KubernetesClientDriver struct {
@@ -75,12 +95,48 @@ func (k KubernetesClientDriver) FetchGitCred(name string) git.GitCred {
 	return nil
 }
 
-func (k KubernetesClientDriver) FetchSecretData(name string, namespace string) map[string][]byte {
+func (k KubernetesClientDriver) FetchSecretData(name string, namespace string) *v1.Secret {
 	secret := k.readSecret(namespace, name)
 	if secret != nil {
-		return secret.Data
+		return secret
 	}
 	return nil
+}
+
+func (k KubernetesClientDriver) WatchSecretData(ctx context.Context, name string, namespace string, handler WatchSecretHandler) error {
+	factory := informers.NewSharedInformerFactoryWithOptions(k.client, time.Second*30, informers.WithNamespace(namespace))
+	informer := factory.Core().V1().Secrets().Informer()
+
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			handleSecretInformerEvent(obj, name, SecretChangeTypeAdd, handler)
+		},
+		UpdateFunc: func(_, newObj interface{}) {
+			handleSecretInformerEvent(newObj, name, SecretChangeTypeUpdate, handler)
+		},
+		DeleteFunc: func(obj interface{}) {
+			handleSecretInformerEvent(obj, name, SecretChangeTypeDelete, handler)
+		},
+	})
+	err := informer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+		log.Println("failed to watch secret values: ", err)
+	})
+	if err != nil {
+		return err
+	}
+	go informer.Run(ctx.Done())
+	return nil
+}
+
+func handleSecretInformerEvent(obj interface{}, name string, t SecretChangeType, handler WatchSecretHandler) {
+	secret, ok := obj.(*corev1.Secret)
+	if !ok {
+		return
+	}
+	if secret.Name != name {
+		return
+	}
+	handler(t, secret)
 }
 
 func (k KubernetesClientDriver) storeSecret(object interface{}, namespace string, name string) error {

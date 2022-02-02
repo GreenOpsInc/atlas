@@ -1,8 +1,7 @@
-package com.greenops.pipelinereposerver.kubernetesclient;
+package com.greenops.util.kubernetesclient;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import com.greenops.util.datamodel.git.GitCred;
 import io.kubernetes.client.ApiException;
 import io.kubernetes.client.Configuration;
@@ -11,12 +10,11 @@ import io.kubernetes.client.models.V1Namespace;
 import io.kubernetes.client.models.V1ObjectMeta;
 import io.kubernetes.client.models.V1Secret;
 import io.kubernetes.client.util.ClientBuilder;
-
-import java.io.IOException;
-
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import java.io.IOException;
 
 @Slf4j
 @Component
@@ -52,6 +50,11 @@ public class KubernetesClientImpl implements KubernetesClient {
         } catch (IOException e) {
             throw new RuntimeException("Could not deserialize gitCred.", e);
         }
+    }
+
+    @Override
+    public V1Secret fetchSecretData(String namespace, String name) {
+        return readSecret(namespace, name);
     }
 
     public boolean storeSecret(Object object, String namespace, String name) {

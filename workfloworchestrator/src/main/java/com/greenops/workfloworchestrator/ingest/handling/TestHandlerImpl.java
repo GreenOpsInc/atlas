@@ -2,6 +2,7 @@ package com.greenops.workfloworchestrator.ingest.handling;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.event.Event;
+import com.greenops.util.datamodel.git.GitRepoSchemaInfo;
 import com.greenops.util.datamodel.pipelinedata.StepData;
 import com.greenops.util.datamodel.pipelinedata.Test;
 import com.greenops.util.datamodel.request.GetFileRequest;
@@ -13,15 +14,14 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import static com.greenops.workfloworchestrator.ingest.handling.DeploymentHandlerImpl.getStepNamespace;
-import static com.greenops.workfloworchestrator.ingest.handling.EventHandlerImpl.WATCH_TEST_KEY;
 
 @Slf4j
 @Component
 public class TestHandlerImpl implements TestHandler {
 
-    private RepoManagerApi repoManagerApi;
-    private ClientRequestQueue clientRequestQueue;
-    private ObjectMapper yamlObjectMapper;
+    private final RepoManagerApi repoManagerApi;
+    private final ClientRequestQueue clientRequestQueue;
+    private final ObjectMapper yamlObjectMapper;
 
     @Autowired
     TestHandlerImpl(RepoManagerApi repoManagerApi, ClientRequestQueue clientRequestQueue, @Qualifier("yamlObjectMapper") ObjectMapper objectMapper) {
@@ -31,18 +31,18 @@ public class TestHandlerImpl implements TestHandler {
     }
 
     @Override
-    public void triggerTest(String pipelineRepoUrl, StepData stepData, boolean beforeTest, String gitCommitHash, Event event) {
+    public void triggerTest(GitRepoSchemaInfo gitRepoSchemaInfo, StepData stepData, boolean beforeTest, String gitCommitHash, Event event) {
         for (int i = 0; i < stepData.getTests().size(); i++) {
             if (beforeTest == stepData.getTests().get(i).shouldExecuteBefore()) {
-                createAndRunTest(stepData.getClusterName(), stepData, pipelineRepoUrl, stepData.getTests().get(i), i, gitCommitHash, event);
+                createAndRunTest(stepData.getClusterName(), stepData, gitRepoSchemaInfo, stepData.getTests().get(i), i, gitCommitHash, event);
                 return;
             }
         }
     }
 
     @Override
-    public void createAndRunTest(String clusterName, StepData stepData, String pipelineRepoUrl, Test test, int testNumber, String gitCommitHash, Event event) {
-        var getFileRequest = new GetFileRequest(pipelineRepoUrl, test.getPath(), gitCommitHash);
+    public void createAndRunTest(String clusterName, StepData stepData, GitRepoSchemaInfo gitRepoSchemaInfo, Test test, int testNumber, String gitCommitHash, Event event) {
+        var getFileRequest = new GetFileRequest(gitRepoSchemaInfo, test.getPath(), gitCommitHash);
         var testConfig = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
         log.info("Creating test Job...");
         clientRequestQueue.deployAndWatch(
@@ -52,7 +52,7 @@ public class TestHandlerImpl implements TestHandler {
                 event.getPipelineName(),
                 event.getPipelineUvn(),
                 stepData.getName(),
-                getStepNamespace(event, repoManagerApi, yamlObjectMapper, stepData.getArgoApplicationPath(), pipelineRepoUrl, gitCommitHash),
+                getStepNamespace(event, repoManagerApi, yamlObjectMapper, stepData.getArgoApplicationPath(), gitRepoSchemaInfo, gitCommitHash),
                 ClientRequestQueue.DEPLOY_TEST_REQUEST,
                 ClientRequestQueue.LATEST_REVISION,
                 test.getPayload(testNumber, testConfig),

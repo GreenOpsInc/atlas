@@ -1,9 +1,10 @@
 package com.greenops.pipelinereposerver.repomanager;
 
 import com.greenops.pipelinereposerver.dbclient.DbKey;
-import com.greenops.pipelinereposerver.kubernetesclient.KubernetesClient;
 import com.greenops.util.datamodel.git.GitRepoSchema;
+import com.greenops.util.datamodel.git.GitRepoSchemaInfo;
 import com.greenops.util.dbclient.DbClient;
+import com.greenops.util.kubernetesclient.KubernetesClient;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +29,7 @@ public class RepoManagerImpl implements RepoManager {
     private final String directory = "tmp";
 
     private final String orgName;
-    private Set<GitRepoCache> gitRepos;
+    private Set<GitRepoSchema> gitRepos;
 
     @Autowired
     public RepoManagerImpl(DbClient dbClient, KubernetesClient kubernetesClient, @Value("${application.org-name}") String orgName) {
@@ -46,7 +47,7 @@ public class RepoManagerImpl implements RepoManager {
     }
 
     @Override
-    public Set<GitRepoCache> getGitRepos() {
+    public Set<GitRepoSchema> getGitRepos() {
         return gitRepos;
     }
 
@@ -69,7 +70,7 @@ public class RepoManagerImpl implements RepoManager {
             if (exitCode == 0) {
                 log.info("Cloning repo {} was successful.", gitRepoSchema.getGitRepo());
                 var commitHash = new String(process.getInputStream().readAllBytes()).split("\n")[0];
-                gitRepos.add(new GitRepoCache(commitHash, commitHash, gitRepoSchema));
+                gitRepos.add(gitRepoSchema);
                 return true;
             } else {
                 log.info("Cloning repo {} was not successful. Error: {}\nCleaning up...", gitRepoSchema.getGitRepo(), new String(process.getErrorStream().readAllBytes()));
@@ -86,19 +87,18 @@ public class RepoManagerImpl implements RepoManager {
     @Override
     public boolean update(GitRepoSchema gitRepoSchema) {
         //There should only be one answer that fits the filter for oldGitRepoSchema
-        var oldGitRepoCache = gitRepos.stream().filter(gitRepoCache -> gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo())).findFirst().orElse(null);
-        if (oldGitRepoCache == null) {
+        var oldGitRepo = gitRepos.stream().filter(gitRepo -> gitRepo.contentsEqual(gitRepoSchema)).findFirst().orElse(null);
+        if (oldGitRepo == null) {
             return false;
         }
 
-        gitRepos = gitRepos.stream().filter(gitRepoCache -> !gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toSet());
-        var newRepoCacheEntry = new GitRepoCache(oldGitRepoCache.getRootCommitHash(), getCurrentCommit(gitRepoSchema.getGitRepo()), gitRepoSchema);
-        gitRepos.add(newRepoCacheEntry);
-        if (sync(gitRepoSchema)) {
+        gitRepos = gitRepos.stream().filter(gitRepo -> !gitRepo.contentsEqual(gitRepoSchema)).collect(Collectors.toSet());
+        gitRepos.add(gitRepoSchema);
+        if (sync(gitRepoSchema) != null) {
             return true;
         } else {
-            gitRepos.remove(newRepoCacheEntry);
-            gitRepos.add(oldGitRepoCache);
+            gitRepos.remove(gitRepoSchema);
+            gitRepos.add(oldGitRepo);
             return false;
         }
     }
@@ -116,7 +116,7 @@ public class RepoManagerImpl implements RepoManager {
             int exitCode = process.waitFor();
             log.info("Deletion of repo {} finished with exit code {}", gitRepoSchema.getGitRepo(), exitCode);
             if (exitCode == 0) {
-                gitRepos = gitRepos.stream().filter(gitRepoCache -> !gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toSet());
+                gitRepos = gitRepos.stream().filter(gitRepo -> !gitRepo.contentsEqual(gitRepoSchema)).collect(Collectors.toSet());
                 return true;
             } else {
                 return false;
@@ -128,9 +128,10 @@ public class RepoManagerImpl implements RepoManager {
     }
 
     @Override
-    public String getYamlFileContents(String gitRepoUrl, String filename) {
+    public String getYamlFileContents(String filename, GitRepoSchema gitRepoSchema) {
+        log.info("{}", gitRepos.stream().map(GitRepoSchema::getGitRepo).collect(Collectors.toList()));
         var listOfSchemas = gitRepos.stream()
-                .filter(gitRepoCache -> gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoUrl))
+                .filter(gitRepo -> gitRepo.contentsEqual(gitRepoSchema))
                 .collect(Collectors.toList());
         if (listOfSchemas.size() != 1) {
             log.info("Too many git repos with the given url");
@@ -138,11 +139,9 @@ public class RepoManagerImpl implements RepoManager {
         }
 
         try {
-            var pathToRoot = strip(listOfSchemas.get(0).getGitRepoSchema().getPathToRoot(), '/');
             var truncatedFilePath = strip(filename, '/');
             var path = Paths.get(Strings.join(
-                    List.of(orgName, directory, getFolderName(gitRepoUrl), pathToRoot, truncatedFilePath),
-                    '/')
+                    List.of(orgName, directory, getFolderName(gitRepoSchema.getGitRepo()), gitRepoSchema.getPathToRoot(), truncatedFilePath), '/')
             );
             var reader = Files.newBufferedReader(path);
             var data = reader.lines().collect(Collectors.joining("\n"));
@@ -155,20 +154,19 @@ public class RepoManagerImpl implements RepoManager {
     }
 
     @Override
-    public boolean sync(GitRepoSchema gitRepoSchema) {
-        var listOfGitRepos = gitRepos.stream().filter(gitRepoCache ->
-                gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toList());
+    public String sync(GitRepoSchema gitRepoSchema) {
+        var listOfGitRepos = gitRepos.stream().filter(gitRepo ->
+                gitRepo.contentsEqual(gitRepoSchema)).collect(Collectors.toList());
         if (listOfGitRepos.size() == 0) {
             log.info("No copies of {} exists", gitRepoSchema.getGitRepo());
             //The size should never be greater than 1
-            return false;
-        }
-        else if (listOfGitRepos.size() > 1) {
+            return null;
+        } else if (listOfGitRepos.size() > 1) {
             log.info("More than one copy of {} exists", gitRepoSchema.getGitRepo());
             //The size should never be greater than 1
-            return false;
+            return null;
         }
-        var cachedGitRepoSchema = listOfGitRepos.get(0).getGitRepoSchema();
+        var cachedGitRepoSchema = listOfGitRepos.get(0);
         try {
             var command = new CommandBuilder()
                     .gitCheckout("main")
@@ -182,33 +180,31 @@ public class RepoManagerImpl implements RepoManager {
             if (exitCode == 0) {
                 log.info("Pulling repo {} was successful.", cachedGitRepoSchema.getGitRepo());
                 var commitHash = getCurrentCommit(cachedGitRepoSchema.getGitRepo());
-                if (commitHash == null) return false;
-                gitRepos = gitRepos.stream().filter(gitRepoCache -> !gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo())).collect(Collectors.toSet());
-                var updatedCacheSchema = listOfGitRepos.get(0);
-                updatedCacheSchema.setCurrentCommitHash(commitHash);
-                updatedCacheSchema.setRootCommitHash(commitHash);
-                gitRepos.add(updatedCacheSchema);
-                return true;
+                if (commitHash == null) return null;
+                gitRepos = gitRepos.stream().filter(gitRepo -> !gitRepo.contentsEqual(gitRepoSchema)).collect(Collectors.toSet());
+                var updatedSchema = listOfGitRepos.get(0);
+                gitRepos.add(updatedSchema);
+                return commitHash;
             } else {
                 log.info("Pulling repo {} was not successful.", cachedGitRepoSchema.getGitRepo());
-                return false;
+                return null;
             }
         } catch (IOException | InterruptedException e) {
             log.error("An error was thrown when attempting to sync the repo {}", cachedGitRepoSchema.getGitRepo(), e);
             delete(cachedGitRepoSchema);
-            return false;
+            return null;
         }
     }
 
     @Override
-    public boolean resetToVersion(String gitCommit, String gitRepoUrl) {
-        var listOfGitRepos = gitRepos.stream().filter(gitRepoCache ->
-                gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoUrl)).collect(Collectors.toList());
+    public boolean resetToVersion(String gitCommit, GitRepoSchema gitRepoSchema) {
+        var listOfGitRepos = gitRepos.stream().filter(gitRepo ->
+                gitRepo.contentsEqual(gitRepoSchema)).collect(Collectors.toList());
         if (listOfGitRepos.size() != 1) {
             //The size should never be greater than 1
             return false;
         }
-        var cachedGitRepoSchema = listOfGitRepos.get(0).getGitRepoSchema();
+        var cachedGitRepoSchema = listOfGitRepos.get(0);
         try {
             var command = new CommandBuilder()
                     .gitCheckout(gitCommit)
@@ -219,10 +215,6 @@ public class RepoManagerImpl implements RepoManager {
                     .start();
             int exitCode = process.waitFor();
             if (exitCode == 0) {
-                gitRepos = gitRepos.stream().filter(gitRepoCache -> !gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoUrl)).collect(Collectors.toSet());
-                var updatedCacheSchema = listOfGitRepos.get(0);
-                updatedCacheSchema.setCurrentCommitHash(gitCommit);
-                gitRepos.add(updatedCacheSchema);
                 log.info("Updating repo version {} was successful.", cachedGitRepoSchema.getGitRepo());
                 return true;
             } else {
@@ -236,30 +228,8 @@ public class RepoManagerImpl implements RepoManager {
     }
 
     @Override
-    public String getLatestCommitFromCache(String gitRepoUrl) {
-        var listOfGitRepos = gitRepos.stream().filter(gitRepoCache ->
-                gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoUrl)).collect(Collectors.toList());
-        if (listOfGitRepos.size() != 1) {
-            //The size should never be greater than 1
-            return null;
-        }
-        return listOfGitRepos.get(0).getCurrentCommitHash();
-    }
-
-    @Override
     public boolean containsGitRepoSchema(GitRepoSchema gitRepoSchema) {
-        return gitRepos.stream().anyMatch(gitRepoCache -> gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoSchema.getGitRepo()));
-    }
-
-    @Override
-    public String getRootCommit(String gitRepoUrl) {
-        var listOfGitRepos = gitRepos.stream().filter(gitRepoCache ->
-                gitRepoCache.getGitRepoSchema().getGitRepo().equals(gitRepoUrl)).collect(Collectors.toList());
-        if (listOfGitRepos.size() != 1) {
-            //The size should never be greater than 1
-            return null;
-        }
-        return listOfGitRepos.get(0).getRootCommitHash();
+        return gitRepos.stream().anyMatch(gitRepo -> gitRepo.contentsEqual(gitRepoSchema));
     }
 
     @Override

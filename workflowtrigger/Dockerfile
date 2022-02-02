@@ -1,14 +1,15 @@
 # syntax=docker/dockerfile:1
+#Build in parent folder
 FROM golang:1.16
-WORKDIR /WorkflowTrigger
-COPY go.mod .
-COPY go.sum .
+WORKDIR /Atlas/WorkflowTrigger
+COPY workflowtrigger/go.mod .
+COPY workflowtrigger/go.sum .
+COPY utilgo /Atlas/utilgo
 RUN go mod download
-COPY . .
+COPY workflowtrigger .
 RUN CGO_ENABLED=0 go build -v ./
 
 FROM alpine:latest
-#RUN apk --no-cache add ca-certificates
-COPY --from=0 /WorkflowTrigger/workflowtrigger /
+COPY --from=0 /Atlas/WorkflowTrigger/workflowtrigger /
 EXPOSE 8080
 CMD ["./workflowtrigger"]

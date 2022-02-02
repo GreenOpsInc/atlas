@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -58,7 +59,7 @@ Example usage:
 
 		var req *http.Request
 		client := &http.Client{Timeout: 20 * time.Second}
-		url := "http://" + atlasURL + "/pipeline/" + orgName + "/" + teamName + "/" + pipelineName
+		url := "https://" + atlasURL + "/pipeline/" + orgName + "/" + teamName + "/" + pipelineName
 
 		if !tokenFlagSet && !usernameFlagSet {
 			body := GitRepoSchemaOpen{
@@ -71,7 +72,6 @@ Example usage:
 			json, _ := json.Marshal(body)
 			req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(json))
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
-
 		} else if tokenFlagSet {
 			token, _ := cmd.Flags().GetString("token")
 
@@ -112,10 +112,9 @@ Example usage:
 		statusCode := resp.StatusCode
 		if statusCode == 200 {
 			fmt.Println("Successfully updated pipeline:", pipelineName, "for team:", teamName)
-		} else if statusCode == 400 {
-			fmt.Println("Pipeline update failed because the request was invalid.\nPlease check if the team and org names are correct, a pipeline with the specified name exists, and the Git credentials are valid.")
 		} else {
-			fmt.Println("Internal server error, please try recreating the pipeline and confirm that the provided Git credentials to the new upstream repo are correct.")
+			body, _ := io.ReadAll(resp.Body)
+			fmt.Printf("Error: %d - %s", statusCode, string(body))
 		}
 	},
 }
