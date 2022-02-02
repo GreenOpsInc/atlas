@@ -26,11 +26,11 @@ import static com.greenops.workfloworchestrator.ingest.handling.EventHandlerImpl
 @Component
 public class DeploymentHandlerImpl implements DeploymentHandler {
 
-    private final RepoManagerApi repoManagerApi;
-    private final ClientRequestQueue clientRequestQueue;
-    private final MetadataHandler metadataHandler;
-    private final DeploymentLogHandler deploymentLogHandler;
-    private final ObjectMapper yamlObjectMapper;
+    private RepoManagerApi repoManagerApi;
+    private ClientRequestQueue clientRequestQueue;
+    private MetadataHandler metadataHandler;
+    private DeploymentLogHandler deploymentLogHandler;
+    private ObjectMapper yamlObjectMapper;
 
     @Autowired
     DeploymentHandlerImpl(RepoManagerApi repoManagerApi,
@@ -43,25 +43,6 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
         this.metadataHandler = metadataHandler;
         this.deploymentLogHandler = deploymentLogHandler;
         this.yamlObjectMapper = yamlObjectMapper;
-    }
-
-    public static String getStepNamespace(Event event, RepoManagerApi repoManagerApi, ObjectMapper yamlObjectMapper, String argoApplicationPath, GitRepoSchemaInfo gitRepoSchemaInfo, String gitCommitHash) {
-        if (event.getStepName().isEmpty() || event.getStepName().equals(ROOT_STEP_NAME)) {
-            throw new AtlasNonRetryableError("Could not find a namespace associated with the event");
-        }
-        var getFileRequest = new GetFileRequest(gitRepoSchemaInfo, argoApplicationPath, gitCommitHash);
-        var argoAppPayload = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
-        String namespace;
-        try {
-            var sourceJsonNode = yamlObjectMapper.readTree(argoAppPayload).get("spec").get("destination");
-            namespace = sourceJsonNode.get("namespace").asText(null);
-        } catch (JsonProcessingException e) {
-            throw new AtlasNonRetryableError("Argo app configuration cannot be parsed");
-        }
-        if (namespace == null) {
-            throw new AtlasNonRetryableError("Could not find a namespace associated with the event");
-        }
-        return namespace;
     }
 
     @Override
@@ -194,5 +175,24 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
             }
         }
         return false;
+    }
+
+    public static String getStepNamespace(Event event, RepoManagerApi repoManagerApi, ObjectMapper yamlObjectMapper, String argoApplicationPath, GitRepoSchemaInfo gitRepoSchemaInfo, String gitCommitHash) {
+        if (event.getStepName().isEmpty() || event.getStepName().equals(ROOT_STEP_NAME)) {
+            throw new AtlasNonRetryableError("Could not find a namespace associated with the event");
+        }
+        var getFileRequest = new GetFileRequest(gitRepoSchemaInfo, argoApplicationPath, gitCommitHash);
+        var argoAppPayload = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());
+        String namespace;
+        try {
+            var sourceJsonNode = yamlObjectMapper.readTree(argoAppPayload).get("spec").get("destination");
+            namespace = sourceJsonNode.get("namespace").asText(null);
+        } catch (JsonProcessingException e) {
+            throw new AtlasNonRetryableError("Argo app configuration cannot be parsed");
+        }
+        if (namespace == null) {
+            throw new AtlasNonRetryableError("Could not find a namespace associated with the event");
+        }
+        return namespace;
     }
 }

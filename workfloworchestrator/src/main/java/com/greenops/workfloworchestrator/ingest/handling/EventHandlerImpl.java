@@ -40,14 +40,14 @@ public class EventHandlerImpl implements EventHandler {
     static final String WATCH_ARGO_APPLICATION_KEY = "WatchArgoApplicationKey";
     static final String PIPELINE_FILE_NAME = "pipeline.yaml";
 
-    private final RepoManagerApi repoManagerApi;
-    private final DbClient dbClient;
-    private final DeploymentHandler deploymentHandler;
-    private final TestHandler testHandler;
-    private final DeploymentLogHandler deploymentLogHandler;
-    private final KafkaClient kafkaClient;
-    private final ObjectMapper yamlObjectMapper;
-    private final ObjectMapper objectMapper;
+    private RepoManagerApi repoManagerApi;
+    private DbClient dbClient;
+    private DeploymentHandler deploymentHandler;
+    private TestHandler testHandler;
+    private DeploymentLogHandler deploymentLogHandler;
+    private KafkaClient kafkaClient;
+    private ObjectMapper yamlObjectMapper;
+    private ObjectMapper objectMapper;
 
     @Autowired
     EventHandlerImpl(RepoManagerApi repoManagerApi,
@@ -225,7 +225,7 @@ public class EventHandlerImpl implements EventHandler {
             return;
         }
 
-        StepData step = pipelineData.getStep(event.getStepName());
+        var step = pipelineData.getStep(event.getStepName());
         var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), event.getStepName());
         var latestLog = dbClient.fetchLatestLog(logKey);
         if (latestLog != null && latestLog.getStatus().equals(Log.LogStatus.CANCELLED.name())) return;

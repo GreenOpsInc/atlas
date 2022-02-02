@@ -2,10 +2,6 @@ package api
 
 import (
 	"fmt"
-	"math"
-	"net/http"
-	"strconv"
-
 	"github.com/gorilla/mux"
 	"github.com/greenopsinc/util/auditlog"
 	"github.com/greenopsinc/util/db"
@@ -13,6 +9,9 @@ import (
 	"greenops.io/workflowtrigger/api/reposerver"
 	"greenops.io/workflowtrigger/pipelinestatus"
 	"greenops.io/workflowtrigger/serializer"
+	"math"
+	"net/http"
+	"strconv"
 )
 
 const (

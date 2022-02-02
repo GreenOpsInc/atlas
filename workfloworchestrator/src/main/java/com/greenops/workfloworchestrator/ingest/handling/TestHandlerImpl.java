@@ -19,9 +19,9 @@ import static com.greenops.workfloworchestrator.ingest.handling.DeploymentHandle
 @Component
 public class TestHandlerImpl implements TestHandler {
 
-    private final RepoManagerApi repoManagerApi;
-    private final ClientRequestQueue clientRequestQueue;
-    private final ObjectMapper yamlObjectMapper;
+    private RepoManagerApi repoManagerApi;
+    private ClientRequestQueue clientRequestQueue;
+    private ObjectMapper yamlObjectMapper;
 
     @Autowired
     TestHandlerImpl(RepoManagerApi repoManagerApi, ClientRequestQueue clientRequestQueue, @Qualifier("yamlObjectMapper") ObjectMapper objectMapper) {

@@ -26,7 +26,6 @@ public class SpringKafkaListener {
     @KafkaListener(topics = "${application.kafka.topic}", groupId = "${application.kafka.consumer.group-id}")
     public void listen(String message, Acknowledgment ack) {
         try {
-            System.out.println("Kafka Event" + message);
             var event = objectMapper.readValue(message, Event.class);
             eventHandler.handleEvent(event);
             ack.acknowledge();
