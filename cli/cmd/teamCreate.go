@@ -69,8 +69,6 @@ Example usage:
 			}
 		}
 
-		fmt.Println("Bearer", context.User.AuthToken)
-
 		client := getHttpClient()
 		resp, err := client.Do(req)
 		if err != nil {

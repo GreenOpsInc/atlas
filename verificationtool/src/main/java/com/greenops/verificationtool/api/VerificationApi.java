@@ -60,7 +60,6 @@ public class VerificationApi {
             var pathToRoot = verifyPipelineRequestBody.getPathToRoot();
             this.ruleEngine.registerRules(pipelineName, verifyPipelineRequestBody.getRules());
 
-            this.workflowTriggerApi.createTeam(orgName, parentTeamName, teamName);
 
             var gitRepoSchemaInfo = new GitRepoSchemaInfo(gitRepoUrl, pathToRoot);
             var getFileRequest = new GetFileRequest(gitRepoSchemaInfo, fileName, ROOT_COMMIT);
@@ -74,8 +73,9 @@ public class VerificationApi {
             DAG dag = new DAG(pipelineObj, pipelineName);
             this.dagRegistry.registerDAG(pipelineName, dag);
 
-            this.workflowTriggerApi.createPipeline(orgName, pipelineName, teamName, gitRepoUrl);
-            this.workflowTriggerApi.syncPipeline(orgName, pipelineName, teamName, gitRepoUrl);
+            this.workflowTriggerApi.createTeam(orgName, parentTeamName, teamName);
+            this.workflowTriggerApi.createPipeline(orgName, pipelineName, teamName, gitRepoUrl, pathToRoot);
+            this.workflowTriggerApi.syncPipeline(orgName, pipelineName, teamName, gitRepoUrl, pathToRoot);
             return ResponseEntity.ok().body(schemaToResponsePayload(pipelineObj));
         } catch (JsonProcessingException e) {
             return ResponseEntity.status(400).body(e.getMessage());

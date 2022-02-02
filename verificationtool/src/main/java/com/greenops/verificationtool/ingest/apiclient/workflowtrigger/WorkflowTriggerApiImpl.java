@@ -37,7 +37,6 @@ import static com.greenops.verificationtool.ingest.apiclient.util.ApiClientUtil.
 @Component
 public class WorkflowTriggerApiImpl implements WorkflowTriggerApi {
     private final String UVN = "LATEST";
-    private final String pathToRoot = "basic/";
     private final String authToken = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NDM4ODAzNzAsImp0aSI6IjQ0NDdhZGI0LTdkYjAtNDljYy1iNTcxLTFmZTk0NzM4YzE4NSIsImlhdCI6MTY0Mzc5Mzk3MCwiaXNzIjoiYXJnb2NkIiwibmJmIjoxNjQzNzkzOTcwLCJzdWIiOiJhZG1pbjpsb2dpbiJ9.cql8ets7xzgxwEiAu0lJCfvlJKMRgvWjqmwcOPPLdWU";
     private final String pipelineRevisionHash = "ROOT_COMMIT";
     private final String serverWorkflowTriggerEndpoint;
@@ -89,10 +88,10 @@ public class WorkflowTriggerApiImpl implements WorkflowTriggerApi {
     }
 
     @Override
-    public void createPipeline(String orgName, String pipelineName, String teamName, String gitRepoUrl) {
+    public void createPipeline(String orgName, String pipelineName, String teamName, String gitRepoUrl, String pathToRoot) {
         var url = String.format("%s/pipeline/%s/%s/%s", this.serverWorkflowTriggerEndpoint, orgName, teamName, pipelineName);
         var request = new HttpPost(url);
-        GitRepoSchema gitRepoSchema = new GitRepoSchema(gitRepoUrl, this.pathToRoot, new GitCredOpen());
+        GitRepoSchema gitRepoSchema = new GitRepoSchema(gitRepoUrl, pathToRoot, new GitCredOpen());
         try {
             request.setHeader("Authorization", this.authToken);
             request.setEntity(new StringEntity(this.objectMapper.writeValueAsString(gitRepoSchema), ContentType.APPLICATION_JSON));
@@ -109,10 +108,10 @@ public class WorkflowTriggerApiImpl implements WorkflowTriggerApi {
     }
 
     @Override
-    public void syncPipeline(String orgName, String pipelineName, String teamName, String gitRepoUrl) {
+    public void syncPipeline(String orgName, String pipelineName, String teamName, String gitRepoUrl, String pathToRoot) {
         var url = String.format("%s/sync/%s/%s/%s/%s", this.serverWorkflowTriggerEndpoint, orgName, teamName, pipelineName, this.pipelineRevisionHash);
         var request = new HttpPost(url);
-        GitRepoSchema gitRepoSchema = new GitRepoSchema(gitRepoUrl, this.pathToRoot, new GitCredOpen());
+        GitRepoSchema gitRepoSchema = new GitRepoSchema(gitRepoUrl, pathToRoot, new GitCredOpen());
         try {
             request.setHeader("Authorization", this.authToken);
             request.setEntity(new StringEntity(this.objectMapper.writeValueAsString(gitRepoSchema), ContentType.APPLICATION_JSON));
