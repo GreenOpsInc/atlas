@@ -5,6 +5,7 @@ import com.greenops.verificationtool.datamodel.verification.DAG;
 import com.greenops.verificationtool.ingest.kafka.KafkaClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.TimeUnit;
@@ -13,6 +14,7 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class EventHandlerImpl implements EventHandler {
     private final String HEALTHY = "Healthy";
+    private final String verificationTopicName;
     private final KafkaClient kafkaClient;
     private final DagRegistry dagRegistry;
     private final RuleEngine ruleEngine;
@@ -24,12 +26,14 @@ public class EventHandlerImpl implements EventHandler {
                      DagRegistry dagRegistry,
                      RuleEngine ruleEngine,
                      PipelineVerificationHandler pipelineVerificationHandler,
-                     StepVerificationHandler stepVerificationHandler) {
+                     StepVerificationHandler stepVerificationHandler,
+                     @Value("${spring.kafka.verification-topic}") String verificationTopicName) {
         this.kafkaClient = kafkaClient;
         this.dagRegistry = dagRegistry;
         this.ruleEngine = ruleEngine;
         this.pipelineVerificationHandler = pipelineVerificationHandler;
         this.stepVerificationHandler = stepVerificationHandler;
+        this.verificationTopicName = verificationTopicName;
     }
 
     @Override
@@ -76,7 +80,7 @@ public class EventHandlerImpl implements EventHandler {
                             event.getTeamName(),
                             event.getPipelineName(),
                             event.getPipelineUvn());
-                    this.kafkaClient.sendMessage(pipelineCompletionEvent);
+                    this.kafkaClient.sendMessage(pipelineCompletionEvent, this.verificationTopicName);
                 }
             } else {
                 System.out.println(event.getClass().getName() + " Failed!");

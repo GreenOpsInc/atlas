@@ -3,6 +3,7 @@ package com.greenops.verificationtool.ingest.handling;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.event.Event;
+import com.greenops.util.datamodel.event.PipelineCompletionEvent;
 import com.greenops.util.datamodel.event.TriggerStepEvent;
 import com.greenops.util.datamodel.pipelinestatus.FailedStep;
 import com.greenops.util.datamodel.pipelinestatus.PipelineStatus;
@@ -40,6 +41,15 @@ public class PipelineVerificationHandlerImpl implements PipelineVerificationHand
     @Override
     public Boolean verify(Event event, DAG dag) {
         var pipelineStatus = getPipelineStatus(event);
+        if (event instanceof PipelineCompletionEvent
+                && pipelineStatus.getProgressingSteps().isEmpty()
+                && pipelineStatus.isStable()
+                && !pipelineStatus.isCancelled()
+                && pipelineStatus.isComplete()
+                && pipelineStatus.getFailedSteps().isEmpty()){
+            System.out.println(event.getOrgName() + " " + event.getPipelineName() + " " + event.getTeamName() + " " + event.getClass().getName() + " Pipeline Verification Passed!");
+            return true;
+        }
         var prevVertices = dag.getPreviousVertices(event);
         for (Vertex prevVertex : prevVertices) {
             if (event instanceof TriggerStepEvent

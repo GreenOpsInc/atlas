@@ -14,7 +14,7 @@ spring:
       bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-    greenops-topic: ${KAFKA_GREENOPS_TOPIC:greenops.eventing}
+    topic: ${KAFKA_GREENOPS_TOPIC:greenops.eventing}
     verification-topic: ${KAFKA_VERIFICATIONTOOL_TOPIC:verification.eventing}
     verification-dlqtopic: ${KAFKA_VERIFICATIONTOOL_TOPIC:verification.eventing}.dlq
 application:

@@ -38,7 +38,7 @@ test {
 
 jib {
 	to {
-		image = 'atlasverificationtool'
+		image = 'verificationtool'
 	}
 	container {
 		ports = ['8080']

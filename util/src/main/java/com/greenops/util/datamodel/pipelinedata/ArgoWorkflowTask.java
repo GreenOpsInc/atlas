@@ -5,7 +5,6 @@ import com.greenops.util.datamodel.request.KubernetesCreationRequest;
 import java.util.Map;
 
 public class ArgoWorkflowTask implements Test {
-    static final String ARGO_WORKFLOW_TASK = "ArgoWorkflowTask";
     private String path;
     private boolean executeBeforeDeployment;
     private Map<String, String> variables;

@@ -10,6 +10,7 @@ import java.util.*;
 public class DAG {
     private final String ATLAS_ROOT_DATA = "ATLAS_ROOT_DATA";
     private final String PipelineTriggerEvent = "PipelineTriggerEvent";
+    private final String PipelineCompletionEvent = "PipelineCompletionEvent";
     private final String TriggerStepEvent = "TriggerStepEvent";
     private final String ApplicationInfraCompletionEvent = "ApplicationInfraCompletionEvent";
     private final String ApplicationInfraTriggerEvent = "ApplicationInfraTriggerEvent";
@@ -43,6 +44,7 @@ public class DAG {
 
         StepOrderGraph stepOrderGraph = new StepOrderGraph(this.pipelineData);
         var stepDependencyGraph = stepOrderGraph.getStepDependencyGraph();
+        Vertex lastVertex = null;
         for (String rootStep : rootSteps) {
             Queue<Pair> queue = new LinkedList<Pair>();
             HashMap<String, Boolean> visited = new HashMap<String, Boolean>();
@@ -53,6 +55,7 @@ public class DAG {
             while (queue.size() != 0) {
                 var currentNode = queue.poll();
                 var nextVertex = this.addVerticesForStep(currentNode.getStep(), currentNode.getVertex());
+                lastVertex = nextVertex;
 
                 if (stepDependencyGraph.get(currentNode.getStep()) == null) {
                     continue;
@@ -66,7 +69,8 @@ public class DAG {
                 }
             }
         }
-        visited = new HashMap<>();
+        Vertex pipelineCompletionVertex = new Vertex(this.PipelineCompletionEvent, this.pipelineName, this.ATLAS_ROOT_DATA);
+        this.addEdge(lastVertex, pipelineCompletionVertex);
     }
 
     public HashMap<Vertex, List<Vertex>> getDAG() {
@@ -162,7 +166,10 @@ public class DAG {
 
     public Boolean isLastVertexInDAG(Event event) {
         var vertex = this.createVertex(event);
-        return this.graph.get(vertex) == null;
+        if(this.graph.get(vertex) != null){
+            return this.graph.get(vertex).get(0).getEventType().equals(this.PipelineCompletionEvent);
+        }
+        return false;
     }
 
     public Boolean isTestCompletionBefore(Vertex vertex) {
@@ -189,6 +196,8 @@ public class DAG {
             eventType = this.ApplicationInfraCompletionEvent;
         } else if (event instanceof TriggerStepEvent) {
             eventType = this.TriggerStepEvent;
+        } else if (event instanceof PipelineCompletionEvent) {
+            eventType = this.PipelineCompletionEvent;
         }
         if (vertex == null) {
             vertex = new Vertex(eventType, pipelineName, stepName);
