@@ -9,12 +9,12 @@ import com.greenops.util.datamodel.clientmessages.ResourceGvk;
 import com.greenops.util.datamodel.event.*;
 import com.greenops.util.datamodel.git.GitRepoSchemaInfo;
 import com.greenops.util.datamodel.pipeline.TeamSchema;
-import com.greenops.util.datamodel.pipelinedata.PipelineData;
-import com.greenops.util.datamodel.pipelinedata.StepData;
-import com.greenops.util.datamodel.pipelinedata.Test;
 import com.greenops.util.datamodel.request.GetFileRequest;
 import com.greenops.util.dbclient.DbClient;
 import com.greenops.util.error.AtlasNonRetryableError;
+import com.greenops.util.datamodel.pipelinedata.PipelineData;
+import com.greenops.util.datamodel.pipelinedata.StepData;
+import com.greenops.util.datamodel.pipelinedata.Test;
 import com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManagerApi;
 import com.greenops.workfloworchestrator.ingest.dbclient.DbKey;
 import com.greenops.workfloworchestrator.ingest.kafka.KafkaClient;
@@ -36,8 +36,8 @@ import static com.greenops.util.ingest.deployment.ArgoDeploymentInfo.NO_OP_ARGO_
 @Component
 public class EventHandlerImpl implements EventHandler {
 
-    public static final String WATCH_TEST_KEY = "WatchTestKey";
     static final String WATCH_ARGO_APPLICATION_KEY = "WatchArgoApplicationKey";
+    public static final String WATCH_TEST_KEY = "WatchTestKey";
     static final String PIPELINE_FILE_NAME = "pipeline.yaml";
 
     private RepoManagerApi repoManagerApi;
