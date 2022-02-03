@@ -4,25 +4,25 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class StepDataImpl implements StepData {
-    private final String name;
-    private final String argoApplication;
-    private final String argoApplicationPath;
-    private final String otherDeploymentsPath;
+    private String name;
+    private String argoApplication;
+    private String argoApplicationPath;
+    private String otherDeploymentsPath;
     private String clusterName;
-    private final List<Test> tests;
-    private final int remediationLimit;
-    private final int rollbackLimit;
-    private final List<String> dependencies;
+    private List<Test> tests;
+    private int remediationLimit;
+    private int rollbackLimit;
+    private List<String> dependencies;
 
     public StepDataImpl(String name,
-                        String argoApplication,
-                        String argoApplicationPath,
-                        String otherDeploymentsPath,
-                        String clusterName,
-                        List<Test> tests,
-                        int remediationLimit,
-                        int rollbackLimit,
-                        List<String> dependencies) {
+                 String argoApplication,
+                 String argoApplicationPath,
+                 String otherDeploymentsPath,
+                 String clusterName,
+                 List<Test> tests,
+                 int remediationLimit,
+                 int rollbackLimit,
+                 List<String> dependencies) {
         this.name = name;
         this.argoApplication = argoApplication;
         this.argoApplicationPath = argoApplicationPath;

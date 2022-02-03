@@ -10,20 +10,18 @@ import java.util.Map;
         {
                 @JsonSubTypes.Type(value = InjectScriptTest.class, name = Test.INJECT_TASK),
                 @JsonSubTypes.Type(value = CustomJobTest.class, name = Test.CUSTOM_TASK),
+                @JsonSubTypes.Type(value = ArgoWorkflowTask.class, name = Test.ARGO_WORKFLOW_TASK)
         }
 )
 public interface Test {
-    String INJECT_TASK = "inject";
-    String CUSTOM_TASK = "custom";
+    static final String INJECT_TASK = "inject";
+    static final String CUSTOM_TASK = "custom";
+    static final String ARGO_WORKFLOW_TASK = "ArgoWorkflowTask";
 
-    String getPath();
-
-    boolean shouldExecuteBefore();
-
-    Map<String, String> getVariables();
-
+    public String getPath();
+    public boolean shouldExecuteBefore();
+    public Map<String, String> getVariables();
     //The expectation is that getPayload will return either a String or a KubernetesCreationRequest
-    Object getPayload(int testNumber, String testConfig);
-
-    String getWatchKey();
+    public Object getPayload(int testNumber, String testConfig);
+    public String getWatchKey();
 }

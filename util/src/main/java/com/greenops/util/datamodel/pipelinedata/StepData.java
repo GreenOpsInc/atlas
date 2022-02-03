@@ -7,11 +7,7 @@ import java.util.List;
 
 @JsonDeserialize(as = StepDataImpl.class)
 public interface StepData {
-    String ROOT_STEP_NAME = PipelineTriggerEvent.ROOT_STEP_NAME;
-
-    static StepData createRootStep() {
-        return new StepDataImpl(ROOT_STEP_NAME, null, null, null, null, List.of(), 0, 0, List.of());
-    }
+    static final String ROOT_STEP_NAME = PipelineTriggerEvent.ROOT_STEP_NAME;
 
     String getName();
 
@@ -32,4 +28,8 @@ public interface StepData {
     int getRemediationLimit();
 
     int getRollbackLimit();
+
+    static StepData createRootStep() {
+        return new StepDataImpl(ROOT_STEP_NAME, null, null, null, null, List.of(), 0, 0, List.of());
+    }
 }
