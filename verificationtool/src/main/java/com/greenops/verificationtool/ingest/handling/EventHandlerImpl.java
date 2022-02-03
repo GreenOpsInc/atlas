@@ -2,8 +2,6 @@ package com.greenops.verificationtool.ingest.handling;
 
 import com.greenops.util.datamodel.event.*;
 import com.greenops.verificationtool.datamodel.verification.DAG;
-import com.greenops.verificationtool.ingest.apiclient.reposerver.RepoManagerApi;
-import com.greenops.verificationtool.ingest.apiclient.workflowtrigger.WorkflowTriggerApi;
 import com.greenops.verificationtool.ingest.kafka.KafkaClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,19 +12,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Component
 public class EventHandlerImpl implements EventHandler {
-
-    public static final String WATCH_TEST_KEY = "WatchTestKey";
-    static final String WATCH_ARGO_APPLICATION_KEY = "WatchArgoApplicationKey";
-    static final String PIPELINE_FILE_NAME = "pipeline.yaml";
-    private final String PipelineTriggerEvent = "PipelineTriggerEvent";
-    private final String PipelineCompletionEvent = "PipelineCompletionEvent";
-    private final String TriggerStepEvent = "TriggerStepEvent";
-    private final String ApplicationInfraCompletionEvent = "ApplicationInfraCompletionEvent";
-    private final String ApplicationInfraTriggerEvent = "ApplicationInfraTriggerEvent";
-    private final String ClientCompletionEvent = "ClientCompletionEvent";
-    private final String TestCompletionEvent = "TestCompletionEvent";
-    private final RepoManagerApi repoManagerApi;
-    private final WorkflowTriggerApi workflowTriggerApi;
+    private final String HEALTHY = "Healthy";
     private final KafkaClient kafkaClient;
     private final DagRegistry dagRegistry;
     private final RuleEngine ruleEngine;
@@ -34,15 +20,11 @@ public class EventHandlerImpl implements EventHandler {
     private final StepVerificationHandler stepVerificationHandler;
 
     @Autowired
-    EventHandlerImpl(RepoManagerApi repoManagerApi,
-                     WorkflowTriggerApi workflowTriggerApi,
-                     KafkaClient kafkaClient,
+    EventHandlerImpl(KafkaClient kafkaClient,
                      DagRegistry dagRegistry,
                      RuleEngine ruleEngine,
                      PipelineVerificationHandler pipelineVerificationHandler,
                      StepVerificationHandler stepVerificationHandler) {
-        this.repoManagerApi = repoManagerApi;
-        this.workflowTriggerApi = workflowTriggerApi;
         this.kafkaClient = kafkaClient;
         this.dagRegistry = dagRegistry;
         this.ruleEngine = ruleEngine;
@@ -107,8 +89,7 @@ public class EventHandlerImpl implements EventHandler {
     private Boolean isLastEvent(Event event, DAG dag) {
         if (event instanceof ApplicationInfraCompletionEvent && !((ApplicationInfraCompletionEvent) event).isSuccess())
             return true;
-        else if (event instanceof ClientCompletionEvent && !((ClientCompletionEvent) event).getHealthStatus().equals("Healthy")) {
-            System.out.println("SUCCESS? " + ((ClientCompletionEvent) event).getHealthStatus());
+        else if (event instanceof ClientCompletionEvent && !((ClientCompletionEvent) event).getHealthStatus().equals(this.HEALTHY)) {
             return true;
         } else if (event instanceof TestCompletionEvent && !((TestCompletionEvent) event).getSuccessful()) return true;
         else if (event instanceof FailureEvent) return true;
