@@ -1,6 +1,6 @@
 package com.greenops.util.datamodel.event;
 
-// This Event Mixin is only used by verificationtool
+// This Event is only used by verificationtool
 public class PipelineCompletionEvent implements Event {
     public static final String ROOT_STEP_NAME = "ATLAS_ROOT_DATA";
     public static final String ROOT_COMMIT = "ROOT_COMMIT";

@@ -1,6 +1,7 @@
 package com.greenops.verificationtool.ingest.handling;
 
 import com.greenops.util.datamodel.event.Event;
+import com.greenops.util.datamodel.event.PipelineCompletionEvent;
 import com.greenops.verificationtool.datamodel.verification.DAG;
 import com.greenops.verificationtool.ingest.apiclient.workflowtrigger.WorkflowTriggerApi;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,7 +11,7 @@ import java.util.HashMap;
 
 @Component
 public class DagRegistry {
-    private final String SUCCESS = "success";
+    private final String COMPLETED = "completed";
     private final String FAILED = "failed";
     private final String PROGRESS = "progress";
     private final String NOT_FOUND = "NOT_FOUND";
@@ -48,6 +49,10 @@ public class DagRegistry {
     }
 
     public void markPipelineProgress(Event event) {
-        this.verificationStatus.put(event.getPipelineName(), this.PROGRESS);
+        if (event instanceof PipelineCompletionEvent) {
+            this.verificationStatus.put(event.getPipelineName(), this.COMPLETED);
+        } else {
+            this.verificationStatus.put(event.getPipelineName(), this.PROGRESS);
+        }
     }
 }

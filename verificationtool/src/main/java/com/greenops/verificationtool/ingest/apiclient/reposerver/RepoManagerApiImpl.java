@@ -17,9 +17,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.security.KeyManagementException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
 
 import static com.greenops.verificationtool.ingest.apiclient.util.ApiClientUtil.checkResponseStatus;
 
@@ -30,17 +27,13 @@ public class RepoManagerApiImpl implements RepoManagerApi {
     private static final String ROOT_DATA_EXTENSION = "data";
     private static final String ROOT_REPO_EXTENSION = "repo";
     private static final String GET_FILE_EXTENSION = "file";
-    private static final String GET_COMMIT_EXTENSION = "version";
-    private static final String CHANGE_VERSION_EXTENSION = "resetToVersion";
 
-    private final String serverRepoEndpoint;
     private final String serverDataEndpoint;
     private final ObjectMapper objectMapper;
     private final CloseableHttpClient httpClient;
 
     @Autowired
-    public RepoManagerApiImpl(@Value("${application.repo-server-url}") String serverEndpoint, @Qualifier("eventAndRequestObjectMapper") ObjectMapper objectMapper) throws NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
-        this.serverRepoEndpoint = serverEndpoint.endsWith("/") ? serverEndpoint + ROOT_REPO_EXTENSION : serverEndpoint + "/" + ROOT_REPO_EXTENSION;
+    public RepoManagerApiImpl(@Value("${application.repo-server-url}") String serverEndpoint, @Qualifier("eventAndRequestObjectMapper") ObjectMapper objectMapper) {
         this.serverDataEndpoint = serverEndpoint.endsWith("/") ? serverEndpoint + ROOT_DATA_EXTENSION : serverEndpoint + "/" + ROOT_DATA_EXTENSION;
         this.httpClient = HttpClientBuilder.create().build();
         this.objectMapper = objectMapper;

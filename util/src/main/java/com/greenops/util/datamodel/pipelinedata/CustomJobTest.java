@@ -5,10 +5,11 @@ import com.greenops.util.datamodel.request.KubernetesCreationRequest;
 import java.util.Map;
 
 public class CustomJobTest implements Test {
+
     public static final String WATCH_TEST_KEY = "WatchTestKey";
-    private final String path;
-    private final boolean executeBeforeDeployment;
-    private final Map<String, String> variables;
+    private String path;
+    private boolean executeBeforeDeployment;
+    private Map<String, String> variables;
 
     CustomJobTest(String path, boolean executeBeforeDeployment, Map<String, String> variables) {
         this.path = path;

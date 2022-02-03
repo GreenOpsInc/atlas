@@ -2,25 +2,30 @@ package com.greenops.util.datamodel.pipelinedata;
 
 import com.greenops.util.error.AtlasNonRetryableError;
 import com.greenops.util.datamodel.request.KubernetesCreationRequest;
+import com.greenops.util.ingest.testautomation.CommandBuilder;
+import lombok.NonNull;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import static com.greenops.util.ingest.ClientKey.makeTestKey;
+import static com.greenops.util.datamodel.pipelinedata.CustomJobTest.WATCH_TEST_KEY;
+import static com.greenops.util.ingest.deployment.SchemaHandlingUtil.escapeFile;
 import static com.greenops.util.ingest.deployment.SchemaHandlingUtil.getFileName;
 
 public class InjectScriptTest implements Test {
-    public static final String WATCH_TEST_KEY = "WatchTestKey";
-    private static final String DEFAULT_NAMESPACE = "default";
 
-    private final String path;
-    private final String image;
-    private final String namespace;
-    private final List<String> commands;
-    private final List<String> arguments;
-    private final boolean executeInApplicationPod;
-    private final boolean executeBeforeDeployment;
-    private final Map<String, String> variables;
+    private static String DEFAULT_NAMESPACE = "default";
+
+    private String path;
+    private String image;
+    private String namespace;
+    private List<String> commands;
+    private List<String> arguments;
+    private boolean executeInApplicationPod;
+    private boolean executeBeforeDeployment;
+    private Map<String, String> variables;
 
 
     InjectScriptTest(String path, String image, String namespace, List<String> commands, List<String> arguments, boolean executeInApplicationPod, boolean executeBeforeDeployment, Map<String, String> variables) {

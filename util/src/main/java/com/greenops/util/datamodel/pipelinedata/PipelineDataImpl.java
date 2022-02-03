@@ -10,12 +10,12 @@ import static com.greenops.util.datamodel.pipelinedata.StepData.ROOT_STEP_NAME;
 
 public class PipelineDataImpl implements PipelineData {
 
+    private String name;
+    private List<StepData> steps;
     private final String clusterName;
     private final boolean argoVersionLock;
     private final Map<String, List<String>> stepParents;
     private final Map<String, List<String>> stepChildren;
-    private final String name;
-    private final List<StepData> steps;
 
     public PipelineDataImpl(String name, String clusterName, boolean argoVersionLock, List<StepData> stepDataList) {
         this.name = name;

@@ -8,19 +8,12 @@ import java.util.List;
 public interface PipelineData {
 
     @Deprecated
-    String getName();
-
-    StepData getStep(String stepName);
-
-    List<String> getChildrenSteps(String stepName);
-
-    List<String> getParentSteps(String stepName);
-
-    List<String> getAllSteps();
-
-    List<String> getAllStepsOrdered();
-
-    String getClusterName();
-
-    boolean isArgoVersionLock();
+    public String getName();
+    public StepData getStep(String stepName);
+    public List<String> getChildrenSteps(String stepName);
+    public List<String> getParentSteps(String stepName);
+    public List<String> getAllSteps();
+    public List<String> getAllStepsOrdered();
+    public String getClusterName();
+    public boolean isArgoVersionLock();
 }

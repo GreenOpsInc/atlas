@@ -45,8 +45,7 @@ public class PipelineVerificationHandlerImpl implements PipelineVerificationHand
                 && pipelineStatus.getProgressingSteps().isEmpty()
                 && pipelineStatus.isStable()
                 && !pipelineStatus.isCancelled()
-                && pipelineStatus.isComplete()
-                && pipelineStatus.getFailedSteps().isEmpty()){
+                && pipelineStatus.isComplete()){
             System.out.println(event.getOrgName() + " " + event.getPipelineName() + " " + event.getTeamName() + " " + event.getClass().getName() + " Pipeline Verification Passed!");
             return true;
         }

@@ -13,19 +13,19 @@ public class FailedStep {
         this.brokenTestLog = brokenTestLog;
     }
 
-    public String getStep(){
+    public String getStep() {
         return step;
     }
 
-    public boolean isDeploymentFailed(){
+    public boolean isDeploymentFailed() {
         return deploymentFailed;
     }
 
-    public String getBrokenTest(){
+    public String getBrokenTest() {
         return brokenTest;
     }
 
-    public String getBrokenTestLog(){
+    public String getBrokenTestLog() {
         return brokenTestLog;
     }
 }
