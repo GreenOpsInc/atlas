@@ -1,6 +1,5 @@
 package com.greenops.verificationtool.ingest.handling;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.event.*;
 import com.greenops.verificationtool.datamodel.verification.DAG;
 import com.greenops.verificationtool.ingest.apiclient.reposerver.RepoManagerApi;
@@ -8,7 +7,6 @@ import com.greenops.verificationtool.ingest.apiclient.workflowtrigger.WorkflowTr
 import com.greenops.verificationtool.ingest.kafka.KafkaClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.TimeUnit;
@@ -30,8 +28,6 @@ public class EventHandlerImpl implements EventHandler {
     private final RepoManagerApi repoManagerApi;
     private final WorkflowTriggerApi workflowTriggerApi;
     private final KafkaClient kafkaClient;
-    private final ObjectMapper yamlObjectMapper;
-    private final ObjectMapper objectMapper;
     private final DagRegistry dagRegistry;
     private final RuleEngine ruleEngine;
     private final PipelineVerificationHandler pipelineVerificationHandler;
@@ -44,9 +40,7 @@ public class EventHandlerImpl implements EventHandler {
                      DagRegistry dagRegistry,
                      RuleEngine ruleEngine,
                      PipelineVerificationHandler pipelineVerificationHandler,
-                     StepVerificationHandler stepVerificationHandler,
-                     @Qualifier("yamlObjectMapper") ObjectMapper yamlObjectMapper,
-                     @Qualifier("objectMapper") ObjectMapper objectMapper) {
+                     StepVerificationHandler stepVerificationHandler) {
         this.repoManagerApi = repoManagerApi;
         this.workflowTriggerApi = workflowTriggerApi;
         this.kafkaClient = kafkaClient;
@@ -54,8 +48,6 @@ public class EventHandlerImpl implements EventHandler {
         this.ruleEngine = ruleEngine;
         this.pipelineVerificationHandler = pipelineVerificationHandler;
         this.stepVerificationHandler = stepVerificationHandler;
-        this.yamlObjectMapper = yamlObjectMapper;
-        this.objectMapper = objectMapper;
     }
 
     @Override
