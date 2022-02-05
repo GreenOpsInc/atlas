@@ -154,7 +154,7 @@ func createPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit, string(argo.CreateAction), string(argo.ApplicationResource)) {
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, git.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit, string(argo.CreateAction), string(argo.ApplicationResource)) {
 		repoManagerApi.DeleteRepo(gitRepo)
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
@@ -181,7 +181,7 @@ func getPipelineEndpoint(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: pipelineSchema.GetGitRepoSchema().GitRepo, PathToRoot: pipelineSchema.GetGitRepoSchema().PathToRoot}, reposerver.RootCommit, string(argo.GetAction), string(argo.ApplicationResource)) {
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, git.GitRepoSchemaInfo{GitRepoUrl: pipelineSchema.GetGitRepoSchema().GitRepo, PathToRoot: pipelineSchema.GetGitRepoSchema().PathToRoot}, reposerver.RootCommit, string(argo.GetAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}
@@ -223,7 +223,7 @@ func deletePipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	gitRepo := teamSchema.GetPipelineSchema(pipelineName).GetGitRepoSchema()
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit, string(argo.DeleteAction), string(argo.ApplicationResource)) {
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, git.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit, string(argo.DeleteAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}
@@ -280,7 +280,7 @@ func updatePipeline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	gitRepo := teamSchema.GetPipelineSchema(pipelineName).GetGitRepoSchema()
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit, string(argo.UpdateAction), string(argo.ApplicationResource)) {
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, git.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit, string(argo.UpdateAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 	}
 	kubernetesClient.StoreGitCred(gitRepoUpd.GetGitCred(), db.MakeSecretName(orgName, teamName, pipelineName))
@@ -323,7 +323,7 @@ func syncPipeline(w http.ResponseWriter, r *http.Request) {
 		revisionHash = currentRevisionHash
 	}
 
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, revisionHash,
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, git.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, revisionHash,
 		string(argo.SyncAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
@@ -361,7 +361,7 @@ func runSubPipeline(w http.ResponseWriter, r *http.Request) {
 		revisionHash = currentRevisionHash
 	}
 
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, revisionHash,
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, git.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, revisionHash,
 		string(argo.OverrideAction), string(argo.ApplicationResource),
 		string(argo.SyncAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
@@ -405,14 +405,14 @@ func forceDeploy(w http.ResponseWriter, r *http.Request) {
 		pipelineRevisionHash = currentRevisionHash
 	}
 
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, pipelineRevisionHash,
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, git.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, pipelineRevisionHash,
 		string(argo.OverrideAction), string(argo.ApplicationResource),
 		string(argo.SyncAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
 	}
 
-	applicationPayload, clusterName := schemaValidator.GetStepApplicationPayload(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, pipelineRevisionHash, stepName)
+	applicationPayload, clusterName := schemaValidator.GetStepApplicationPayload(orgName, teamName, git.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, pipelineRevisionHash, stepName)
 
 	clusterSchema := dbClient.FetchClusterSchema(db.MakeDbClusterKey(orgName, clusterName))
 	emptyStruct := cluster.ClusterSchema{}

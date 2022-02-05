@@ -2,6 +2,7 @@ package schemavalidation
 
 import (
 	"fmt"
+	"github.com/greenopsinc/util/git"
 
 	"gopkg.in/yaml.v2"
 	"greenops.io/workflowtrigger/api/argo"
@@ -43,7 +44,7 @@ func New(argoAuthenticatorApi argo.ArgoAuthenticatorApi, repoApi reposerver.Repo
 	}
 }
 
-func (r RequestSchemaValidator) GetStepApplicationPath(orgName string, teamName string, gitRepoSchemaInfo reposerver.GitRepoSchemaInfo, gitCommitHash string, step string) string {
+func (r RequestSchemaValidator) GetStepApplicationPath(orgName string, teamName string, gitRepoSchemaInfo git.GitRepoSchemaInfo, gitCommitHash string, step string) string {
 	pipelineData := r.getPipelineData(orgName, teamName, gitRepoSchemaInfo, gitCommitHash)
 	for _, stepData := range pipelineData.Steps {
 		if stepData.Name == step {
@@ -53,7 +54,7 @@ func (r RequestSchemaValidator) GetStepApplicationPath(orgName string, teamName 
 	return ""
 }
 
-func (r RequestSchemaValidator) GetStepApplicationPayload(orgName string, teamName string, gitRepoSchemaInfo reposerver.GitRepoSchemaInfo, gitCommitHash string, step string) (string, string) {
+func (r RequestSchemaValidator) GetStepApplicationPayload(orgName string, teamName string, gitRepoSchemaInfo git.GitRepoSchemaInfo, gitCommitHash string, step string) (string, string) {
 	var applicationPath string
 	var clusterName string
 	pipelineData := r.getPipelineData(orgName, teamName, gitRepoSchemaInfo, gitCommitHash)
@@ -67,11 +68,11 @@ func (r RequestSchemaValidator) GetStepApplicationPayload(orgName string, teamNa
 	if applicationPath == "" {
 		panic("This step does not have an application deployed")
 	}
-	request := reposerver.GetFileRequest{GitRepoSchemaInfo: gitRepoSchemaInfo, Filename: applicationPath, GitCommitHash: reposerver.RootCommit}
+	request := git.GetFileRequest{GitRepoSchemaInfo: gitRepoSchemaInfo, Filename: applicationPath, GitCommitHash: reposerver.RootCommit}
 	return r.repoManagerApi.GetFileFromRepo(request, orgName, teamName), clusterName
 }
 
-func (r RequestSchemaValidator) ValidateSchemaAccess(orgName string, teamName string, gitRepoSchemaInfo reposerver.GitRepoSchemaInfo, gitCommitHash string, actionResourceEntries ...string) bool {
+func (r RequestSchemaValidator) ValidateSchemaAccess(orgName string, teamName string, gitRepoSchemaInfo git.GitRepoSchemaInfo, gitCommitHash string, actionResourceEntries ...string) bool {
 	pipelineData := r.getPipelineData(orgName, teamName, gitRepoSchemaInfo, gitCommitHash)
 	for _, step := range pipelineData.Steps {
 		if step.ClusterName == "" {
@@ -100,8 +101,8 @@ func (r RequestSchemaValidator) VerifyRbac(action argo.RbacAction, resource argo
 	return r.argoAuthenticatorApi.CheckRbacPermissions(action, resource, subresource)
 }
 
-func (r RequestSchemaValidator) getPipelineData(orgName string, teamName string, gitRepoSchemaInfo reposerver.GitRepoSchemaInfo, gitCommitHash string) PipelineData {
-	request := reposerver.GetFileRequest{GitRepoSchemaInfo: gitRepoSchemaInfo, Filename: reposerver.PipelineFileName, GitCommitHash: gitCommitHash}
+func (r RequestSchemaValidator) getPipelineData(orgName string, teamName string, gitRepoSchemaInfo git.GitRepoSchemaInfo, gitCommitHash string) PipelineData {
+	request := git.GetFileRequest{GitRepoSchemaInfo: gitRepoSchemaInfo, Filename: reposerver.PipelineFileName, GitCommitHash: gitCommitHash}
 	payload := r.repoManagerApi.GetFileFromRepo(request, orgName, teamName)
 	var pipelineData PipelineData
 	err := yaml.Unmarshal([]byte(payload), &pipelineData)
@@ -112,8 +113,8 @@ func (r RequestSchemaValidator) getPipelineData(orgName string, teamName string,
 	return pipelineData
 }
 
-func (r RequestSchemaValidator) getArgoApplicationProjectAndName(orgName string, teamName string, gitRepoSchemaInfo reposerver.GitRepoSchemaInfo, gitCommitHash string, applicationPath string) string {
-	request := reposerver.GetFileRequest{GitRepoSchemaInfo: gitRepoSchemaInfo, Filename: applicationPath, GitCommitHash: gitCommitHash}
+func (r RequestSchemaValidator) getArgoApplicationProjectAndName(orgName string, teamName string, gitRepoSchemaInfo git.GitRepoSchemaInfo, gitCommitHash string, applicationPath string) string {
+	request := git.GetFileRequest{GitRepoSchemaInfo: gitRepoSchemaInfo, Filename: applicationPath, GitCommitHash: gitCommitHash}
 	argoApplicationConfig := r.repoManagerApi.GetFileFromRepo(request, orgName, teamName)
 	var rawPayload map[interface{}]interface{}
 	err := yaml.Unmarshal([]byte(argoApplicationConfig), &rawPayload)
