@@ -37,7 +37,7 @@ import static com.greenops.verificationtool.ingest.apiclient.util.ApiClientUtil.
 @Component
 public class WorkflowTriggerApiImpl implements WorkflowTriggerApi {
     private final String UVN = "LATEST";
-    private final String authToken = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NDM5NjUzNTcsImp0aSI6IjZmN2Y1MjBiLTEwNWYtNGI4NS1hYjk2LWY2NTgxNmNlM2U3YSIsImlhdCI6MTY0Mzg3ODk1NywiaXNzIjoiYXJnb2NkIiwibmJmIjoxNjQzODc4OTU3LCJzdWIiOiJhZG1pbjpsb2dpbiJ9.3yJi_i6GH2QAD2SeXv-B37YbVg0OE_r4hY5Eet_ZEek";
+    private final String authToken = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NDQyOTcxMDEsImp0aSI6IjA3ZTUyNjRmLTczMTEtNDhkYS04MWEwLTM2ODJjZWVjNWU3YiIsImlhdCI6MTY0NDIxMDcwMSwiaXNzIjoiYXJnb2NkIiwibmJmIjoxNjQ0MjEwNzAxLCJzdWIiOiJhZG1pbjpsb2dpbiJ9.14bo_Fo7QNzx3j6YWz9lNE1A66Hh2zEVaHipeBZM8S4";
     private final String pipelineRevisionHash = "ROOT_COMMIT";
     private final String serverWorkflowTriggerEndpoint;
     private final HttpClient httpClient;

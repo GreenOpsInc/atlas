@@ -6,11 +6,13 @@ import com.greenops.util.datamodel.git.GitRepoSchemaInfo;
 import com.greenops.util.datamodel.request.GetFileRequest;
 import com.greenops.util.datamodel.pipelinedata.PipelineData;
 import com.greenops.verificationtool.datamodel.requests.VerifyPipelineRequestBody;
+import com.greenops.verificationtool.datamodel.status.VerificationStatus;
 import com.greenops.verificationtool.datamodel.verification.DAG;
 import com.greenops.verificationtool.ingest.apiclient.reposerver.RepoManagerApi;
 import com.greenops.verificationtool.ingest.apiclient.workflowtrigger.WorkflowTriggerApi;
 import com.greenops.verificationtool.ingest.handling.DagRegistry;
 import com.greenops.verificationtool.ingest.handling.RuleEngine;
+import com.greenops.verificationtool.ingest.handling.VerificationStatusRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
@@ -26,18 +28,21 @@ public class VerificationApi {
     private final ObjectMapper yamlObjectMapper;
     private final ObjectMapper objectMapper;
     private final DagRegistry dagRegistry;
+    private final VerificationStatusRegistry verificationStatusRegistry;
     private final RuleEngine ruleEngine;
     private final RepoManagerApi repoManagerApi;
     private final WorkflowTriggerApi workflowTriggerApi;
 
     @Autowired
     public VerificationApi(DagRegistry dagRegistry,
+                           VerificationStatusRegistry verificationStatusRegistry,
                            RuleEngine ruleEngine,
                            RepoManagerApi repoManagerApi,
                            WorkflowTriggerApi workflowTriggerApi,
                            @Qualifier("objectMapper") ObjectMapper objectMapper,
                            @Qualifier("yamlObjectMapper") ObjectMapper yamlObjectMapper) {
         this.dagRegistry = dagRegistry;
+        this.verificationStatusRegistry = verificationStatusRegistry;
         this.ruleEngine = ruleEngine;
         this.objectMapper = objectMapper;
         this.yamlObjectMapper = yamlObjectMapper;
@@ -71,6 +76,7 @@ public class VerificationApi {
                     PipelineData.class);
 
             DAG dag = new DAG(pipelineObj, pipelineName);
+            this.verificationStatusRegistry.putVerificationStatus(pipelineName + "#" + teamName);
             this.dagRegistry.registerDAG(pipelineName, dag);
 
             this.workflowTriggerApi.createTeam(orgName, parentTeamName, teamName);
@@ -82,22 +88,21 @@ public class VerificationApi {
         }
     }
 
-    @GetMapping(value = "/status/{pipelineName}")
-    public ResponseEntity<String> getSinglePipelineStatus(@PathVariable("pipelineName") String pipelineName) {
+    @GetMapping(value = "/status/{pipelineName}/{teamName}")
+    public ResponseEntity<String> getSinglePipelineStatus(@PathVariable("pipelineName") String pipelineName, @PathVariable("teamName") String teamName) {
         if (pipelineName == null) {
             return ResponseEntity.badRequest().build();
         }
-        var pipelineStatus = this.dagRegistry.getSinglePipelineStatus(pipelineName);
-        if (pipelineStatus.equals(NOT_FOUND)) {
+        var pipelineStatus = this.verificationStatusRegistry.getVerificationStatus(pipelineName + "#" + teamName);
+        if (pipelineStatus == null) {
             return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body("Pipeline not found");
         }
-        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(pipelineStatus);
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(schemaToResponsePayload(pipelineStatus));
     }
 
     @GetMapping(value = "/status/all")
     public ResponseEntity<String> getPipelineStatus() {
-        var pipelinesStatus = this.dagRegistry.getPipelineStatus();
-        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(schemaToResponsePayload(pipelinesStatus));
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(schemaToResponsePayload(this.verificationStatusRegistry));
     }
 
     private String schemaToResponsePayload(Object schema) {

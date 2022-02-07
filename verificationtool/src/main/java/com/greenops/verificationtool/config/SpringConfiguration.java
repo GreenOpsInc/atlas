@@ -33,8 +33,11 @@ import com.greenops.util.datamodel.request.DeployResponse;
 import com.greenops.util.datamodel.request.GetFileRequest;
 import com.greenops.verificationtool.datamodel.mixin.requests.VerifyPipelineRequestBodyMixin;
 import com.greenops.verificationtool.datamodel.mixin.rules.RuleDataMixin;
+import com.greenops.verificationtool.datamodel.mixin.status.VerificationStatusMixin;
 import com.greenops.verificationtool.datamodel.requests.VerifyPipelineRequestBody;
 import com.greenops.verificationtool.datamodel.rules.RuleDataImpl;
+import com.greenops.verificationtool.datamodel.status.VerificationStatus;
+import com.greenops.verificationtool.datamodel.status.VerificationStatusImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -84,6 +87,7 @@ public class SpringConfiguration {
         return new ObjectMapper()
                 .addMixIn(PipelineDataImpl.class, PipelineDataMixin.class)
                 .addMixIn(StepDataImpl.class, StepDataMixin.class)
+                .addMixIn(VerificationStatusImpl.class, VerificationStatusMixin.class)
                 .addMixIn(ArgoWorkflowTask.class, ArgoWorkflowTaskMixin.class)
                 .addMixIn(InjectScriptTest.class, InjectScriptTestMixin.class)
                 .addMixIn(CustomJobTest.class, CustomJobTestMixin.class)

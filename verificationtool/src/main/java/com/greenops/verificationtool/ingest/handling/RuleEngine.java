@@ -1,9 +1,6 @@
 package com.greenops.verificationtool.ingest.handling;
 
-import com.greenops.util.datamodel.event.ApplicationInfraCompletionEvent;
-import com.greenops.util.datamodel.event.Event;
-import com.greenops.util.datamodel.event.PipelineCompletionEvent;
-import com.greenops.util.datamodel.event.TriggerStepEvent;
+import com.greenops.util.datamodel.event.*;
 import com.greenops.verificationtool.datamodel.rules.RuleData;
 import org.springframework.stereotype.Component;
 
@@ -19,6 +16,7 @@ public class RuleEngine {
     private final String ClientCompletionEvent = "ClientCompletionEvent";
     private final String TestCompletionEvent = "TestCompletionEvent";
     private final String PipelineCompletionEvent = "PipelineCompletionEvent";
+    private final String FailureEvent = "FailureEvent";
     private final HashMap<String, List<RuleData>> rulesMapping;
 
     public RuleEngine() {
@@ -47,6 +45,8 @@ public class RuleEngine {
             eventType = this.TriggerStepEvent;
         } else if (event instanceof PipelineCompletionEvent) {
             eventType = this.PipelineCompletionEvent;
+        } else if (event instanceof FailureEvent) {
+            eventType = this.FailureEvent;
         }
 
         if (this.rulesMapping.get(pipelineName) == null) {

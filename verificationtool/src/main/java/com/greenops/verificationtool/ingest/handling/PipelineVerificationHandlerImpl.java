@@ -10,12 +10,15 @@ import com.greenops.util.datamodel.pipelinestatus.PipelineStatus;
 import com.greenops.verificationtool.datamodel.verification.DAG;
 import com.greenops.verificationtool.datamodel.verification.Vertex;
 import com.greenops.verificationtool.ingest.apiclient.workflowtrigger.WorkflowTriggerApi;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
-
 import java.util.List;
+import static com.greenops.verificationtool.datamodel.status.VerificationStatusImpl.EVENT_COMPLETION_FAILED;
+import static com.greenops.verificationtool.datamodel.status.VerificationStatusImpl.FAILURE_EVENT_RECEIVED;
 
+@Slf4j
 @Component
 public class PipelineVerificationHandlerImpl implements PipelineVerificationHandler {
     private final String POPULATED = "POPULATED";
@@ -41,13 +44,8 @@ public class PipelineVerificationHandlerImpl implements PipelineVerificationHand
     @Override
     public Boolean verify(Event event, DAG dag) {
         var pipelineStatus = getPipelineStatus(event);
-        if (event instanceof PipelineCompletionEvent
-                && pipelineStatus.getProgressingSteps().isEmpty()
-                && pipelineStatus.isStable()
-                && !pipelineStatus.isCancelled()
-                && pipelineStatus.isComplete()){
-            System.out.println(event.getOrgName() + " " + event.getPipelineName() + " " + event.getTeamName() + " " + event.getClass().getName() + " Pipeline Verification Passed!");
-            return true;
+        if (event instanceof PipelineCompletionEvent){
+            return verifyPipelineCompletion(event, pipelineStatus);
         }
         var prevVertices = dag.getPreviousVertices(event);
         for (Vertex prevVertex : prevVertices) {
@@ -64,7 +62,6 @@ public class PipelineVerificationHandlerImpl implements PipelineVerificationHand
                 return false;
             }
         }
-        System.out.println(event.getOrgName() + " " + event.getPipelineName() + " " + event.getTeamName() + " " + event.getClass().getName() + " Pipeline Verification Passed!");
         return true;
     }
 
@@ -78,9 +75,9 @@ public class PipelineVerificationHandlerImpl implements PipelineVerificationHand
         }
         if (expectedPipelineStatus.isStable() != pipelineStatus.isStable()) return false;
         if (expectedPipelineStatus.isCancelled() != pipelineStatus.isCancelled()) return false;
-        if (expectedPipelineStatus.getFailedSteps() == null && pipelineStatus.getFailedSteps() != null) return false;
-        if (expectedPipelineStatus.getFailedSteps() != null && pipelineStatus.getFailedSteps() == null) return false;
-        if (expectedPipelineStatus.getFailedSteps() == null && pipelineStatus.getFailedSteps() == null) return true;
+        if (expectedPipelineStatus.getFailedSteps().isEmpty() && !pipelineStatus.getFailedSteps().isEmpty()) return false;
+        if (!expectedPipelineStatus.getFailedSteps().isEmpty() && pipelineStatus.getFailedSteps().isEmpty()) return false;
+        if (expectedPipelineStatus.getFailedSteps().isEmpty() && pipelineStatus.getFailedSteps().isEmpty()) return true;
         for (FailedStep failedStep : pipelineStatus.getFailedSteps()) {
             if (getFailedStep(failedStep.getStep(), expectedPipelineStatus.getFailedSteps()) == null) {
                 return false;
@@ -102,6 +99,31 @@ public class PipelineVerificationHandlerImpl implements PipelineVerificationHand
             }
         }
         return true;
+    }
+
+    private Boolean verifyPipelineCompletion(Event event, PipelineStatus pipelineStatus){
+        if(((PipelineCompletionEvent) event).getStatus().equals(EVENT_COMPLETION_FAILED)){
+            var failedSteps = pipelineStatus.getFailedSteps();
+            for(FailedStep failedStep: failedSteps){
+                if(failedStep.getStep().equals(event.getStepName()) && !pipelineStatus.isStable() && pipelineStatus.isComplete()){
+                    return true;
+                }
+            }
+            return false;
+        } else if(((PipelineCompletionEvent) event).getStatus().equals(FAILURE_EVENT_RECEIVED)){
+            var failedSteps = pipelineStatus.getFailedSteps();
+            for(FailedStep failedStep: failedSteps){
+                if(failedStep.getStep().equals(event.getStepName()) && !pipelineStatus.isStable() && !pipelineStatus.isComplete()){
+                    return true;
+                }
+            }
+            return false;
+        }
+        return (pipelineStatus.isComplete() &&
+                pipelineStatus.isStable() &&
+                !pipelineStatus.isCancelled() &&
+                pipelineStatus.getFailedSteps().isEmpty() &&
+                pipelineStatus.getProgressingSteps().isEmpty());
     }
 
     private FailedStep getFailedStep(String stepName, List<FailedStep> failedSteps) {

@@ -11,12 +11,19 @@ import com.greenops.util.datamodel.event.TriggerStepEvent;
 import com.greenops.verificationtool.datamodel.verification.DAG;
 import com.greenops.verificationtool.datamodel.verification.Vertex;
 import com.greenops.verificationtool.ingest.apiclient.workflowtrigger.WorkflowTriggerApi;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+import static com.greenops.verificationtool.datamodel.status.VerificationStatusImpl.COMPLETE;
+import static com.greenops.verificationtool.datamodel.status.VerificationStatusImpl.FAILED;
+import static com.greenops.verificationtool.datamodel.status.VerificationStatusImpl.EVENT_COMPLETION_FAILED;
+import static com.greenops.verificationtool.datamodel.status.VerificationStatusImpl.FAILURE_EVENT_RECEIVED;
+
+@Slf4j
 @Component
 public class StepVerificationHandlerImpl implements StepVerificationHandler {
     private final String POPULATED = "POPULATED";
@@ -37,13 +44,14 @@ public class StepVerificationHandlerImpl implements StepVerificationHandler {
         var stepLevelStatusStr = this.workflowTriggerApi.getStepLevelStatus(orgName, pipelineName, teamName, stepName, 15);
         System.out.println("Step Level Status: " + stepLevelStatusStr);
         try {
-            return this.objectMapper.readValue(stepLevelStatusStr, new TypeReference<List<Log>>() {});
+            return this.objectMapper.readValue(stepLevelStatusStr, new TypeReference<List<Log>>() {
+            });
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Unable to serialize step level logs into List<Log> Object " + e);
         }
     }
 
-    private Boolean verifyHelper(Event event, DAG dag, List<Log> stepLevelLogs){
+    private Boolean verifyHelper(Event event, DAG dag, List<Log> stepLevelLogs) {
         var prevVertices = dag.getPreviousVertices(event);
         if (stepLevelLogs == null || !stepLevelLogs.get(0).getPipelineUniqueVersionNumber().equals(event.getPipelineUvn())) {
             for (Vertex prevVertex : prevVertices) {
@@ -76,28 +84,25 @@ public class StepVerificationHandlerImpl implements StepVerificationHandler {
 
     @Override
     public Boolean verify(Event event, DAG dag) {
-        if (event instanceof TriggerStepEvent || event instanceof PipelineCompletionEvent) {
+
+        if (event instanceof TriggerStepEvent) {
             var vertices = dag.getPreviousVertices(event);
             for (var vertex : vertices) {
                 if (vertex.getEventType().equals(this.ClientCompletionEvent) || vertex.getEventType().equals(this.TestCompletionEvent)) {
                     var logs = getLogs(event.getOrgName(), event.getPipelineName(), event.getTeamName(), vertex.getStepName());
                     if (verifyHelper(event, dag, logs)) {
-                        System.out.println(event.getOrgName() + " " + event.getPipelineName() + " " + event.getTeamName() + " " + vertex.getEventType() + " Step Level Completion Verification Passed!");
                         return true;
                     } else {
-                        System.out.println(event.getOrgName() + " " + event.getPipelineName() + " " + event.getTeamName() + " " + vertex.getEventType() + " Step Level Completion Verification Failed!");
                         return false;
                     }
                 }
             }
         }
         var stepLevelStatus = getLogs(event.getOrgName(), event.getPipelineName(), event.getTeamName(), event.getStepName());
-        if (verifyHelper(event, dag, stepLevelStatus)) {
-            System.out.println(event.getOrgName() + " " + event.getPipelineName() + " " + event.getTeamName() + " " + event.getClass().getName() + " Step Level Verification Passed!");
-            return true;
-        } else {
-            return false;
+        if (event instanceof PipelineCompletionEvent) {
+            return verifyPipelineCompletion(event, stepLevelStatus);
         }
+        return verifyHelper(event, dag, stepLevelStatus);
     }
 
     @Override
@@ -123,7 +128,30 @@ public class StepVerificationHandlerImpl implements StepVerificationHandler {
         if (log instanceof DeploymentLog && !((DeploymentLog) expectedLog).getArgoApplicationName().equals(((DeploymentLog) log).getArgoApplicationName()) &&
                 (((DeploymentLog) expectedLog).getArgoApplicationName().equals(this.POPULATED) && ((DeploymentLog) log).getArgoApplicationName().equals("")))
             return false;
-        return !(log instanceof DeploymentLog) || ((DeploymentLog) expectedLog).getArgoRevisionHash().equals(((DeploymentLog) log).getArgoRevisionHash()) ||
-                (!((DeploymentLog) expectedLog).getArgoRevisionHash().equals(this.POPULATED) || !((DeploymentLog) log).getArgoRevisionHash().equals(""));
+        if (log instanceof DeploymentLog && !((DeploymentLog) expectedLog).getArgoRevisionHash().equals(((DeploymentLog) log).getArgoRevisionHash()) &&
+                (((DeploymentLog) expectedLog).getArgoRevisionHash().equals(this.POPULATED) && ((DeploymentLog) log).getArgoRevisionHash().equals(""))) {
+            return false;
+        }
+        if (log instanceof DeploymentLog && !((DeploymentLog) expectedLog).getBrokenTest().equals(((DeploymentLog) log).getBrokenTest()) &&
+                (((DeploymentLog) expectedLog).getBrokenTest().equals(this.POPULATED) && ((DeploymentLog) log).getBrokenTest().equals(""))) {
+            return false;
+        }
+        if (log instanceof DeploymentLog && !((DeploymentLog) expectedLog).getBrokenTestLog().equals(((DeploymentLog) log).getBrokenTestLog()) &&
+                (((DeploymentLog) expectedLog).getBrokenTestLog().equals(this.POPULATED) && ((DeploymentLog) log).getBrokenTestLog().equals(""))) {
+            return false;
+        }
+        return true;
+    }
+
+    private Boolean verifyPipelineCompletion(Event event, List<Log> logs) {
+        if (((PipelineCompletionEvent) event).getStatus().equals(FAILURE_EVENT_RECEIVED)) {
+            return true;
+        } else if (((PipelineCompletionEvent) event).getStatus().equals(COMPLETE)) {
+            return (logs == null);
+        } else if (((PipelineCompletionEvent) event).getStatus().equals(EVENT_COMPLETION_FAILED)) {
+            var log = logs.get(0);
+            return (log.getStatus().equals(FAILED) && !((DeploymentLog) log).isDeploymentComplete());
+        }
+        return false;
     }
 }

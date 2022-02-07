@@ -15,7 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SpringBootTest
 public class DagTest {
+    private final String ATLAS_ROOT_DATA =  "ATLAS_ROOT_DATA";
     private final String PipelineTriggerEvent = "PipelineTriggerEvent";
+    private final String PipelineCompletionEvent = "PipelineCompletionEvent";
     private final String TriggerStepEvent = "TriggerStepEvent";
     private final String ApplicationInfraCompletionEvent = "ApplicationInfraCompletionEvent";
     private final String ApplicationInfraTriggerEvent = "ApplicationInfraTriggerEvent";
@@ -63,7 +65,7 @@ public class DagTest {
 
         String pipelineName = "examplePipeline";
         String stepName = "deploy_to_dev";
-        Vertex pipelineTriggerEvent = new Vertex(this.PipelineTriggerEvent, pipelineName, "ATLAS_ROOT_DATA");
+        Vertex pipelineTriggerEvent = new Vertex(this.PipelineTriggerEvent, pipelineName, ATLAS_ROOT_DATA);
         Vertex triggerStepEvent = new Vertex(this.TriggerStepEvent, pipelineName, stepName);
         Vertex applicationInfraCompletionEvent = new Vertex(this.ApplicationInfraCompletionEvent, pipelineName, stepName);
         Vertex applicationInfraTriggerEvent = new Vertex(this.ApplicationInfraTriggerEvent, pipelineName, stepName);
@@ -117,7 +119,7 @@ public class DagTest {
         String pipelineName = "examplePipeline";
         String firstStepName = "deploy_to_dev";
         String secondStepName = "deploy_to_int";
-        Vertex pipelineTriggerEvent = new Vertex(this.PipelineTriggerEvent, pipelineName, "ATLAS_ROOT_DATA");
+        Vertex pipelineTriggerEvent = new Vertex(this.PipelineTriggerEvent, pipelineName, ATLAS_ROOT_DATA);
         Vertex firstTriggerStepEvent = new Vertex(this.TriggerStepEvent, pipelineName, firstStepName);
         Vertex firstApplicationInfraCompletionEvent = new Vertex(this.ApplicationInfraCompletionEvent, pipelineName, firstStepName);
         Vertex firstApplicationInfraTriggerEvent = new Vertex(this.ApplicationInfraTriggerEvent, pipelineName, firstStepName);
@@ -232,5 +234,99 @@ public class DagTest {
         assertEquals(graph.get(thirdApplicationInfraCompletionEvent), List.of(thirdApplicationInfraTriggerEvent, thirdApplicationInfraTriggerEvent));
         assertEquals(graph.get(thirdClientCompletionEvent), List.of(thirdApplicationInfraCompletionEvent, thirdApplicationInfraCompletionEvent));
         assertEquals(graph.get(thirdTestCompletionEvent), List.of(thirdClientCompletionEvent, thirdClientCompletionEvent));
+    }
+
+    @Test
+    void assertThatDagConstructedCorrectlyUsingPipelineFour() {
+        String pipelineYaml = "name: examplePipeline\n" +
+                "argo_version_lock: true\n" +
+                "cluster_name: in-cluster\n" +
+                "steps:\n" +
+                "- name: deploy_to_dev\n" +
+                "  application_path: testapp_dev.yml\n" +
+                "  tests:\n" +
+                "  - path: verifyendpoints.sh\n" +
+                "    type: inject\n" +
+                "    image: curlimages/curl:latest\n" +
+                "    commands: [sh, -c, ./verifyendpoints.sh]\n" +
+                "    before: true\n" +
+                "    variables:\n" +
+                "      SERVICE_INTERNAL_URL: testapp.dev.svc.cluster.local\n" +
+                "- name: deploy_to_int\n" +
+                "  application_path: testapp_int.yml\n" +
+                "  tests:\n" +
+                "  - path: verifyendpoints.sh\n" +
+                "    type: inject\n" +
+                "    image: curlimages/curl:latest\n" +
+                "    commands: [sh, -c, ./verifyendpoints.sh]\n" +
+                "    before: false\n" +
+                "    variables:\n" +
+                "      SERVICE_INTERNAL_URL: testapp.int.svc.cluster.local\n" +
+                "  dependencies:\n" +
+                "  - deploy_to_dev\n" +
+                "- name: deploy_to_saif\n" +
+                "  application_path: testapp_dev.yml\n" +
+                "  tests:\n" +
+                "  - path: verifyendpoints.sh\n" +
+                "    type: inject\n" +
+                "    image: curlimages/curl:latest\n" +
+                "    commands: [sh, -c, ./verifyendpoints.sh]\n" +
+                "    before: false\n" +
+                "    variables:\n" +
+                "      SERVICE_INTERNAL_URL: testapp.dev.svc.cluster.local\n" +
+                "  dependencies:\n" +
+                "  - deploy_to_dev";
+
+        HashMap<Vertex, List<Vertex>> graph = getDAG(pipelineYaml);
+
+        String pipelineName = "examplePipeline";
+        String firstStepName = "deploy_to_dev";
+        String secondStepName = "deploy_to_int";
+        String thirdStepName = "deploy_to_saif";
+        Vertex pipelineTriggerEvent = new Vertex(this.PipelineTriggerEvent, pipelineName, ATLAS_ROOT_DATA);
+        Vertex firstTriggerStepEvent = new Vertex(this.TriggerStepEvent, pipelineName, firstStepName);
+        Vertex firstApplicationInfraCompletionEvent = new Vertex(this.ApplicationInfraCompletionEvent, pipelineName, firstStepName);
+        Vertex firstApplicationInfraTriggerEvent = new Vertex(this.ApplicationInfraTriggerEvent, pipelineName, firstStepName);
+        Vertex firstClientCompletionEvent = new Vertex(this.ClientCompletionEvent, pipelineName, firstStepName);
+        Vertex firstTestCompletionEvent = new Vertex(this.TestCompletionEvent, pipelineName, firstStepName, 0);
+
+        Vertex secondTriggerStepEvent = new Vertex(this.TriggerStepEvent, pipelineName, secondStepName);
+        Vertex secondApplicationInfraCompletionEvent = new Vertex(this.ApplicationInfraCompletionEvent, pipelineName, secondStepName);
+        Vertex secondApplicationInfraTriggerEvent = new Vertex(this.ApplicationInfraTriggerEvent, pipelineName, secondStepName);
+        Vertex secondClientCompletionEvent = new Vertex(this.ClientCompletionEvent, pipelineName, secondStepName);
+        Vertex secondTestCompletionEvent = new Vertex(this.TestCompletionEvent, pipelineName, secondStepName, 0);
+
+        Vertex thirdTriggerStepEvent = new Vertex(this.TriggerStepEvent, pipelineName, thirdStepName);
+        Vertex thirdApplicationInfraCompletionEvent = new Vertex(this.ApplicationInfraCompletionEvent, pipelineName, thirdStepName);
+        Vertex thirdApplicationInfraTriggerEvent = new Vertex(this.ApplicationInfraTriggerEvent, pipelineName, thirdStepName);
+        Vertex thirdClientCompletionEvent = new Vertex(this.ClientCompletionEvent, pipelineName, thirdStepName);
+        Vertex thirdTestCompletionEvent = new Vertex(this.TestCompletionEvent, pipelineName, thirdStepName, 0);
+
+        Vertex pipelineCompletionEvent = new Vertex(this.PipelineCompletionEvent, pipelineName, ATLAS_ROOT_DATA);
+
+        assertEquals(graph.containsKey(pipelineTriggerEvent), false);
+        assertEquals(graph.get(firstTriggerStepEvent), List.of(pipelineTriggerEvent));
+        assertEquals(graph.get(firstTestCompletionEvent), List.of(firstTriggerStepEvent));
+        assertEquals(graph.get(firstApplicationInfraTriggerEvent), List.of(firstTestCompletionEvent));
+        assertEquals(graph.get(firstApplicationInfraCompletionEvent), List.of(firstApplicationInfraTriggerEvent));
+        assertEquals(graph.get(firstClientCompletionEvent), List.of(firstApplicationInfraCompletionEvent));
+
+        assertEquals(graph.get(secondTriggerStepEvent), List.of(firstClientCompletionEvent));
+        assertEquals(graph.get(secondApplicationInfraTriggerEvent), List.of(secondTriggerStepEvent));
+        assertEquals(graph.get(secondApplicationInfraCompletionEvent), List.of(secondApplicationInfraTriggerEvent));
+        assertEquals(graph.get(secondClientCompletionEvent), List.of(secondApplicationInfraCompletionEvent));
+        assertEquals(graph.get(secondTestCompletionEvent), List.of(secondClientCompletionEvent));
+
+        assertEquals(graph.get(thirdTriggerStepEvent), List.of(firstClientCompletionEvent));
+        assertEquals(graph.get(thirdApplicationInfraTriggerEvent), List.of(thirdTriggerStepEvent));
+        assertEquals(graph.get(thirdApplicationInfraCompletionEvent), List.of(thirdApplicationInfraTriggerEvent));
+        assertEquals(graph.get(thirdClientCompletionEvent), List.of(thirdApplicationInfraCompletionEvent));
+        assertEquals(graph.get(thirdTestCompletionEvent), List.of(thirdClientCompletionEvent));
+
+        List<Vertex> pipelineCompletionEventParents = new ArrayList<Vertex>();
+        pipelineCompletionEventParents.add(firstClientCompletionEvent);
+        pipelineCompletionEventParents.add(secondTestCompletionEvent);
+        pipelineCompletionEventParents.add(thirdTestCompletionEvent);
+        assertEquals(graph.get(pipelineCompletionEvent), pipelineCompletionEventParents);
     }
 }
