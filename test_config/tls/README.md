@@ -8,7 +8,7 @@ Custom TLS certificate and private key should be provided via Kubernetes secret 
 
 Example:
 ```shell
-kubectl create secret tls workflowtrigger-tls --cert ./cert.pem --key ./key.pem
+kubectl create secret tls workflowtrigger-tls --cert ./cert.pem --key ./key.pem -n atlas
 ```
 
 Kubernetes TLS secret names:

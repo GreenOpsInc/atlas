@@ -363,6 +363,8 @@ spec:
               value: redisserver.default.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
               value: http://reposerver.default.svc.cluster.local:8080
+            - name: REPO_SERVER_TLS_SECRET_NAME
+                value: pipelinereposerver-tls
           image: gcr.io/greenops-dev/atlasworkfloworchestrator
 #          imagePullPolicy: Never
           name: workfloworchestrator
