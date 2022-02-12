@@ -6,7 +6,7 @@ import com.greenops.util.datamodel.event.FailureEvent;
 public class VerificationStatusImpl implements VerificationStatus {
     public static String IDLE = "IDLE";
     public static String PROGRESSING = "PROGRESSING";
-    public static String FAILED = "FAILED";
+    public static String FAILURE = "FAILURE";
     public static String COMPLETE = "COMPLETE";
     public static String EXPECTED_PIPELINE_STATUS_FAILED = "EXPECTED_PIPELINE_STATUS_FAILED";
     public static String EXPECTED_STEP_STATUS_FAILED = "EXPECTED_STEP_STATUS_FAILED";
@@ -42,7 +42,7 @@ public class VerificationStatusImpl implements VerificationStatus {
 
     @Override
     public void markPipelineFailed(Event event, String failedType) {
-        this.status = FAILED;
+        this.status = FAILURE;
         this.eventFailed = event.getClass().getName();
         this.failedType = failedType;
         this.stepName = event.getStepName();

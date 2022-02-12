@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 import static com.greenops.verificationtool.datamodel.status.VerificationStatusImpl.COMPLETE;
-import static com.greenops.verificationtool.datamodel.status.VerificationStatusImpl.FAILED;
+import static com.greenops.verificationtool.datamodel.status.VerificationStatusImpl.FAILURE;
 import static com.greenops.verificationtool.datamodel.status.VerificationStatusImpl.EVENT_COMPLETION_FAILED;
 import static com.greenops.verificationtool.datamodel.status.VerificationStatusImpl.FAILURE_EVENT_RECEIVED;
 
@@ -62,9 +62,15 @@ public class StepVerificationHandlerImpl implements StepVerificationHandler {
             return true;
         }
         var log = stepLevelLogs.get(0);
+
+        // handling rollback_limit
+        if((log.getStatus().equals(FAILURE) && (!((DeploymentLog) log).isDeploymentComplete()
+                || (((DeploymentLog) log).isDeploymentComplete()) && !((DeploymentLog) log).getArgoApplicationName().equals("") && !((DeploymentLog) log).getArgoRevisionHash().equals("")))){
+            return true;
+        }
         for (Vertex prevVertex : prevVertices) {
             // Last Event in a Step
-            if ((event instanceof TriggerStepEvent || event instanceof PipelineCompletionEvent) && (prevVertex.getEventType().equals(this.ClientCompletionEvent) || (prevVertex.getEventType().equals(this.TestCompletionEvent)))) {
+            if (event instanceof TriggerStepEvent && (prevVertex.getEventType().equals(this.ClientCompletionEvent) || (prevVertex.getEventType().equals(this.TestCompletionEvent)))) {
                 if (log.getStatus().equals(this.SUCCESS) && event.getPipelineUvn().equals(log.getPipelineUniqueVersionNumber())) {
                     return true;
                 }
@@ -84,7 +90,6 @@ public class StepVerificationHandlerImpl implements StepVerificationHandler {
 
     @Override
     public Boolean verify(Event event, DAG dag) {
-
         if (event instanceof TriggerStepEvent) {
             var vertices = dag.getPreviousVertices(event);
             for (var vertex : vertices) {
@@ -121,23 +126,23 @@ public class StepVerificationHandlerImpl implements StepVerificationHandler {
         if (!expectedLog.getPipelineUniqueVersionNumber().equals(log.getPipelineUniqueVersionNumber()) &&
                 (expectedLog.getPipelineUniqueVersionNumber().equals(this.POPULATED) && log.getPipelineUniqueVersionNumber().equals("")))
             return false;
-        if (!expectedLog.getStatus().equals(log.getStatus()) && (expectedLog.getStatus().equals(this.POPULATED) && log.getStatus().equals("")))
+        if (!expectedLog.getStatus().equals(log.getStatus()) && !(expectedLog.getStatus().equals(this.POPULATED) && !log.getStatus().equals("")))
             return false;
         if (log instanceof DeploymentLog && ((DeploymentLog) expectedLog).isDeploymentComplete() != ((DeploymentLog) expectedLog).isDeploymentComplete())
             return false;
-        if (log instanceof DeploymentLog && !((DeploymentLog) expectedLog).getArgoApplicationName().equals(((DeploymentLog) log).getArgoApplicationName()) &&
-                (((DeploymentLog) expectedLog).getArgoApplicationName().equals(this.POPULATED) && ((DeploymentLog) log).getArgoApplicationName().equals("")))
+        if (log instanceof DeploymentLog && (!((DeploymentLog) expectedLog).getArgoApplicationName().equals(((DeploymentLog) log).getArgoApplicationName()) &&
+                !(((DeploymentLog) expectedLog).getArgoApplicationName().equals(this.POPULATED) && !((DeploymentLog) log).getArgoApplicationName().equals(""))))
             return false;
-        if (log instanceof DeploymentLog && !((DeploymentLog) expectedLog).getArgoRevisionHash().equals(((DeploymentLog) log).getArgoRevisionHash()) &&
-                (((DeploymentLog) expectedLog).getArgoRevisionHash().equals(this.POPULATED) && ((DeploymentLog) log).getArgoRevisionHash().equals(""))) {
-            return false;
-        }
-        if (log instanceof DeploymentLog && !((DeploymentLog) expectedLog).getBrokenTest().equals(((DeploymentLog) log).getBrokenTest()) &&
-                (((DeploymentLog) expectedLog).getBrokenTest().equals(this.POPULATED) && ((DeploymentLog) log).getBrokenTest().equals(""))) {
+        if (log instanceof DeploymentLog && (!((DeploymentLog) expectedLog).getArgoRevisionHash().equals(((DeploymentLog) log).getArgoRevisionHash()) &&
+                !(((DeploymentLog) expectedLog).getArgoRevisionHash().equals(this.POPULATED) && !((DeploymentLog) log).getArgoRevisionHash().equals("")))) {
             return false;
         }
-        if (log instanceof DeploymentLog && !((DeploymentLog) expectedLog).getBrokenTestLog().equals(((DeploymentLog) log).getBrokenTestLog()) &&
-                (((DeploymentLog) expectedLog).getBrokenTestLog().equals(this.POPULATED) && ((DeploymentLog) log).getBrokenTestLog().equals(""))) {
+        if (log instanceof DeploymentLog && (!((DeploymentLog) expectedLog).getBrokenTest().equals(((DeploymentLog) log).getBrokenTest()) &&
+                !(((DeploymentLog) expectedLog).getBrokenTest().equals(this.POPULATED) && !((DeploymentLog) log).getBrokenTest().equals("")))) {
+            return false;
+        }
+        if (log instanceof DeploymentLog && (!((DeploymentLog) expectedLog).getBrokenTestLog().equals(((DeploymentLog) log).getBrokenTestLog()) &&
+                !(((DeploymentLog) expectedLog).getBrokenTestLog().equals(this.POPULATED) && !((DeploymentLog) log).getBrokenTestLog().equals("")))) {
             return false;
         }
         return true;
@@ -150,7 +155,8 @@ public class StepVerificationHandlerImpl implements StepVerificationHandler {
             return (logs == null);
         } else if (((PipelineCompletionEvent) event).getStatus().equals(EVENT_COMPLETION_FAILED)) {
             var log = logs.get(0);
-            return (log.getStatus().equals(FAILED) && !((DeploymentLog) log).isDeploymentComplete());
+            return (log.getStatus().equals(FAILURE) && (!((DeploymentLog) log).isDeploymentComplete()
+                    || (((DeploymentLog) log).isDeploymentComplete()) && !((DeploymentLog) log).getArgoApplicationName().equals("") && !((DeploymentLog) log).getArgoRevisionHash().equals("")));
         }
         return false;
     }

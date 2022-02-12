@@ -22,6 +22,7 @@ import static com.greenops.verificationtool.datamodel.status.VerificationStatusI
 @Component
 public class PipelineVerificationHandlerImpl implements PipelineVerificationHandler {
     private final String POPULATED = "POPULATED";
+    private final String Unknown = "Unknown";
     private final WorkflowTriggerApi workflowTriggerApi;
     private final ObjectMapper objectMapper;
 
@@ -51,12 +52,10 @@ public class PipelineVerificationHandlerImpl implements PipelineVerificationHand
         for (Vertex prevVertex : prevVertices) {
             if (event instanceof TriggerStepEvent
                     && !pipelineStatus.getProgressingSteps().contains(prevVertex.getStepName())
-                    && !pipelineStatus.isCancelled()
-                    && pipelineStatus.isStable()) {
+                    && (pipelineStatus.isStable() || (!pipelineStatus.isStable() && !pipelineStatus.getFailedSteps().isEmpty()))) {
                 continue;
             } else if (pipelineStatus.getProgressingSteps().contains(prevVertex.getStepName())
-                    && !pipelineStatus.isCancelled()
-                    && pipelineStatus.isStable()) {
+                    && (pipelineStatus.isStable() || (!pipelineStatus.isStable() && !pipelineStatus.getFailedSteps().isEmpty()))) {
                 continue;
             } else {
                 return false;
@@ -90,11 +89,11 @@ public class PipelineVerificationHandlerImpl implements PipelineVerificationHand
                 return false;
             }
             if (!expectedFailedStep.getBrokenTest().equals(failedStep.getBrokenTest()) &&
-                    (expectedFailedStep.getBrokenTest().equals(this.POPULATED) && failedStep.getBrokenTest().equals(""))) {
+                    !(expectedFailedStep.getBrokenTest().equals(this.POPULATED) && !failedStep.getBrokenTest().equals(""))) {
                 return false;
             }
             if (!expectedFailedStep.getBrokenTestLog().equals(failedStep.getBrokenTestLog()) &&
-                    (expectedFailedStep.getBrokenTestLog().equals(this.POPULATED) && failedStep.getBrokenTestLog().equals(""))) {
+                    !(expectedFailedStep.getBrokenTestLog().equals(this.POPULATED) && !failedStep.getBrokenTestLog().equals(""))) {
                 return false;
             }
         }
@@ -105,7 +104,7 @@ public class PipelineVerificationHandlerImpl implements PipelineVerificationHand
         if(((PipelineCompletionEvent) event).getStatus().equals(EVENT_COMPLETION_FAILED)){
             var failedSteps = pipelineStatus.getFailedSteps();
             for(FailedStep failedStep: failedSteps){
-                if(failedStep.getStep().equals(event.getStepName()) && !pipelineStatus.isStable() && pipelineStatus.isComplete()){
+                if(failedStep.getStep().equals(event.getStepName()) && !pipelineStatus.isStable() && !pipelineStatus.isComplete()){
                     return true;
                 }
             }
@@ -114,6 +113,8 @@ public class PipelineVerificationHandlerImpl implements PipelineVerificationHand
             var failedSteps = pipelineStatus.getFailedSteps();
             for(FailedStep failedStep: failedSteps){
                 if(failedStep.getStep().equals(event.getStepName()) && !pipelineStatus.isStable() && !pipelineStatus.isComplete()){
+                    return true;
+                } else if(failedStep.getStep().equals(Unknown) && pipelineStatus.isStable() && pipelineStatus.isComplete()){
                     return true;
                 }
             }
