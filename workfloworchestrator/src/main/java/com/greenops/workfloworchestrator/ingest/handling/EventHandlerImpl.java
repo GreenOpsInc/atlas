@@ -19,6 +19,7 @@ import com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManager
 import com.greenops.workfloworchestrator.ingest.dbclient.DbKey;
 import com.greenops.workfloworchestrator.ingest.kafka.KafkaClient;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -294,7 +295,7 @@ public class EventHandlerImpl implements EventHandler {
     private void handleTestCompletion(PipelineData pipelineData, GitRepoSchemaInfo gitRepoSchemaInfo, TestCompletionEvent event) {
         var step = pipelineData.getStep(event.getStepName());
         if (!event.getSuccessful()) {
-            deploymentLogHandler.markStepFailedWithBrokenTest(event, event.getStepName(), event.getTestName(), event.getLog());
+            deploymentLogHandler.markStepFailedWithBrokenTest(event, event.getStepName(), getTestNameFromNumber(step, event.getTestNumber()), event.getLog());
             if (step.getRollbackLimit() > 0) rollback(event);
             return;
         }
@@ -492,5 +493,9 @@ public class EventHandlerImpl implements EventHandler {
             log.error("Could not parse YAML pipeline data file", e);
             throw new AtlasNonRetryableError(e);
         }
+    }
+
+    private String getTestNameFromNumber(StepData stepData, Integer testNumber){
+        return Strings.join(List.of(stepData.getName(), stepData.getTests().get(testNumber).getPath(), testNumber.toString()), '-');
     }
 }
