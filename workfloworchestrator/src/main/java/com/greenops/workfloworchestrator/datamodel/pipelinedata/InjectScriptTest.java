@@ -16,8 +16,6 @@ import static com.greenops.workfloworchestrator.ingest.handling.util.deployment.
 
 public class InjectScriptTest implements Test {
 
-    private static String DEFAULT_NAMESPACE = "default";
-
     private String path;
     private String image;
     private String namespace;

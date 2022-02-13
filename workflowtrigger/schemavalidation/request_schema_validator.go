@@ -87,9 +87,11 @@ func (r RequestSchemaValidator) ValidateSchemaAccess(orgName string, teamName st
 					return false
 				}
 			} else if argo.RbacResource(resource) == argo.ApplicationResource {
-				applicationSubresource := r.getArgoApplicationProjectAndName(orgName, teamName, gitRepoSchemaInfo, gitCommitHash, step.ApplicationPath)
-				if !r.VerifyRbac(argo.RbacAction(action), argo.ApplicationResource, applicationSubresource) {
-					return false
+				if step.ApplicationPath != "" {
+					applicationSubresource := r.getArgoApplicationProjectAndName(orgName, teamName, gitRepoSchemaInfo, gitCommitHash, step.ApplicationPath)
+					if !r.VerifyRbac(argo.RbacAction(action), argo.ApplicationResource, applicationSubresource) {
+						return false
+					}
 				}
 			}
 		}
