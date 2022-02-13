@@ -19,7 +19,6 @@ import com.greenops.workfloworchestrator.ingest.apiclient.reposerver.RepoManager
 import com.greenops.workfloworchestrator.ingest.dbclient.DbKey;
 import com.greenops.workfloworchestrator.ingest.kafka.KafkaClient;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -495,7 +494,7 @@ public class EventHandlerImpl implements EventHandler {
         }
     }
 
-    private String getTestNameFromNumber(StepData stepData, Integer testNumber){
-        return Strings.join(List.of(stepData.getName(), stepData.getTests().get(testNumber).getPath(), testNumber.toString()), '-');
+    private String getTestNameFromNumber(StepData stepData, int testNumber) {
+        return stepData.getTests().get(testNumber).getPath();
     }
 }
