@@ -24,6 +24,7 @@ public class EventHandlerImpl implements EventHandler {
     private final RuleEngine ruleEngine;
     private final PipelineVerificationHandler pipelineVerificationHandler;
     private final StepVerificationHandler stepVerificationHandler;
+    private final EventVisitedRegistry eventVisitedRegistry;
 
     @Autowired
     EventHandlerImpl(KafkaClient kafkaClient,
@@ -32,6 +33,7 @@ public class EventHandlerImpl implements EventHandler {
                      RuleEngine ruleEngine,
                      PipelineVerificationHandler pipelineVerificationHandler,
                      StepVerificationHandler stepVerificationHandler,
+                     EventVisitedRegistry eventVisitedRegistry,
                      @Value("${spring.kafka.verification-topic}") String verificationTopicName) {
         this.kafkaClient = kafkaClient;
         this.dagRegistry = dagRegistry;
@@ -39,6 +41,7 @@ public class EventHandlerImpl implements EventHandler {
         this.ruleEngine = ruleEngine;
         this.pipelineVerificationHandler = pipelineVerificationHandler;
         this.stepVerificationHandler = stepVerificationHandler;
+        this.eventVisitedRegistry = eventVisitedRegistry;
         this.verificationTopicName = verificationTopicName;
     }
 
@@ -50,8 +53,9 @@ public class EventHandlerImpl implements EventHandler {
         if (!(event instanceof PipelineCompletionEvent)) {
             verificationStatus.markPipelineProgress();
         }
-        if (!handleExpectedRules(event)) {
-            return;
+        if (this.eventVisitedRegistry.get(event) != null) {
+            var previousEvent = this.eventVisitedRegistry.get(event);
+            handleExpectedRules(previousEvent);
         }
         if (isFailedEvent(event)) {
             return;
@@ -86,7 +90,7 @@ public class EventHandlerImpl implements EventHandler {
         }
     }
 
-    private Boolean handleExpectedRules(Event event) {
+    private void handleExpectedRules(Event event) {
         var verificationStatus = this.verificationStatusRegistry.getVerificationStatus(event.getPipelineName() + "#" + event.getTeamName());
         var ruleData = this.ruleEngine.getRule(event);
         if (ruleData != null) {
@@ -96,7 +100,6 @@ public class EventHandlerImpl implements EventHandler {
                 } else {
                     log.info("Expected Pipeline Status failed for {}-{}-{}", event.getTeamName(), event.getStepName(), event.getPipelineName());
                     verificationStatus.markPipelineFailed(event, EXPECTED_PIPELINE_STATUS_FAILED);
-                    return false;
                 }
             }
             if (ruleData.getStepStatus() != null) {
@@ -105,11 +108,9 @@ public class EventHandlerImpl implements EventHandler {
                 } else {
                     log.info("Expected Step Status failed for {}-{}-{}", event.getTeamName(), event.getStepName(), event.getPipelineName());
                     verificationStatus.markPipelineFailed(event, EXPECTED_STEP_STATUS_FAILED);
-                    return false;
                 }
             }
         }
-        return true;
     }
 
     private Boolean verifyEventOrder(Event event, DAG dag) {
