@@ -3,12 +3,12 @@ package com.greenops.util.httpclient;
 import com.greenops.util.kubernetesclient.KubernetesClient;
 import io.kubernetes.client.models.V1Secret;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.http.client.HttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.springframework.stereotype.Component;
 
 import javax.net.ssl.*;
 import java.io.ByteArrayInputStream;
-import java.net.http.HttpClient;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
@@ -20,11 +20,11 @@ import java.security.cert.X509Certificate;
 @Component
 public class Builder {
 
-    private static final String NAMESPACE = "atlas";
+    private static final String ATLAS_NAMESPACE = "atlas";
     private static final String TLS_CERT_SECRET_FIELD_NAME = "tls.crt";
 
-    private HttpClientBuilder builder;
-    private KubernetesClient kubernetesClient;
+    private final HttpClientBuilder builder;
+    private final KubernetesClient kubernetesClient;
     private SSLContext sslContext;
 
     private Builder(KubernetesClient kubernetesClient) {
@@ -32,14 +32,17 @@ public class Builder {
         this.builder = HttpClientBuilder.create();
     }
 
-    static Builder create(KubernetesClient kubernetesClient) {
+    public static Builder create(KubernetesClient kubernetesClient) {
         return new Builder(kubernetesClient);
     }
 
     public Builder withCustomTls(String clientTlsSecretName) throws Exception {
         SSLContext context = SSLContext.getInstance("TLS");
+        V1Secret tlsSecret = this.kubernetesClient.fetchSecretData(ATLAS_NAMESPACE, clientTlsSecretName);
+        if (tlsSecret == null) {
+            return this;
+        }
 
-        V1Secret tlsSecret = this.kubernetesClient.fetchSecretData(clientTlsSecretName,NAMESPACE );
         byte[] certBytes = tlsSecret.getData().get(TLS_CERT_SECRET_FIELD_NAME);
         X509Certificate cert = generateCertificateFromDER(certBytes);
 
@@ -51,6 +54,7 @@ public class Builder {
         kmf.init(keystore, "password".toCharArray());
         KeyManager[] km = kmf.getKeyManagers();
         context.init(km, null, null);
+        sslContext = context;
         return this;
     }
 
@@ -58,6 +62,7 @@ public class Builder {
         if (this.sslContext == null) {
             this.sslContext = SSLContext.getInstance("TLS");
             this.sslContext.init(null, trustAllCerts, new SecureRandom());
+            this.builder.setSSLHostnameVerifier((s1, s2) -> true);
         }
         return this.builder.setSSLContext(this.sslContext).build();
     }
@@ -67,7 +72,7 @@ public class Builder {
         return (X509Certificate) factory.generateCertificate(new ByteArrayInputStream(certBytes));
     }
 
-    private static TrustManager[] trustAllCerts = new TrustManager[]{
+    private static final TrustManager[] trustAllCerts = new TrustManager[]{
             new X509TrustManager() {
                 public java.security.cert.X509Certificate[] getAcceptedIssuers() {
                     return null;

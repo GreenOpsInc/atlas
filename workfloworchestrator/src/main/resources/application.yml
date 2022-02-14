@@ -1,5 +1,6 @@
 application:
   repo-server-url: ${REPO_SERVER_ENDPOINT:http://localhost:8081}
+  repo-server-tls-secret-name: ${REPO_SERVER_TLS_SECRET_NAME}
   client-wrapper-url: ${CLIENT_WRAPPER_ENDPOINT:http://localhost:9091}
   redis-url: ${REDIS_ENDPOINT:localhost:6379}
   kafka:
