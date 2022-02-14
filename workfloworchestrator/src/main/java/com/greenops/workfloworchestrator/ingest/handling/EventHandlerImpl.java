@@ -294,7 +294,7 @@ public class EventHandlerImpl implements EventHandler {
     private void handleTestCompletion(PipelineData pipelineData, GitRepoSchemaInfo gitRepoSchemaInfo, TestCompletionEvent event) {
         var step = pipelineData.getStep(event.getStepName());
         if (!event.getSuccessful()) {
-            deploymentLogHandler.markStepFailedWithBrokenTest(event, event.getStepName(), event.getTestName(), event.getLog());
+            deploymentLogHandler.markStepFailedWithBrokenTest(event, event.getStepName(), getTestNameFromNumber(step, event.getTestNumber()), event.getLog());
             if (step.getRollbackLimit() > 0) rollback(event);
             return;
         }
@@ -492,5 +492,9 @@ public class EventHandlerImpl implements EventHandler {
             log.error("Could not parse YAML pipeline data file", e);
             throw new AtlasNonRetryableError(e);
         }
+    }
+
+    private String getTestNameFromNumber(StepData stepData, int testNumber) {
+        return stepData.getTests().get(testNumber).getPath();
     }
 }
