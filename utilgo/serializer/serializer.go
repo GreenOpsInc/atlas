@@ -1,6 +1,7 @@
 package serializer
 
 import (
+	"log"
 	"encoding/json"
 
 	"github.com/greenopsinc/util/auditlog"
@@ -57,6 +58,7 @@ func Deserialize(payload string, deserializeType string) interface{} {
 		err = json.Unmarshal([]byte(payload), &pipelineTriggerEvent)
 		returnVal = pipelineTriggerEvent
 	} else if deserializeType == serializerutil.TeamSchemaType {
+		log.Printf(payload)
 		returnVal = team.UnmarshallTeamSchemaString(payload)
 	} else if deserializeType == serializerutil.NotificationType {
 		var notification clientrequest.Notification

@@ -237,6 +237,7 @@ func deletePipeline(w http.ResponseWriter, r *http.Request) {
 	}
 	clearPipelineData(orgName, teamName, pipelineName)
 
+	log.Printf("team schema %s", teamSchema)
 	dbClient.StoreValue(key, teamSchema)
 	w.WriteHeader(http.StatusOK)
 	return
