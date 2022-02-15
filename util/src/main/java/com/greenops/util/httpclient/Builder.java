@@ -1,75 +1,64 @@
 package com.greenops.util.httpclient;
 
-import com.greenops.util.kubernetesclient.KubernetesClient;
-import io.kubernetes.client.models.V1Secret;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.HttpClient;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.ssl.SSLContextBuilder;
+import org.apache.http.ssl.SSLContexts;
 import org.springframework.stereotype.Component;
 
-import javax.net.ssl.*;
-import java.io.ByteArrayInputStream;
-import java.security.KeyStore;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+import java.io.File;
 import java.security.SecureRandom;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
-
 
 @Slf4j
 @Component
 public class Builder {
+    private static final String KEYSTORE_CERT_ALIAS = "reposerver.atlas.svc.cluster.local";
+    private SSLConnectionSocketFactory sslConSocFactory;
+    private HttpClientBuilder builder;
 
-    private static final String ATLAS_NAMESPACE = "atlas";
-    private static final String TLS_CERT_SECRET_FIELD_NAME = "tls.crt";
-
-    private final HttpClientBuilder builder;
-    private final KubernetesClient kubernetesClient;
-    private SSLContext sslContext;
-
-    private Builder(KubernetesClient kubernetesClient) {
-        this.kubernetesClient=kubernetesClient;
-        this.builder = HttpClientBuilder.create();
+    private Builder() {
+        this.builder = HttpClients.custom();
     }
 
-    public static Builder create(KubernetesClient kubernetesClient) {
-        return new Builder(kubernetesClient);
+    public static Builder create() {
+        return new Builder();
     }
 
-    public Builder withCustomTls(String clientTlsSecretName) throws Exception {
-        SSLContext context = SSLContext.getInstance("TLS");
-        V1Secret tlsSecret = this.kubernetesClient.fetchSecretData(ATLAS_NAMESPACE, clientTlsSecretName);
-        if (tlsSecret == null) {
+    public Builder withCustomTls(String keystorePath, String keystorePassword, String derCertPath, String caCertsPath, String caCertsKeystorePassword) throws Exception {
+        if (keystorePath.equals("") || derCertPath.equals("") || caCertsPath.equals("")) {
+            return this;
+        }
+        File keystoreFile = new File(keystorePath);
+        File derCertFile = new File(derCertPath);
+        File caCertsFile = new File(caCertsPath);
+        if (!keystoreFile.exists() || !derCertFile.exists() || !caCertsFile.exists()) {
             return this;
         }
 
-        byte[] certBytes = tlsSecret.getData().get(TLS_CERT_SECRET_FIELD_NAME);
-        X509Certificate cert = generateCertificateFromDER(certBytes);
-
-        KeyStore keystore = KeyStore.getInstance("JKS");
-        keystore.load(null);
-        keystore.setCertificateEntry("alias", cert);
-
-        KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
-        kmf.init(keystore, "password".toCharArray());
-        KeyManager[] km = kmf.getKeyManagers();
-        context.init(km, null, null);
-        sslContext = context;
+        SSLContextBuilder SSLBuilder = SSLContexts.custom();
+        File file = new File(keystorePath);
+        SSLBuilder = SSLBuilder.loadTrustMaterial(file, keystorePassword.toCharArray());
+        SSLContext sslcontext = SSLBuilder.build();
+        this.sslConSocFactory = new SSLConnectionSocketFactory(sslcontext, new NoopHostnameVerifier());
+        this.addCertToJDK(derCertPath, caCertsPath, caCertsKeystorePassword);
         return this;
     }
 
     public HttpClient build() throws Exception {
-        if (this.sslContext == null) {
-            this.sslContext = SSLContext.getInstance("TLS");
-            this.sslContext.init(null, trustAllCerts, new SecureRandom());
+        if (this.sslConSocFactory == null) {
+            SSLContext context = SSLContext.getInstance("TLS");
+            context.init(null, trustAllCerts, new SecureRandom());
             this.builder.setSSLHostnameVerifier((s1, s2) -> true);
+            return this.builder.setSSLContext(context).build();
         }
-        return this.builder.setSSLContext(this.sslContext).build();
-    }
-
-    private static X509Certificate generateCertificateFromDER(byte[] certBytes) throws CertificateException {
-        final CertificateFactory factory = CertificateFactory.getInstance("X.509");
-        return (X509Certificate) factory.generateCertificate(new ByteArrayInputStream(certBytes));
+        return this.builder.setSSLSocketFactory(sslConSocFactory).build();
     }
 
     private static final TrustManager[] trustAllCerts = new TrustManager[]{
@@ -77,13 +66,23 @@ public class Builder {
                 public java.security.cert.X509Certificate[] getAcceptedIssuers() {
                     return null;
                 }
+
                 public void checkClientTrusted(
                         java.security.cert.X509Certificate[] certs, String authType) {
                 }
+
                 public void checkServerTrusted(
                         java.security.cert.X509Certificate[] certs, String authType) {
                 }
             }
     };
+
+    private void addCertToJDK(String derCertPath, String caCertsPath, String caCertsKeystorePassword) throws Exception {
+        String cmd = "keytool -trustcacerts -import -alias " + KEYSTORE_CERT_ALIAS + " -keystore " + caCertsPath + " -file " + derCertPath + " -storepass " + caCertsKeystorePassword + " -noprompt";
+        System.out.println("Running command to add der cert to ca certs: " + cmd);
+        Runtime run = Runtime.getRuntime();
+        Process pr = run.exec(cmd);
+        pr.waitFor();
+    }
 
 }

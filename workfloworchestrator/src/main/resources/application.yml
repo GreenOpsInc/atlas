@@ -1,6 +1,10 @@
 application:
   repo-server-url: ${REPO_SERVER_ENDPOINT:http://localhost:8081}
-  repo-server-tls-secret-name: ${REPO_SERVER_TLS_SECRET_NAME}
+  repo-server-keystore-path: ${REPO_SERVER_KEYSTORE_PATH:}
+  repo-server-cert-der-path: ${REPO_SERVER_CERT_DER_PATH:}
+  repo-server-keystore-password: ${REPO_SERVER_KEYSTORE_PASSWORD:}
+  jdk-ca-certs-path: ${JDK_CA_CERTS_PATH:}
+  jdk-ca-certs-password: ${JDK_CA_CERTS_KEYSTORE_PASSWORD:}
   client-wrapper-url: ${CLIENT_WRAPPER_ENDPOINT:http://localhost:9091}
   redis-url: ${REDIS_ENDPOINT:localhost:6379}
   kafka:

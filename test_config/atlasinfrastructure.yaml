@@ -245,19 +245,28 @@ spec:
               value: redisserver.atlas.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
               value: https://reposerver.atlas.svc.cluster.local:8080
-            - name: REPO_SERVER_TLS_SECRET_NAME
-              value: pipelinereposerver-tls
+              # uncomment those to use custom tls certificate for repo server
+#            - name: REPO_SERVER_KEYSTORE_PATH
+#              value: /tls/reposerver.keystore.jks
+#            - name: REPO_SERVER_KEYSTORE_PASSWORD
+#              value: password
+#            - name: JDK_CA_CERTS_KEYSTORE_PASSWORD
+#              value: changeit
+#            - name: JDK_CA_CERTS_PATH
+#              value: /opt/java/openjdk/lib/security/cacerts
+#            - name: REPO_SERVER_CERT_DER_PATH
+#              value: /tls/reposerver_cert.der
           image: atlasworkfloworchestrator
           imagePullPolicy: Never
           name: workfloworchestrator
           volumeMounts:
-            - mountPath: /tls-cert
+            - mountPath: /tls
               name: certs
           resources: {}
       volumes:
         - name: certs
           hostPath:
-            path: /tls-cert
+            path: /tls
       restartPolicy: Always
 status: {}
 ---

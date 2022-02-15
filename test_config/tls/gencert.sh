@@ -19,6 +19,7 @@ subjectAltName = @alt_names
 
 [alt_names]
 DNS.1 = reposerver.atlas.svc.cluster.local
+DNS.2 = localhost
 IP.1 = 127.0.0.1
 EOF
 

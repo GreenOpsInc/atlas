@@ -38,13 +38,21 @@ public class RepoManagerApiImpl implements RepoManagerApi {
     private final HttpClient httpClient;
 
     @Autowired
-    public RepoManagerApiImpl(@Value("${application.repo-server-url}") String serverEndpoint, @Qualifier("eventAndRequestObjectMapper") ObjectMapper objectMapper, @Value("${application.repo-server-tls-secret-name}") String serverTlsSecretName, KubernetesClient kubernetesClient) {
+    public RepoManagerApiImpl(
+            @Value("${application.repo-server-url}") String serverEndpoint,
+            @Qualifier("eventAndRequestObjectMapper") ObjectMapper objectMapper,
+            @Value("${application.repo-server-keystore-path}") String serverKeystorePath,
+            @Value("${application.repo-server-keystore-password}") String serverKeystorePassword,
+            @Value("${application.repo-server-cert-der-path}") String serverCertDerPath,
+            @Value("${application.jdk-ca-certs-path}") String caCertsPath,
+            @Value("${application.jdk-ca-certs-password}") String caCertsKeystorePassword
+    ) {
         this.serverRepoEndpoint = serverEndpoint.endsWith("/") ? serverEndpoint + ROOT_REPO_EXTENSION : serverEndpoint + "/" + ROOT_REPO_EXTENSION;
         this.serverDataEndpoint = serverEndpoint.endsWith("/") ? serverEndpoint + ROOT_DATA_EXTENSION : serverEndpoint + "/" + ROOT_DATA_EXTENSION;
         this.objectMapper = objectMapper;
         try {
-            this.httpClient = Builder.create(kubernetesClient).withCustomTls(serverTlsSecretName).build();
-        }catch(Exception e) {
+            this.httpClient = Builder.create().withCustomTls(serverKeystorePath, serverKeystorePassword, serverCertDerPath, caCertsPath, caCertsKeystorePassword).build();
+        } catch (Exception e) {
             log.error("Failed to create RepoServer HTTP client", e);
             throw new AtlasNonRetryableError(e);
         }
