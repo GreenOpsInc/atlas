@@ -363,16 +363,17 @@ spec:
               value: redisserver.atlas.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
               value: https://reposerver.atlas.svc.cluster.local:8080
-            - name: REPO_SERVER_KEYSTORE_PATH
-              value: /tls/reposerver.keystore.jks
-            - name: REPO_SERVER_KEYSTORE_PASSWORD
-              value: password
-            - name: JDK_CA_CERTS_KEYSTORE_PASSWORD
-              value: changeit
-            - name: JDK_CA_CERTS_PATH
-              value: /opt/java/openjdk/lib/security/cacerts
-            - name: REPO_SERVER_CERT_DER_PATH
-              value: /tls/reposerver_cert.der
+            # uncomment those to use custom tls certificate for repo server
+#            - name: REPO_SERVER_KEYSTORE_PATH
+#              value: /tls/reposerver.keystore.jks
+#            - name: REPO_SERVER_KEYSTORE_PASSWORD
+#              value: password
+#            - name: JDK_CA_CERTS_KEYSTORE_PASSWORD
+#              value: changeit
+#            - name: JDK_CA_CERTS_PATH
+#              value: /opt/java/openjdk/lib/security/cacerts
+#            - name: REPO_SERVER_CERT_DER_PATH
+#              value: /tls/reposerver_cert.der
           image: gcr.io/greenops-dev/atlasworkfloworchestrator
 #          imagePullPolicy: Never
           name: workfloworchestrator
