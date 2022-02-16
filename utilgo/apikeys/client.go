@@ -1,9 +1,9 @@
 package apikeys
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
+	"errors"
+
+	"github.com/greenopsinc/util/kubernetesclient"
 
 	"github.com/greenopsinc/util/rand"
 )
@@ -12,8 +12,8 @@ import (
 // single api key for cluster will secure cd and wt
 // create refresh method which will rotate api key
 // by default we will have default api key
-// api key should only secure generate enpoint
-// api key should secure all endpoints
+// api key should only secure generate enpoint on wt
+// api key should secure all endpoints on cd
 // refresh api key method should be secured by argocd acess token
 // refresh api key method should has cluster name\id parameters
 
@@ -37,22 +37,57 @@ import (
 //		2. kubernetes secrets
 //		3. redis
 
-func Generate(secret string) (string, error) {
-	h := hmac.New(sha256.New, []byte(secret))
-	data, err := rand.RandomString(64)
+const ATLAS_NAMESPACE = "atlas"
+
+type Client interface {
+	Issue(name string) (string, error)
+	Get(name string) (string, error)
+	Verify(apikey string) (bool, error)
+	Refresh(name string) (string, error)
+}
+
+type client struct {
+	kclient kubernetesclient.KubernetesClient
+}
+
+func New(kclient kubernetesclient.KubernetesClient) Client {
+	return &client{kclient: kclient}
+}
+
+func (c *client) Issue(name string) (string, error) {
+	apikey, err := rand.RandomString(64)
 	if err != nil {
 		return "", err
 	}
-	h.Write([]byte(data))
-	return hex.EncodeToString(h.Sum(nil)), nil
+
+	if !c.kclient.StoreApiKey(apikey, name, ATLAS_NAMESPACE) {
+		return "", errors.New("failed to store apikey in secrets")
+	}
+	return apikey, nil
 }
 
-func Verify(hash, secret string) (bool, error) {
-	sig, err := hex.DecodeString(hash)
+func (c *client) Get(name string) (string, error) {
+	apikey := c.kclient.FetchApiKey(name, ATLAS_NAMESPACE)
+	if apikey == "" {
+		return "", errors.New("failed to fetch apikey from secrets")
+	}
+	return apikey, nil
+}
+
+func (c *client) Verify(apikey string) (bool, error) {
+	existing, err := c.Get(apikey)
 	if err != nil {
 		return false, err
 	}
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(secret))
-	return hmac.Equal(sig, mac.Sum(nil)), nil
+	if existing == "" {
+		return false, errors.New("apikey not found")
+	}
+	if apikey != existing {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (c *client) Refresh(name string) (string, error) {
+	return c.Issue(name)
 }

@@ -41,7 +41,9 @@ type TLSSecretData struct {
 
 type KubernetesClient interface {
 	StoreGitCred(gitCred git.GitCred, name string) bool
+	StoreApiKey(apikey string, name string, namespace string) bool
 	FetchGitCred(name string) git.GitCred
+	FetchApiKey(name string, namespace string) string
 	FetchSecretData(name string, namespace string) *v1.Secret
 	WatchSecretData(ctx context.Context, name string, namespace string, handler WatchSecretHandler) error
 }
@@ -84,6 +86,19 @@ func (k KubernetesClientDriver) StoreGitCred(gitCred git.GitCred, name string) b
 	return true
 }
 
+func (k KubernetesClientDriver) StoreApiKey(apikey string, name string, namespace string) bool {
+	var err error
+	if apikey == "" {
+		err = k.storeSecret(nil, namespace, name)
+	} else {
+		err = k.storeSecret(apikey, namespace, name)
+	}
+	if err != nil {
+		return false
+	}
+	return true
+}
+
 func (k KubernetesClientDriver) FetchGitCred(name string) git.GitCred {
 	secret := k.readSecret(gitCredNamespace, name)
 	if secret != nil {
@@ -93,6 +108,17 @@ func (k KubernetesClientDriver) FetchGitCred(name string) git.GitCred {
 		return nil
 	}
 	return nil
+}
+
+func (k KubernetesClientDriver) FetchApiKey(name string, namespace string) string {
+	secret := k.readSecret(namespace, name)
+	if secret != nil {
+		if val, ok := secret.StringData[secretsKeyName]; ok {
+			return val
+		}
+		return ""
+	}
+	return ""
 }
 
 func (k KubernetesClientDriver) FetchSecretData(name string, namespace string) *v1.Secret {

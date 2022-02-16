@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 
+	"github.com/greenopsinc/util/apikeys"
+
 	"github.com/gorilla/mux"
 	"github.com/greenopsinc/util/db"
 	"github.com/greenopsinc/util/httpserver"
@@ -18,31 +20,24 @@ import (
 )
 
 func main() {
-	var dbOperator db.DbOperator
-	var kubernetesClient kubernetesclient.KubernetesClient
-	var kafkaClient kafkaclient.KafkaClient
-	var tlsManager tlsmanager.Manager
-	var repoManagerApi reposerver.RepoManagerApi
-	var commandDelegatorApi commanddelegator.CommandDelegatorApi
-	var argoAuthenticatorApi argo.ArgoAuthenticatorApi
-	var schemaValidator schemavalidation.RequestSchemaValidator
-	kubernetesClient = kubernetesclient.New()
-	tlsManager = tlsmanager.New(kubernetesClient)
-	dbOperator = db.New(starter.GetDbClientConfig())
+	kubernetesClient := kubernetesclient.New()
+	tlsManager := tlsmanager.New(kubernetesClient)
+	dbOperator := db.New(starter.GetDbClientConfig())
 	kafkaClient, err := kafkaclient.New(starter.GetKafkaClientConfig(), tlsManager)
 	if err != nil {
 		log.Fatal(err)
 	}
-	repoManagerApi, err = reposerver.New(starter.GetRepoServerClientConfig(), tlsManager)
+	repoManagerApi, err := reposerver.New(starter.GetRepoServerClientConfig(), tlsManager)
 	if err != nil {
 		log.Fatal(err)
 	}
-	commandDelegatorApi, err = commanddelegator.New(starter.GetCommandDelegatorServerClientConfig(), tlsManager)
+	apiKeysClient := apikeys.New(kubernetesClient)
+	commandDelegatorApi, err := commanddelegator.New(starter.GetCommandDelegatorServerClientConfig(), tlsManager, apiKeysClient)
 	if err != nil {
 		log.Fatal(err)
 	}
-	argoAuthenticatorApi = argo.New(tlsManager).GetAuthenticatorApi()
-	schemaValidator = schemavalidation.New(argoAuthenticatorApi, repoManagerApi)
+	argoAuthenticatorApi := argo.New(tlsManager).GetAuthenticatorApi()
+	schemaValidator := schemavalidation.New(argoAuthenticatorApi, repoManagerApi)
 	r := mux.NewRouter()
 	api.InitClients(dbOperator, kafkaClient, kubernetesClient, repoManagerApi, argo.New(tlsManager).GetClusterApi(), commandDelegatorApi, schemaValidator)
 	r.Use(argoAuthenticatorApi.(*argo.ArgoApiImpl).Middleware)
