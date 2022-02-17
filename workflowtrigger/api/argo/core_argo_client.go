@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 
+	"greenops.io/workflowtrigger/apikeysmanager"
+
 	"github.com/argoproj/argo-cd/pkg/apiclient"
 	grpcutil "github.com/argoproj/argo-cd/util/grpc"
 	"github.com/greenopsinc/util/config"
@@ -32,11 +34,12 @@ type ArgoApiImpl struct {
 	tlsCertPath      string
 	rawClient        apiclient.Client
 	configuredClient apiclient.Client
+	apikeysManager   apikeysmanager.Manager
 }
 
-func New(tm tlsmanager.Manager) ArgoApi {
+func New(tm tlsmanager.Manager, apikeysManager apikeysmanager.Manager) ArgoApi {
 	apiServerAddress := getClientCreationData()
-	argoApi := &ArgoApiImpl{apiServerAddress: apiServerAddress, tm: tm}
+	argoApi := &ArgoApiImpl{apiServerAddress: apiServerAddress, tm: tm, apikeysManager: apikeysManager}
 	argoApi.initArgoClient()
 	return argoApi
 }

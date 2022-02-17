@@ -42,8 +42,8 @@ const ATLAS_NAMESPACE = "atlas"
 type Client interface {
 	Issue(name string) (string, error)
 	Get(name string) (string, error)
-	Verify(apikey string) (bool, error)
-	Refresh(name string) (string, error)
+	Verify(apikey string, name string) (bool, error)
+	Rotate(name string) (string, error)
 }
 
 type client struct {
@@ -74,8 +74,8 @@ func (c *client) Get(name string) (string, error) {
 	return apikey, nil
 }
 
-func (c *client) Verify(apikey string) (bool, error) {
-	existing, err := c.Get(apikey)
+func (c *client) Verify(apikey string, name string) (bool, error) {
+	existing, err := c.Get(name)
 	if err != nil {
 		return false, err
 	}
@@ -88,6 +88,6 @@ func (c *client) Verify(apikey string) (bool, error) {
 	return true, nil
 }
 
-func (c *client) Refresh(name string) (string, error) {
+func (c *client) Rotate(name string) (string, error) {
 	return c.Issue(name)
 }

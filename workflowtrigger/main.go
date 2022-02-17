@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/greenopsinc/util/apikeys"
+	"greenops.io/workflowtrigger/apikeysmanager"
 
 	"github.com/gorilla/mux"
 	"github.com/greenopsinc/util/db"
@@ -31,8 +31,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	apiKeysClient := apikeys.New(kubernetesClient)
-	commandDelegatorApi, err := commanddelegator.New(starter.GetCommandDelegatorServerClientConfig(), tlsManager, apiKeysClient)
+	apikeysManager := apikeysmanager.New(kubernetesClient)
+	if err = apikeysManager.GenerateDefaultKeys(); err != nil {
+		log.Fatal(err)
+	}
+	commandDelegatorApi, err := commanddelegator.New(starter.GetCommandDelegatorServerClientConfig(), tlsManager, apikeysManager)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -45,7 +48,7 @@ func main() {
 	api.InitializeLocalCluster()
 	api.InitPipelineTeamEndpoints(r)
 	api.InitStatusEndpoints(r)
-	api.InitClusterEndpoints(r)
+	api.InitClusterEndpoints(r, apikeysManager)
 
 	httpserver.CreateAndWatchServer(tlsmanager.ClientWorkflowTrigger, tlsManager, r)
 }

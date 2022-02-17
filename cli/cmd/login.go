@@ -345,7 +345,7 @@ func oauth2Login(ctx context.Context, port int, oidcSettings *settingspkg.OIDCCo
 	defer cancel()
 	_ = srv.Shutdown(ctx)
 	log.Debugf("Token: %s", tokenString)
-	log.Debugf("Refresh Token: %s", refreshToken)
+	log.Debugf("Rotate Token: %s", refreshToken)
 	return tokenString, refreshToken
 }
 

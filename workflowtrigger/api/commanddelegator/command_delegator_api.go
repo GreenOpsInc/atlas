@@ -7,21 +7,17 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/greenopsinc/util/apikeys"
-
 	"github.com/greenopsinc/util/clientrequest"
-	"greenops.io/workflowtrigger/serializer"
-
 	"github.com/greenopsinc/util/httpclient"
 	"github.com/greenopsinc/util/tlsmanager"
+	"greenops.io/workflowtrigger/apikeysmanager"
+	"greenops.io/workflowtrigger/serializer"
 )
 
 const (
 	RootCommit       = "ROOT_COMMIT"
 	PipelineFileName = "pipeline.yaml"
 	getFileExtension = "file"
-	apiKeySecretName = "atlas-workflow-trigger-api-key"
-	apiKeyHeaderName = "api-key"
 )
 
 type CommandDelegatorApi interface {
@@ -31,10 +27,10 @@ type CommandDelegatorApi interface {
 type commandDelegatorApi struct {
 	serverEndpoint string
 	client         httpclient.HttpClient
-	apikey         string
+	apiKeysManager apikeysmanager.Manager
 }
 
-func New(serverEndpoint string, tm tlsmanager.Manager, apiKeysClient apikeys.Client) (CommandDelegatorApi, error) {
+func New(serverEndpoint string, tm tlsmanager.Manager, apiKeysManager apikeysmanager.Manager) (CommandDelegatorApi, error) {
 	if strings.HasSuffix(serverEndpoint, "/") {
 		serverEndpoint = serverEndpoint + "notifications"
 	} else {
@@ -44,33 +40,32 @@ func New(serverEndpoint string, tm tlsmanager.Manager, apiKeysClient apikeys.Cli
 	if err != nil {
 		return nil, err
 	}
-	apikey, err := getApiKey(apiKeysClient)
-	if err != nil {
-		return nil, err
-	}
 	return &commandDelegatorApi{
 		serverEndpoint: serverEndpoint,
 		client:         httpClient,
-		apikey:         apikey,
+		apiKeysManager: apiKeysManager,
 	}, nil
 }
 
 func (c *commandDelegatorApi) SendNotification(orgName string, clusterName string, clientRequest clientrequest.NotificationRequestEvent) string {
-	var err error
-	var payload []byte
-	var request *http.Request
-	payload = []byte(serializer.Serialize(clientRequest))
-	request, err = http.NewRequest("POST", c.serverEndpoint+fmt.Sprintf("/%s/%s", orgName, clusterName), bytes.NewBuffer(payload))
+	payload := []byte(serializer.Serialize(clientRequest))
+	request, err := http.NewRequest("POST", c.serverEndpoint+fmt.Sprintf("/%s/%s", orgName, clusterName), bytes.NewBuffer(payload))
+	if err != nil {
+		panic(err)
+	}
+
+	apikey, err := c.apiKeysManager.GetWorkflowTriggerApiKey()
 	if err != nil {
 		panic(err)
 	}
 	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set(apiKeyHeaderName, c.apikey)
+	request.Header.Set(apikeysmanager.ApiKeyHeaderName, apikey)
 	resp, err := c.client.Do(request)
 	if err != nil {
 		panic(err)
 	}
 	defer resp.Body.Close()
+
 	log.Printf("Send notification request returned status code %d", resp.StatusCode)
 	buf := new(bytes.Buffer)
 	_, err = buf.ReadFrom(resp.Body)
@@ -80,19 +75,4 @@ func (c *commandDelegatorApi) SendNotification(orgName string, clusterName strin
 		panic(fmt.Sprintf("Error when making notification request to the command delegator: %s", buf.String()))
 	}
 	return buf.String()
-}
-
-func getApiKey(apiKeysClient apikeys.Client) (string, error) {
-	apikey, err := apiKeysClient.Get(apiKeySecretName)
-	if err != nil {
-		return "", err
-	}
-	if apikey != "" {
-		return apikey, nil
-	}
-	apikey, err = apiKeysClient.Issue(apiKeySecretName)
-	if err != nil {
-		return "", err
-	}
-	return apikey, nil
 }
