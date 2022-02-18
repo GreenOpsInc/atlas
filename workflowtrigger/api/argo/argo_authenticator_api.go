@@ -120,5 +120,10 @@ func (a *ArgoApiImpl) CheckApiKey(r *http.Request) bool {
 	if apikeyStrings == nil || len(apikeyStrings) < 1 {
 		return false
 	}
-	return a.apikeysManager.VerifyRequest(apikeyStrings[0])
+	verified, err := a.apikeysManager.VerifyRequest(apikeyStrings[0])
+	if err != nil {
+		log.Println("failed to verify request with apikey, error: ", err.Error())
+		return false
+	}
+	return verified
 }

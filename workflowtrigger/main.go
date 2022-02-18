@@ -35,16 +35,18 @@ func main() {
 	if err = apikeysManager.GenerateDefaultKeys(); err != nil {
 		log.Fatal(err)
 	}
+	if err = apikeysManager.WatchApiKeys(); err != nil {
+		log.Fatal(err)
+	}
 	commandDelegatorApi, err := commanddelegator.New(starter.GetCommandDelegatorServerClientConfig(), tlsManager, apikeysManager)
 	if err != nil {
 		log.Fatal(err)
 	}
-	argoAuthenticatorApi := argo.New(tlsManager).GetAuthenticatorApi()
+	argoAuthenticatorApi := argo.New(tlsManager, apikeysManager).GetAuthenticatorApi()
 	schemaValidator := schemavalidation.New(argoAuthenticatorApi, repoManagerApi)
 	r := mux.NewRouter()
-	api.InitClients(dbOperator, kafkaClient, kubernetesClient, repoManagerApi, argo.New(tlsManager).GetClusterApi(), commandDelegatorApi, schemaValidator)
+	api.InitClients(dbOperator, kafkaClient, kubernetesClient, repoManagerApi, argo.New(tlsManager, apikeysManager).GetClusterApi(), commandDelegatorApi, schemaValidator)
 	r.Use(argoAuthenticatorApi.(*argo.ArgoApiImpl).Middleware)
-	log.Println("setup middleware...")
 	api.InitializeLocalCluster()
 	api.InitPipelineTeamEndpoints(r)
 	api.InitStatusEndpoints(r)

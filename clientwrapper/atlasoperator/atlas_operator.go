@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"greenops.io/client/apikeysmanager"
+
 	"github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/gorilla/mux"
@@ -573,13 +575,26 @@ func main() {
 	var err error
 	kubernetesDriver := k8sdriver.New()
 	kubernetesClient := kubernetesclient.New()
-	tm := tlsmanager.New(kubernetesClient)
-	argoDriver := argodriver.New(&kubernetesDriver, tm)
-	commandDelegatorApi, err = ingest.Create(argoDriver.(argodriver.ArgoAuthClient), tm)
+	// TODO: 	1. createa apikeys manager to get/store/listen for apikey
+	//				a. get apikey secret value from env vars
+	//				b. get apikey from secrets
+	//				c. create kuber listener to listen for apikey updates
+	//			2. pass apikeys manager to the cm and wt apis
+	//			3. always get apikey from manager, manager should listen for key updates and update cached value
+	apikeysManager, err := apikeysmanager.New(apikeySecretName, kubernetesClient)
 	if err != nil {
 		log.Fatal("command delegator API setup failed: ", err.Error())
 	}
-	eventGenerationApi, err = generation.Create(argoDriver.(argodriver.ArgoAuthClient), kubernetesClient, tm)
+	if err = apikeysManager.WatchApiKey(); err != nil {
+		log.Fatal("command delegator API setup failed: ", err.Error())
+	}
+	tm := tlsmanager.New(kubernetesClient)
+	argoDriver := argodriver.New(&kubernetesDriver, tm)
+	commandDelegatorApi, err = ingest.Create(argoDriver.(argodriver.ArgoAuthClient), tm, apikeysManager)
+	if err != nil {
+		log.Fatal("command delegator API setup failed: ", err.Error())
+	}
+	eventGenerationApi, err = generation.Create(argoDriver.(argodriver.ArgoAuthClient), kubernetesClient, tm, apikeysManager)
 	if err != nil {
 		log.Fatal("event generation API setup failed: ", err.Error())
 	}

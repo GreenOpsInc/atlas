@@ -16,15 +16,15 @@ const (
 type Manager interface {
 	GenerateDefaultKeys() error
 	GenerateClientWrapperApiKey(name string) (string, error)
-	GetWorkflowTriggerApiKey() (string, error)
+	GetWorkflowTriggerApiKey() string
 	RotateWorkflowTriggerApiKey() (string, error)
 	RotateClientWrapperApiKey(name string) (string, error)
-	VerifyRequest(apikey string) bool
+	VerifyRequest(apikey string) (bool, error)
+	WatchApiKeys() error
 }
 
 type manager struct {
-	client                apikeys.Client
-	workflowTriggerApiKey string
+	client apikeys.Client
 }
 
 func New(kubernetesClient kubernetesclient.KubernetesClient) Manager {
@@ -48,19 +48,9 @@ func (m *manager) GenerateClientWrapperApiKey(clusterName string) (string, error
 	return m.client.Issue(secretName)
 }
 
-func (m *manager) GetWorkflowTriggerApiKey() (string, error) {
-	apikey, err := m.client.Get(workflowTriggerApiKeySecretName)
-	if err != nil {
-		return "", err
-	}
-	if apikey != "" {
-		return apikey, nil
-	}
-	apikey, err = m.client.Issue(workflowTriggerApiKeySecretName)
-	if err != nil {
-		return "", err
-	}
-	return apikey, nil
+func (m *manager) GetWorkflowTriggerApiKey() string {
+	keys := m.client.GetAll()
+	return keys[workflowTriggerApiKeySecretName]
 }
 
 func (m *manager) RotateWorkflowTriggerApiKey() (string, error) {
@@ -68,7 +58,6 @@ func (m *manager) RotateWorkflowTriggerApiKey() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	m.workflowTriggerApiKey = apikey
 	return apikey, nil
 }
 
@@ -80,6 +69,10 @@ func getClientWrapperApiKeyName(clusterName string) string {
 	return fmt.Sprintf("atlas-%s-cluster-client-wrapper-api-key", clusterName)
 }
 
-func (m *manager) VerifyRequest(apikey string) bool {
-	return apikey == m.workflowTriggerApiKey
+func (m *manager) VerifyRequest(apikey string) (bool, error) {
+	return m.client.Verify(apikey)
+}
+
+func (m *manager) WatchApiKeys() error {
+	return m.client.WatchApiKeys()
 }

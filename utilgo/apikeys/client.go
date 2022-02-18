@@ -1,9 +1,13 @@
 package apikeys
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
+	"log"
 
 	"github.com/greenopsinc/util/kubernetesclient"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/greenopsinc/util/rand"
 )
@@ -37,21 +41,48 @@ import (
 //		2. kubernetes secrets
 //		3. redis
 
+// TODO: use a single secret for all apikeys
+//		add listener on wt and cd to listen for apikeys secret
+
 const ATLAS_NAMESPACE = "atlas"
 
 type Client interface {
 	Issue(name string) (string, error)
-	Get(name string) (string, error)
-	Verify(apikey string, name string) (bool, error)
+	GetOne(name string) (string, error)
+	GetAll() map[string]string
+	Verify(apikey string) (bool, error)
 	Rotate(name string) (string, error)
+	WatchApiKeys() error
+	WatchApiKeySecret(handler kubernetesclient.WatchSecretHandler) error
 }
 
 type client struct {
+	apikeys map[string]string
 	kclient kubernetesclient.KubernetesClient
 }
 
 func New(kclient kubernetesclient.KubernetesClient) Client {
-	return &client{kclient: kclient}
+	c := &client{kclient: kclient}
+	keys := c.kclient.FetchApiKeys(ATLAS_NAMESPACE)
+	if keys == nil {
+		keys = make(map[string]string, 0)
+	}
+	c.apikeys = keys
+	return c
+}
+
+func (c *client) WatchApiKeys() error {
+	return c.kclient.WatchSecretData(context.Background(), kubernetesclient.ApikeysSecretName, ATLAS_NAMESPACE, func(_ kubernetesclient.SecretChangeType, secret *v1.Secret) {
+		var keys map[string]string
+		if err := json.Unmarshal(secret.Data[kubernetesclient.SecretsKeyName], &keys); err != nil {
+			log.Println("failed to parse apikeys secret in kubernetes secrets watcher")
+		}
+		c.apikeys = keys
+	})
+}
+
+func (c *client) WatchApiKeySecret(handler kubernetesclient.WatchSecretHandler) error {
+	return c.kclient.WatchSecretData(context.Background(), kubernetesclient.ApikeysSecretName, ATLAS_NAMESPACE, handler)
 }
 
 func (c *client) Issue(name string) (string, error) {
@@ -66,7 +97,7 @@ func (c *client) Issue(name string) (string, error) {
 	return apikey, nil
 }
 
-func (c *client) Get(name string) (string, error) {
+func (c *client) GetOne(name string) (string, error) {
 	apikey := c.kclient.FetchApiKey(name, ATLAS_NAMESPACE)
 	if apikey == "" {
 		return "", errors.New("failed to fetch apikey from secrets")
@@ -74,18 +105,22 @@ func (c *client) Get(name string) (string, error) {
 	return apikey, nil
 }
 
-func (c *client) Verify(apikey string, name string) (bool, error) {
-	existing, err := c.Get(name)
-	if err != nil {
-		return false, err
+func (c *client) GetAll() map[string]string {
+	if c.apikeys != nil {
+		return c.apikeys
 	}
-	if existing == "" {
-		return false, errors.New("apikey not found")
+	keys := c.kclient.FetchApiKeys(ATLAS_NAMESPACE)
+	c.apikeys = keys
+	return keys
+}
+
+func (c *client) Verify(apikey string) (bool, error) {
+	for _, val := range c.apikeys {
+		if val == apikey {
+			return true, nil
+		}
 	}
-	if apikey != existing {
-		return false, nil
-	}
-	return true, nil
+	return false, nil
 }
 
 func (c *client) Rotate(name string) (string, error) {
