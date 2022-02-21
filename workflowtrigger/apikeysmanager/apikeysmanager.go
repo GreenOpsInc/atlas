@@ -10,7 +10,7 @@ import (
 const (
 	workflowTriggerApiKeySecretName = "atlas-workflow-trigger-api-key"
 	clientWrapperApiKeySecretName   = "atlas-client-wrapper-api-key"
-	ApiKeyHeaderName                = "api-key"
+	ApiKeyHeaderName                = "X-Api-Key"
 )
 
 type Manager interface {
@@ -28,7 +28,9 @@ type manager struct {
 }
 
 func New(kubernetesClient kubernetesclient.KubernetesClient) Manager {
-	return &manager{client: apikeys.New(kubernetesClient)}
+	apikeysClient := apikeys.New(kubernetesClient)
+	apikeysClient.GetAll()
+	return &manager{client: apikeysClient}
 }
 
 func (m *manager) GenerateDefaultKeys() error {

@@ -39,10 +39,10 @@ type tlsManager struct {
 }
 
 const (
-	NamespaceDefault string = "default"
-	NamespaceArgoCD  string = "argocd"
-	CompanyName      string = "Atlas"
-	CountryName      string = "US"
+	AtlasNamespace  string = "atlas"
+	NamespaceArgoCD string = "argocd"
+	CompanyName     string = "Atlas"
+	CountryName     string = "US"
 )
 
 type TLSSecretName string
@@ -128,7 +128,7 @@ func (m *tlsManager) GetClientCertPEM(clientName ClientName) ([]byte, error) {
 		return nil, err
 	}
 
-	secret := m.k.FetchSecretData(string(secretName), NamespaceDefault)
+	secret := m.k.FetchSecretData(string(secretName), AtlasNamespace)
 	if secret == nil || len(secret.Data) == 0 {
 		return nil, nil
 	}
@@ -146,7 +146,7 @@ func (m *tlsManager) GetKafkaTLSConf() (*tls.Config, error) {
 		return nil, err
 	}
 
-	secret := m.k.FetchSecretData(string(secretName), NamespaceDefault)
+	secret := m.k.FetchSecretData(string(secretName), AtlasNamespace)
 	if secret == nil || len(secret.Data) == 0 {
 		return &tls.Config{InsecureSkipVerify: true}, nil
 	}
@@ -166,7 +166,7 @@ func (m *tlsManager) WatchServerTLSConf(serverName ClientName, handler func(conf
 	}
 
 	ctx := context.Background()
-	return m.k.WatchSecretData(ctx, string(secretName), NamespaceDefault, func(t kclient.SecretChangeType, secret *corev1.Secret) {
+	return m.k.WatchSecretData(ctx, string(secretName), AtlasNamespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
 		var (
 			config   *tls.Config
 			err      error
@@ -210,7 +210,7 @@ func (m *tlsManager) WatchClientTLSConf(clientName ClientName, handler func(conf
 	}
 
 	ctx := context.Background()
-	return m.k.WatchSecretData(ctx, string(secretName), NamespaceDefault, func(t kclient.SecretChangeType, secret *corev1.Secret) {
+	return m.k.WatchSecretData(ctx, string(secretName), AtlasNamespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
 		switch t {
 		case kclient.SecretChangeTypeAdd:
 			fallthrough
@@ -274,7 +274,7 @@ func (m *tlsManager) WatchKafkaTLSConf(handler func(config *tls.Config, err erro
 	}
 
 	ctx := context.Background()
-	return m.k.WatchSecretData(ctx, string(secretName), NamespaceDefault, func(t kclient.SecretChangeType, secret *corev1.Secret) {
+	return m.k.WatchSecretData(ctx, string(secretName), AtlasNamespace, func(t kclient.SecretChangeType, secret *corev1.Secret) {
 		switch t {
 		case kclient.SecretChangeTypeAdd:
 			fallthrough
@@ -335,7 +335,7 @@ func (m *tlsManager) getTLSClientConf(clientName ClientName) (*tls.Config, error
 		return nil, err
 	}
 
-	secret := m.k.FetchSecretData(string(secretName), NamespaceDefault)
+	secret := m.k.FetchSecretData(string(secretName), AtlasNamespace)
 	if secret == nil || len(secret.Data) == 0 {
 		return &tls.Config{InsecureSkipVerify: true}, nil
 	}
@@ -365,7 +365,7 @@ func (m *tlsManager) getTLSConfFromSecrets(serverName ClientName) (*tls.Config, 
 	if err != nil {
 		return nil, err
 	}
-	secret := m.k.FetchSecretData(string(secretName), NamespaceDefault)
+	secret := m.k.FetchSecretData(string(secretName), AtlasNamespace)
 	if secret == nil || len(secret.Data) == 0 {
 		return nil, nil
 	}

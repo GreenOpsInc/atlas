@@ -23,7 +23,7 @@ import (
 const (
 	orgNameField     string = "orgName"
 	clusterNameField string = "clusterName"
-	apiKeyHeaderName        = "api-key"
+	apiKeyHeaderName        = "X-Api-Key"
 )
 
 type apiClient struct {
@@ -35,10 +35,6 @@ type apiClient struct {
 	emptyClientRequestPacketStruct clientrequest.ClientRequestPacket
 }
 
-var dbOperator db.DbOperator
-var emptyClusterStruct = cluster.ClusterSchema{}
-var emptyClientRequestPacketStruct = clientrequest.ClientRequestPacket{}
-
 func main() {
 	kclient := kubernetesclient.New()
 	api := &apiClient{
@@ -49,7 +45,8 @@ func main() {
 		emptyClusterStruct:             cluster.ClusterSchema{},
 		emptyClientRequestPacketStruct: clientrequest.ClientRequestPacket{},
 	}
-	InitEndpoints(api.router)
+	api.apikeysClient.GetAll()
+	api.InitEndpoints(api.router)
 	api.router.Use(api.ApiKeysMiddleware)
 	if err := api.apikeysClient.WatchApiKeys(); err != nil {
 		log.Fatal(err)
@@ -57,12 +54,12 @@ func main() {
 	httpserver.CreateAndWatchServer(tlsmanager.ClientCommandDelegator, api.tlsManager, api.router)
 }
 
-func InitEndpoints(r *mux.Router) {
-	r.HandleFunc("/requests/{orgName}/{clusterName}", getCommands).Methods("GET")
-	r.HandleFunc("/requests/ackHead/{orgName}/{clusterName}", ackHeadOfRequestList).Methods("DELETE")
-	r.HandleFunc("/notifications/{orgName}/{clusterName}", addNotificationCommand).Methods("POST")
-	r.HandleFunc("/notifications/ackHead/{orgName}/{clusterName}", ackHeadOfNotificationList).Methods("DELETE")
-	r.HandleFunc("/requests/retry/{orgName}/{clusterName}", retryMessage).Methods("DELETE")
+func (a *apiClient) InitEndpoints(r *mux.Router) {
+	r.HandleFunc("/requests/{orgName}/{clusterName}", a.getCommands).Methods("GET")
+	r.HandleFunc("/requests/ackHead/{orgName}/{clusterName}", a.ackHeadOfRequestList).Methods("DELETE")
+	r.HandleFunc("/notifications/{orgName}/{clusterName}", a.addNotificationCommand).Methods("POST")
+	r.HandleFunc("/notifications/ackHead/{orgName}/{clusterName}", a.ackHeadOfNotificationList).Methods("DELETE")
+	r.HandleFunc("/requests/retry/{orgName}/{clusterName}", a.retryMessage).Methods("DELETE")
 }
 
 func (a *apiClient) ApiKeysMiddleware(next http.Handler) http.Handler {
@@ -81,29 +78,29 @@ func (a *apiClient) ApiKeysMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func retryMessage(w http.ResponseWriter, r *http.Request) {
+func (a *apiClient) retryMessage(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
-	dbClient := dbOperator.GetClient()
+	dbClient := a.dbOperator.GetClient()
 	defer dbClient.Close()
 
 	clusterKey := db.MakeDbClusterKey(orgName, clusterName)
 	clusterSchema := dbClient.FetchClusterSchemaTransactionless(clusterKey)
-	if clusterSchema == emptyClusterStruct {
+	if clusterSchema == a.emptyClusterStruct {
 		http.Error(w, "Cluster was nil", http.StatusBadRequest)
 		return
 	}
 	key := db.MakeClientRequestQueueKey(orgName, clusterName)
 	clientRequestPacket := dbClient.FetchHeadInClientRequestList(key)
-	if clientRequestPacket != emptyClientRequestPacketStruct {
+	if clientRequestPacket != a.emptyClientRequestPacketStruct {
 		clientRequestPacket.RetryCount = clientRequestPacket.RetryCount + 1
 	}
 	dbClient.InsertValueInTransactionlessList(key, clientRequestPacket)
 	dbClient.UpdateHeadInTransactionlessList(key, nil)
 }
 
-func writeResponse(w http.ResponseWriter, i interface{}) {
+func (a *apiClient) writeResponse(w http.ResponseWriter, i interface{}) {
 	if i != nil {
 		payload := serializer.Serialize(i)
 		w.Write([]byte(payload))
@@ -111,16 +108,16 @@ func writeResponse(w http.ResponseWriter, i interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
-func getCommands(w http.ResponseWriter, r *http.Request) {
+func (a *apiClient) getCommands(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
-	dbClient := dbOperator.GetClient()
+	dbClient := a.dbOperator.GetClient()
 	defer dbClient.Close()
 
 	clusterKey := db.MakeDbClusterKey(orgName, clusterName)
 	clusterSchema := dbClient.FetchClusterSchemaTransactionless(clusterKey)
-	if clusterSchema == emptyClusterStruct {
+	if clusterSchema == a.emptyClusterStruct {
 		http.Error(w, "Cluster was nil", http.StatusBadRequest)
 		return
 	}
@@ -131,38 +128,38 @@ func getCommands(w http.ResponseWriter, r *http.Request) {
 	//Notifications are from the management plane, they take priority over basic processing
 	//Notifications also do not change the state of deployments and clusters, so can be processed even when in a no-deploy state
 	clientNotificationHead := dbClient.FetchHeadInClientRequestList(notificationQueueKey)
-	if clientNotificationHead != emptyClientRequestPacketStruct {
+	if clientNotificationHead != a.emptyClientRequestPacketStruct {
 		//Notifications don't subscribe to the retry/final try logic, the client wrapper makes sure it's only run once
-		writeResponse(w, []clientrequest.ClientRequestEvent{clientNotificationHead.ClientRequest})
+		a.writeResponse(w, []clientrequest.ClientRequestEvent{clientNotificationHead.ClientRequest})
 		return
 	}
 	if noDeployInfo != nil && noDeployInfo.Namespace == "" {
-		writeResponse(w, nil)
+		a.writeResponse(w, nil)
 		return
 	}
 	clientRequestPacket := dbClient.FetchHeadInClientRequestList(requestQueueKey)
-	if clientRequestPacket != emptyClientRequestPacketStruct {
+	if clientRequestPacket != a.emptyClientRequestPacketStruct {
 		if noDeployInfo != nil && clientRequestPacket.Namespace == noDeployInfo.Namespace {
-			writeResponse(w, nil)
+			a.writeResponse(w, nil)
 			return
 		}
 		request := clientRequestPacket.ClientRequest
 		request.SetFinalTry(clientRequestPacket.RetryCount >= 5)
-		writeResponse(w, []clientrequest.ClientRequestEvent{request})
+		a.writeResponse(w, []clientrequest.ClientRequestEvent{request})
 		return
 	}
 }
 
-func ackHeadOfRequestList(w http.ResponseWriter, r *http.Request) {
+func (a *apiClient) ackHeadOfRequestList(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
-	dbClient := dbOperator.GetClient()
+	dbClient := a.dbOperator.GetClient()
 	defer dbClient.Close()
 
 	clusterKey := db.MakeDbClusterKey(orgName, clusterName)
 	clusterSchema := dbClient.FetchClusterSchemaTransactionless(clusterKey)
-	if clusterSchema == emptyClusterStruct {
+	if clusterSchema == a.emptyClusterStruct {
 		http.Error(w, "Cluster was nil", http.StatusBadRequest)
 		return
 	}
@@ -170,16 +167,16 @@ func ackHeadOfRequestList(w http.ResponseWriter, r *http.Request) {
 	dbClient.UpdateHeadInTransactionlessList(key, nil)
 }
 
-func addNotificationCommand(w http.ResponseWriter, r *http.Request) {
+func (a *apiClient) addNotificationCommand(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
-	dbClient := dbOperator.GetClient()
+	dbClient := a.dbOperator.GetClient()
 	defer dbClient.Close()
 
 	clusterKey := db.MakeDbClusterKey(orgName, clusterName)
 	clusterSchema := dbClient.FetchClusterSchemaTransactionless(clusterKey)
-	if clusterSchema == emptyClusterStruct {
+	if clusterSchema == a.emptyClusterStruct {
 		http.Error(w, "Cluster was nil", http.StatusBadRequest)
 		return
 	}
@@ -199,19 +196,19 @@ func addNotificationCommand(w http.ResponseWriter, r *http.Request) {
 		ClientRequest: notification,
 	})
 
-	writeResponse(w, requestId)
+	a.writeResponse(w, requestId)
 }
 
-func ackHeadOfNotificationList(w http.ResponseWriter, r *http.Request) {
+func (a *apiClient) ackHeadOfNotificationList(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
-	dbClient := dbOperator.GetClient()
+	dbClient := a.dbOperator.GetClient()
 	defer dbClient.Close()
 
 	clusterKey := db.MakeDbClusterKey(orgName, clusterName)
 	clusterSchema := dbClient.FetchClusterSchemaTransactionless(clusterKey)
-	if clusterSchema == emptyClusterStruct {
+	if clusterSchema == a.emptyClusterStruct {
 		http.Error(w, "Cluster was nil", http.StatusBadRequest)
 		return
 	}

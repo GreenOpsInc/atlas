@@ -3,8 +3,6 @@ package main
 import (
 	"log"
 
-	"greenops.io/workflowtrigger/apikeysmanager"
-
 	"github.com/gorilla/mux"
 	"github.com/greenopsinc/util/db"
 	"github.com/greenopsinc/util/httpserver"
@@ -16,6 +14,7 @@ import (
 	"greenops.io/workflowtrigger/api/argo"
 	"greenops.io/workflowtrigger/api/commanddelegator"
 	"greenops.io/workflowtrigger/api/reposerver"
+	"greenops.io/workflowtrigger/apikeysmanager"
 	"greenops.io/workflowtrigger/schemavalidation"
 )
 

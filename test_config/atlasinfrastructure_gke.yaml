@@ -15,8 +15,8 @@ metadata:
   name: prom-rbac
 subjects:
   - kind: ServiceAccount
-    name: default
-    namespace: default
+    name: atlas
+    namespace: atlas
 roleRef:
   kind: ClusterRole
   name: prom-admin
@@ -254,11 +254,11 @@ spec:
       containers:
         - env:
             - name: KAFKA_BOOTSTRAP_SERVERS
-              value: kafka-service.default.svc.cluster.local:9092
+              value: kafka-service.atlas.svc.cluster.local:9092
             - name: REDIS_ENDPOINT
-              value: redisserver.default.svc.cluster.local:6379
+              value: redisserver.atlas.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
-              value: http://reposerver.default.svc.cluster.local:8080
+              value: http://reposerver.atlas.svc.cluster.local:8080
           image: gcr.io/greenops-dev/atlasworkflowtrigger
 #          imagePullPolicy: Never
           name: workflowtrigger
@@ -317,7 +317,7 @@ spec:
       containers:
         - env:
             - name: REDIS_ENDPOINT
-              value: redisserver.default.svc.cluster.local:6379
+              value: redisserver.atlas.svc.cluster.local:6379
           image: gcr.io/greenops-dev/atlasreposerver
 #          imagePullPolicy: Never
           name: reposerver
@@ -356,13 +356,13 @@ spec:
       containers:
         - env:
             - name: CLIENT_WRAPPER_ENDPOINT
-              value: https://atlasclientwrapper.default.svc.cluster.local:9091
+              value: https://atlasclientwrapper.atlas.svc.cluster.local:9091
             - name: KAFKA_BOOTSTRAP_SERVERS
-              value: kafka-service.default.svc.cluster.local:9092
+              value: kafka-service.atlas.svc.cluster.local:9092
             - name: REDIS_ENDPOINT
-              value: redisserver.default.svc.cluster.local:6379
+              value: redisserver.atlas.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
-              value: http://reposerver.default.svc.cluster.local:8080
+              value: http://reposerver.atlas.svc.cluster.local:8080
           image: gcr.io/greenops-dev/atlasworkfloworchestrator
 #          imagePullPolicy: Never
           name: workfloworchestrator

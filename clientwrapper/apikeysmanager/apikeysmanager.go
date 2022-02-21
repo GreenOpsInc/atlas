@@ -32,7 +32,7 @@ func (m *manager) GetApiKey() string {
 }
 
 func (m *manager) WatchApiKey() error {
-	return m.client.WatchApiKeySecret(func(_ kubernetesclient.SecretChangeType, secret *v1.Secret) {
+	return m.client.WatchApiKeySecret(m.secretName, func(_ kubernetesclient.SecretChangeType, secret *v1.Secret) {
 		m.apikey = string(secret.Data[kubernetesclient.SecretsKeyName])
 	})
 }

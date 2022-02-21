@@ -15,6 +15,7 @@ import (
 	"github.com/greenopsinc/util/kubernetesclient"
 	"github.com/greenopsinc/util/tlsmanager"
 	"greenops.io/client/api/ingest"
+	"greenops.io/client/apikeysmanager"
 	"greenops.io/client/argodriver"
 	"greenops.io/client/progressionchecker/datamodel"
 )
@@ -22,6 +23,7 @@ import (
 const (
 	WorkflowTriggerEnvVar         string = "WORKFLOW_TRIGGER_SERVER_ADDR"
 	DefaultWorkflowTriggerAddress string = "https://workflowtrigger.atlas.svc.cluster.local:8080"
+	ApiKeyHeaderName              string = "X-Api-Key"
 )
 
 type Notification struct {
@@ -36,14 +38,15 @@ type EventGenerationApi interface {
 	GenerateResponseEvent(responseEvent clientrequest.ResponseEvent) bool
 }
 
-type EventGenerationImpl struct {
+type eventGenerationApi struct {
 	workflowTriggerAddress string
 	client                 httpclient.HttpClient
 	argoAuthClient         argodriver.ArgoAuthClient
 	kclient                kubernetesclient.KubernetesClient
+	apikeysManager         apikeysmanager.Manager
 }
 
-func Create(argoClient argodriver.ArgoAuthClient, kclient kubernetesclient.KubernetesClient, tm tlsmanager.Manager) (EventGenerationApi, error) {
+func New(argoClient argodriver.ArgoAuthClient, kclient kubernetesclient.KubernetesClient, tm tlsmanager.Manager, apikeysManager apikeysmanager.Manager) (EventGenerationApi, error) {
 	workflowTriggerAddress := os.Getenv(WorkflowTriggerEnvVar)
 	if workflowTriggerAddress == "" {
 		workflowTriggerAddress = DefaultWorkflowTriggerAddress
@@ -55,10 +58,16 @@ func Create(argoClient argodriver.ArgoAuthClient, kclient kubernetesclient.Kuber
 	if err != nil {
 		return nil, err
 	}
-	return EventGenerationImpl{workflowTriggerAddress: workflowTriggerAddress, client: httpClient, argoAuthClient: argoClient, kclient: kclient}, nil
+	return eventGenerationApi{
+		workflowTriggerAddress: workflowTriggerAddress,
+		client:                 httpClient,
+		argoAuthClient:         argoClient,
+		kclient:                kclient,
+		apikeysManager:         apikeysManager,
+	}, nil
 }
 
-func (c EventGenerationImpl) GenerateEvent(eventInfo datamodel.EventInfo) bool {
+func (c eventGenerationApi) GenerateEvent(eventInfo datamodel.EventInfo) bool {
 	data, err := json.Marshal(eventInfo)
 	if err != nil {
 		return false
@@ -70,6 +79,7 @@ func (c EventGenerationImpl) GenerateEvent(eventInfo datamodel.EventInfo) bool {
 	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/client/%s/%s/generateEvent", c.workflowTriggerAddress, eventInfo.GetEventOrg(), clusterName), bytes.NewBuffer(data))
 	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Add(ApiKeyHeaderName, c.apikeysManager.GetApiKey())
 	resp, err := c.client.Do(req)
 	if err != nil {
 		log.Printf("Error generating event. Error was %s\n", err)
@@ -83,7 +93,7 @@ func (c EventGenerationImpl) GenerateEvent(eventInfo datamodel.EventInfo) bool {
 	return resp.StatusCode/100 == 2
 }
 
-func (c EventGenerationImpl) GenerateNotification(requestId string, notification Notification) bool {
+func (c eventGenerationApi) GenerateNotification(requestId string, notification Notification) bool {
 	bodyData, err := json.Marshal(notification.Body)
 	if err != nil {
 		return false
@@ -96,6 +106,7 @@ func (c EventGenerationImpl) GenerateNotification(requestId string, notification
 	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/client/generateNotification/%s", c.workflowTriggerAddress, requestId), bytes.NewBuffer(data))
 	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Add(ApiKeyHeaderName, c.apikeysManager.GetApiKey())
 	resp, err := c.client.Do(req)
 	if err != nil {
 		log.Printf("Error generating notification. Error was %s\n", err)
@@ -109,7 +120,7 @@ func (c EventGenerationImpl) GenerateNotification(requestId string, notification
 	return resp.StatusCode/100 == 2
 }
 
-func (c EventGenerationImpl) GenerateResponseEvent(responseEvent clientrequest.ResponseEvent) bool {
+func (c eventGenerationApi) GenerateResponseEvent(responseEvent clientrequest.ResponseEvent) bool {
 	data, err := json.Marshal(responseEvent)
 	if err != nil {
 		return false
@@ -121,6 +132,7 @@ func (c EventGenerationImpl) GenerateResponseEvent(responseEvent clientrequest.R
 	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/client/%s/%s/generateEvent", c.workflowTriggerAddress, responseEvent.GetEventOrg(), clusterName), bytes.NewBuffer(data))
 	req.Header.Add("Authorization", "Bearer "+c.argoAuthClient.GetAuthToken())
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Add(ApiKeyHeaderName, c.apikeysManager.GetApiKey())
 	resp, err := c.client.Do(req)
 	if err != nil {
 		log.Printf("Error generating event. Error was %s\n", err)

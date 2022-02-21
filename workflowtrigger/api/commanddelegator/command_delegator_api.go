@@ -54,12 +54,8 @@ func (c *commandDelegatorApi) SendNotification(orgName string, clusterName strin
 		panic(err)
 	}
 
-	apikey, err := c.apiKeysManager.GetWorkflowTriggerApiKey()
-	if err != nil {
-		panic(err)
-	}
 	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set(apikeysmanager.ApiKeyHeaderName, apikey)
+	request.Header.Set(apikeysmanager.ApiKeyHeaderName, c.apiKeysManager.GetWorkflowTriggerApiKey())
 	resp, err := c.client.Do(request)
 	if err != nil {
 		panic(err)

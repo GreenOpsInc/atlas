@@ -101,8 +101,11 @@ func (k KubernetesClientDriver) StoreApiKey(apikey string, name string, namespac
 	}
 
 	apikeys[name] = apikey
-	err := k.storeSecret(apikeys, namespace, name)
-	return err == nil
+	err := k.storeSecret(apikeys, namespace, ApikeysSecretName)
+	if err != nil {
+		return false
+	}
+	return k.storeSecret(apikey, namespace, name) == nil
 }
 
 func (k KubernetesClientDriver) FetchGitCred(name string) git.GitCred {
@@ -121,12 +124,12 @@ func (k KubernetesClientDriver) FetchApiKeys(namespace string) map[string]string
 	if secret == nil {
 		return nil
 	}
-	val, ok := secret.StringData[SecretsKeyName]
+	val, ok := secret.Data[SecretsKeyName]
 	if !ok {
 		return nil
 	}
 	var res map[string]string
-	if err := json.Unmarshal([]byte(val), &res); err != nil {
+	if err := json.Unmarshal(val, &res); err != nil {
 		return nil
 	}
 	return res
@@ -137,8 +140,8 @@ func (k KubernetesClientDriver) FetchApiKey(name string, namespace string) strin
 	if secret == nil {
 		return ""
 	}
-	if val, ok := secret.StringData[SecretsKeyName]; ok {
-		return val
+	if val, ok := secret.Data[SecretsKeyName]; ok {
+		return string(val)
 	}
 	return ""
 }
