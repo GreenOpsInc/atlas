@@ -11,3 +11,6 @@
 /util/.gradle/
 /util/build/
 .DS_Store
+/clientwrapper/atlas_operator
+/workflowtrigger/workflowtrigger
+/commanddelegator/command_delegator_api

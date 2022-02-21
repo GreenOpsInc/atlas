@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 
+	"greenops.io/workflowtrigger/apikeysmanager"
+
 	"github.com/gorilla/mux"
 	"github.com/greenopsinc/util/clientrequest"
 	"github.com/greenopsinc/util/cluster"
@@ -14,11 +16,51 @@ import (
 	"greenops.io/workflowtrigger/api/argo"
 )
 
+type ApiKeyType string
+
 const (
-	initLocalClusterEnv string = "ENABLE_LOCAL_CLUSTER"
+	initLocalClusterEnv       string     = "ENABLE_LOCAL_CLUSTER"
+	ApiKeyTypeWorkflowTrigger ApiKeyType = "workflow-trigger"
+	ApiKeyTypeClientWrapper   ApiKeyType = "client-wrapper"
 )
 
-func createCluster(w http.ResponseWriter, r *http.Request) {
+type clusterAPI struct {
+	apiKeysManager apikeysmanager.Manager
+}
+
+type CreateClusterResponse struct {
+	ApiKey string `json:"apiKey"`
+}
+
+type RotateClusterApiKeyRequest struct {
+	ApiKeyType string
+}
+
+func InitClusterEndpoints(r *mux.Router, apiKeysManager apikeysmanager.Manager) {
+	api := &clusterAPI{apiKeysManager: apiKeysManager}
+	r.HandleFunc("/cluster/{orgName}", api.createCluster).Methods("POST")
+	r.HandleFunc("/cluster/{orgName}/{clusterName}", api.readCluster).Methods("GET")
+	r.HandleFunc("/cluster/{orgName}/{clusterName}/apikeys/rotate", api.rotateClusterApiKey).Methods("POST")
+	r.HandleFunc("/cluster/{orgName}/{clusterName}", api.deleteCluster).Methods("DELETE")
+	r.HandleFunc("/cluster/{orgName}/{clusterName}/noDeploy/apply", api.markNoDeployCluster).Methods("POST")
+	r.HandleFunc("/cluster/{orgName}/{clusterName}/noDeploy/remove", api.removeNoDeployCluster).Methods("POST")
+}
+
+func InitializeLocalCluster() {
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
+	if val := os.Getenv(initLocalClusterEnv); val == "" || val == "true" {
+		key := db.MakeDbClusterKey("org", cluster.LocalClusterName)
+		if dbClient.FetchClusterSchema(key).ClusterIP != "" {
+			log.Printf("Local cluster already exists")
+			return
+		}
+		dbClient.StoreValue(key, cluster.ClusterSchema{ClusterName: cluster.LocalClusterName})
+	}
+}
+
+func (a *clusterAPI) createCluster(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	dbClient := dbOperator.GetClient()
@@ -55,11 +97,23 @@ func createCluster(w http.ResponseWriter, r *http.Request) {
 		NoDeploy:    nil,
 	}
 	dbClient.StoreValue(key, clusterSchema)
+
+	apikey, err := a.apiKeysManager.GenerateClientWrapperApiKey(clusterRequest.Name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	res := &CreateClusterResponse{ApiKey: apikey}
+	w.Header().Set("Content-Type", "application/json")
+	if err = json.NewEncoder(w).Encode(res); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	return
 }
 
-func readCluster(w http.ResponseWriter, r *http.Request) {
+func (a *clusterAPI) readCluster(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
@@ -82,7 +136,51 @@ func readCluster(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(clusterSchema)
 }
 
-func deleteCluster(w http.ResponseWriter, r *http.Request) {
+func (a *clusterAPI) rotateClusterApiKey(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	clusterName := vars[clusterNameField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
+	var rotateRequest RotateClusterApiKeyRequest
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(r.Body)
+	err = json.Unmarshal(buf.Bytes(), &rotateRequest)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if !schemaValidator.VerifyRbac(argo.UpdateAction, argo.ClusterResource, clusterName) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
+	}
+
+	var apikey string
+	if rotateRequest.ApiKeyType == string(ApiKeyTypeClientWrapper) {
+		apikey, err = a.apiKeysManager.RotateClientWrapperApiKey(clusterName)
+	} else if rotateRequest.ApiKeyType == string(ApiKeyTypeWorkflowTrigger) {
+		apikey, err = a.apiKeysManager.RotateWorkflowTriggerApiKey()
+	} else {
+		http.Error(w, "wrong apikey type provided", http.StatusBadRequest)
+		return
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	res := &CreateClusterResponse{ApiKey: apikey}
+	w.Header().Set("Content-Type", "application/json")
+	if err = json.NewEncoder(w).Encode(res); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	return
+}
+
+func (a *clusterAPI) deleteCluster(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
@@ -101,7 +199,7 @@ func deleteCluster(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func markNoDeployCluster(w http.ResponseWriter, r *http.Request) {
+func (a *clusterAPI) markNoDeployCluster(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
@@ -146,7 +244,7 @@ func markNoDeployCluster(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func removeNoDeployCluster(w http.ResponseWriter, r *http.Request) {
+func (a *clusterAPI) removeNoDeployCluster(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	clusterName := vars[clusterNameField]
@@ -195,26 +293,4 @@ func removeNoDeployCluster(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	return
-}
-
-func InitializeLocalCluster() {
-	dbClient := dbOperator.GetClient()
-	defer dbClient.Close()
-
-	if val := os.Getenv(initLocalClusterEnv); val == "" || val == "true" {
-		key := db.MakeDbClusterKey("org", cluster.LocalClusterName)
-		if dbClient.FetchClusterSchema(key).ClusterIP != "" {
-			log.Printf("Local cluster already exists")
-			return
-		}
-		dbClient.StoreValue(key, cluster.ClusterSchema{ClusterName: cluster.LocalClusterName})
-	}
-}
-
-func InitClusterEndpoints(r *mux.Router) {
-	r.HandleFunc("/cluster/{orgName}", createCluster).Methods("POST")
-	r.HandleFunc("/cluster/{orgName}/{clusterName}", readCluster).Methods("GET")
-	r.HandleFunc("/cluster/{orgName}/{clusterName}", deleteCluster).Methods("DELETE")
-	r.HandleFunc("/cluster/{orgName}/{clusterName}/noDeploy/apply", markNoDeployCluster).Methods("POST")
-	r.HandleFunc("/cluster/{orgName}/{clusterName}/noDeploy/remove", removeNoDeployCluster).Methods("POST")
 }

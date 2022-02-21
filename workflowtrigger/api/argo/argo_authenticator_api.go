@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
+
+	"greenops.io/workflowtrigger/apikeysmanager"
 
 	"github.com/argoproj/argo-cd/pkg/apiclient/account"
 	"google.golang.org/grpc/status"
@@ -27,12 +30,21 @@ const (
 	OverrideAction RbacAction = "override"
 )
 
+var AllowedApiKeysEndpointRegex = []string{
+	`\/client\/generateNotification\/.*$`,
+	`\/client\/.*\/.*\/generateEvent$`,
+}
+
 type ArgoAuthenticatorApi interface {
 	CheckRbacPermissions(action RbacAction, resource RbacResource, subresource string) bool
 }
 
 func (a *ArgoApiImpl) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if a.CheckApiKey(r) {
+			next.ServeHTTP(w, r)
+		}
+
 		token := r.Header.Get("Authorization")
 		splitToken := strings.Split(token, "Bearer ")
 		token = splitToken[1]
@@ -87,4 +99,31 @@ func (a *ArgoApiImpl) CheckRbacPermissions(action RbacAction, resource RbacResou
 		panic(fmt.Sprintf("Request to Argo server failed: %s", err))
 	}
 	return canI.Value == "yes"
+}
+
+func (a *ArgoApiImpl) CheckApiKey(r *http.Request) bool {
+	var pathAllowed bool
+	for _, regex := range AllowedApiKeysEndpointRegex {
+		matched, err := regexp.MatchString(regex, r.URL.Path)
+		if err != nil {
+			return false
+		}
+		if matched {
+			pathAllowed = true
+		}
+	}
+	if !pathAllowed {
+		return false
+	}
+
+	apikeyStrings := r.Header[apikeysmanager.ApiKeyHeaderName]
+	if apikeyStrings == nil || len(apikeyStrings) < 1 {
+		return false
+	}
+	verified, err := a.apikeysManager.VerifyRequest(apikeyStrings[0])
+	if err != nil {
+		log.Println("failed to verify request with apikey, error: ", err.Error())
+		return false
+	}
+	return verified
 }

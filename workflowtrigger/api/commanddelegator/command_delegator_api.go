@@ -8,28 +8,29 @@ import (
 	"strings"
 
 	"github.com/greenopsinc/util/clientrequest"
-	"greenops.io/workflowtrigger/serializer"
-
 	"github.com/greenopsinc/util/httpclient"
 	"github.com/greenopsinc/util/tlsmanager"
+	"greenops.io/workflowtrigger/apikeysmanager"
+	"greenops.io/workflowtrigger/serializer"
 )
 
 const (
-	RootCommit       string = "ROOT_COMMIT"
-	PipelineFileName string = "pipeline.yaml"
-	getFileExtension string = "file"
+	RootCommit       = "ROOT_COMMIT"
+	PipelineFileName = "pipeline.yaml"
+	getFileExtension = "file"
 )
 
 type CommandDelegatorApi interface {
 	SendNotification(orgName string, clusterName string, request clientrequest.NotificationRequestEvent) string
 }
 
-type CommandDelegatorApiImpl struct {
+type commandDelegatorApi struct {
 	serverEndpoint string
 	client         httpclient.HttpClient
+	apiKeysManager apikeysmanager.Manager
 }
 
-func New(serverEndpoint string, tm tlsmanager.Manager) (CommandDelegatorApi, error) {
+func New(serverEndpoint string, tm tlsmanager.Manager, apiKeysManager apikeysmanager.Manager) (CommandDelegatorApi, error) {
 	if strings.HasSuffix(serverEndpoint, "/") {
 		serverEndpoint = serverEndpoint + "notifications"
 	} else {
@@ -39,27 +40,28 @@ func New(serverEndpoint string, tm tlsmanager.Manager) (CommandDelegatorApi, err
 	if err != nil {
 		return nil, err
 	}
-	return &CommandDelegatorApiImpl{
+	return &commandDelegatorApi{
 		serverEndpoint: serverEndpoint,
 		client:         httpClient,
+		apiKeysManager: apiKeysManager,
 	}, nil
 }
 
-func (r *CommandDelegatorApiImpl) SendNotification(orgName string, clusterName string, clientRequest clientrequest.NotificationRequestEvent) string {
-	var err error
-	var payload []byte
-	var request *http.Request
-	payload = []byte(serializer.Serialize(clientRequest))
-	request, err = http.NewRequest("POST", r.serverEndpoint+fmt.Sprintf("/%s/%s", orgName, clusterName), bytes.NewBuffer(payload))
+func (c *commandDelegatorApi) SendNotification(orgName string, clusterName string, clientRequest clientrequest.NotificationRequestEvent) string {
+	payload := []byte(serializer.Serialize(clientRequest))
+	request, err := http.NewRequest("POST", c.serverEndpoint+fmt.Sprintf("/%s/%s", orgName, clusterName), bytes.NewBuffer(payload))
 	if err != nil {
 		panic(err)
 	}
+
 	request.Header.Set("Content-Type", "application/json")
-	resp, err := r.client.Do(request)
+	request.Header.Set(apikeysmanager.ApiKeyHeaderName, c.apiKeysManager.GetWorkflowTriggerApiKey())
+	resp, err := c.client.Do(request)
 	if err != nil {
 		panic(err)
 	}
 	defer resp.Body.Close()
+
 	log.Printf("Send notification request returned status code %d", resp.StatusCode)
 	buf := new(bytes.Buffer)
 	_, err = buf.ReadFrom(resp.Body)

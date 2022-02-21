@@ -17,6 +17,7 @@ import (
 	"github.com/greenopsinc/util/tlsmanager"
 	"greenops.io/client/api/generation"
 	"greenops.io/client/api/ingest"
+	"greenops.io/client/apikeysmanager"
 	"greenops.io/client/argodriver"
 	"greenops.io/client/k8sdriver"
 	"greenops.io/client/plugins"
@@ -26,8 +27,9 @@ import (
 )
 
 const (
-	ArgoWorkflowKind string = "Workflow"
-	NotApplicable    string = "NotApplicable"
+	ArgoWorkflowKind              = "Workflow"
+	NotApplicable                 = "NotApplicable"
+	ClientWrapperApiKeySecretName = "atlas-client-wrapper-api-key"
 )
 
 type Drivers struct {
@@ -573,13 +575,20 @@ func main() {
 	var err error
 	kubernetesDriver := k8sdriver.New()
 	kubernetesClient := kubernetesclient.New()
-	tm := tlsmanager.New(kubernetesClient)
-	argoDriver := argodriver.New(&kubernetesDriver, tm)
-	commandDelegatorApi, err = ingest.Create(argoDriver.(argodriver.ArgoAuthClient), tm)
+	apikeysManager, err := apikeysmanager.New(ClientWrapperApiKeySecretName, kubernetesClient)
 	if err != nil {
 		log.Fatal("command delegator API setup failed: ", err.Error())
 	}
-	eventGenerationApi, err = generation.Create(argoDriver.(argodriver.ArgoAuthClient), kubernetesClient, tm)
+	if err = apikeysManager.WatchApiKey(); err != nil {
+		log.Fatal("command delegator API setup failed: ", err.Error())
+	}
+	tm := tlsmanager.New(kubernetesClient)
+	argoDriver := argodriver.New(&kubernetesDriver, tm)
+	commandDelegatorApi, err = ingest.New(argoDriver.(argodriver.ArgoAuthClient), tm, apikeysManager)
+	if err != nil {
+		log.Fatal("command delegator API setup failed: ", err.Error())
+	}
+	eventGenerationApi, err = generation.New(argoDriver.(argodriver.ArgoAuthClient), kubernetesClient, tm, apikeysManager)
 	if err != nil {
 		log.Fatal("event generation API setup failed: ", err.Error())
 	}

@@ -29,6 +29,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type CreateClusterResponse struct {
+	ApiKey string `json:"apiKey"`
+}
+
 // NewClusterAddCommand returns a new instance of an `argocd cluster add` command
 func NewClusterAddCommand(pathOpts *clientcmd.PathOptions) *cobra.Command {
 	var (
@@ -119,8 +123,8 @@ func NewClusterAddCommand(pathOpts *clientcmd.PathOptions) *cobra.Command {
 			context, _ := localConfig.ResolveContext(apiclient.ClientOptions{}.Context)
 			url := "http://" + atlasURL + "/cluster/" + orgName
 			var req *http.Request
-			json, _ := json.Marshal(body)
-			req, _ = http.NewRequest("POST", url, bytes.NewBuffer(json))
+			data, _ := json.Marshal(body)
+			req, _ = http.NewRequest("POST", url, bytes.NewBuffer(data))
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", context.User.AuthToken))
 
@@ -131,11 +135,15 @@ func NewClusterAddCommand(pathOpts *clientcmd.PathOptions) *cobra.Command {
 				return
 			}
 			statusCode := resp.StatusCode
-			errBody, _ := io.ReadAll(resp.Body)
+			resBody, _ := io.ReadAll(resp.Body)
 			if statusCode == 200 {
-				fmt.Printf("Successfully created cluster %s for org %s", name, orgName)
+				var resData CreateClusterResponse
+				if err = json.Unmarshal(resBody, &resData); err != nil {
+					fmt.Printf("Error creating cluster: %s", err.Error())
+				}
+				fmt.Printf("Successfully created cluster %s for org %s. Client Wrapper apikey is '%s'", name, orgName, resData.ApiKey)
 			} else {
-				fmt.Printf("Error creating cluster: %s", string(errBody))
+				fmt.Printf("Error creating cluster: %s", string(resBody))
 			}
 		},
 	}

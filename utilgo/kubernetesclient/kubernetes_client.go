@@ -2,6 +2,7 @@ package kubernetesclient
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"strings"
 	"time"
@@ -20,8 +21,9 @@ import (
 )
 
 const (
-	secretsKeyName   string = "data"
-	gitCredNamespace string = "gitcred"
+	gitCredNamespace  = "gitcred"
+	SecretsKeyName    = "data"
+	ApikeysSecretName = "atlas-apikeys"
 )
 
 type SecretChangeType int8
@@ -41,7 +43,10 @@ type TLSSecretData struct {
 
 type KubernetesClient interface {
 	StoreGitCred(gitCred git.GitCred, name string) bool
+	StoreApiKey(apikey string, name string, namespace string) bool
 	FetchGitCred(name string) git.GitCred
+	FetchApiKey(name string, namespace string) string
+	FetchApiKeys(namespace string) map[string]string
 	FetchSecretData(name string, namespace string) *v1.Secret
 	WatchSecretData(ctx context.Context, name string, namespace string, handler WatchSecretHandler) error
 }
@@ -84,15 +89,61 @@ func (k KubernetesClientDriver) StoreGitCred(gitCred git.GitCred, name string) b
 	return true
 }
 
+func (k KubernetesClientDriver) StoreApiKey(apikey string, name string, namespace string) bool {
+	var apikeys map[string]string
+	apikeysSecret := k.readSecret(namespace, ApikeysSecretName)
+	if apikeysSecret == nil || apikeysSecret.Data == nil || apikeysSecret.Data[SecretsKeyName] == nil {
+		apikeys = make(map[string]string, 1)
+	} else {
+		if err := json.Unmarshal(apikeysSecret.Data[SecretsKeyName], &apikeys); err != nil {
+			return false
+		}
+	}
+
+	apikeys[name] = apikey
+	err := k.storeSecret(apikeys, namespace, ApikeysSecretName)
+	if err != nil {
+		return false
+	}
+	return k.storeSecret(apikey, namespace, name) == nil
+}
+
 func (k KubernetesClientDriver) FetchGitCred(name string) git.GitCred {
 	secret := k.readSecret(gitCredNamespace, name)
 	if secret != nil {
-		if val, ok := secret.StringData[secretsKeyName]; ok {
+		if val, ok := secret.StringData[SecretsKeyName]; ok {
 			return git.UnmarshallGitCredString(val)
 		}
 		return nil
 	}
 	return nil
+}
+
+func (k KubernetesClientDriver) FetchApiKeys(namespace string) map[string]string {
+	secret := k.readSecret(namespace, ApikeysSecretName)
+	if secret == nil {
+		return nil
+	}
+	val, ok := secret.Data[SecretsKeyName]
+	if !ok {
+		return nil
+	}
+	var res map[string]string
+	if err := json.Unmarshal(val, &res); err != nil {
+		return nil
+	}
+	return res
+}
+
+func (k KubernetesClientDriver) FetchApiKey(name string, namespace string) string {
+	secret := k.readSecret(namespace, name)
+	if secret == nil {
+		return ""
+	}
+	if val, ok := secret.Data[SecretsKeyName]; ok {
+		return string(val)
+	}
+	return ""
 }
 
 func (k KubernetesClientDriver) FetchSecretData(name string, namespace string) *v1.Secret {
@@ -227,7 +278,7 @@ func makeSecret(object interface{}, namespace string, name string) *corev1.Secre
 			Name:      name,
 			Namespace: namespace,
 		},
-		StringData: map[string]string{secretsKeyName: string(objectBytes)},
+		StringData: map[string]string{SecretsKeyName: string(objectBytes)},
 		Type:       "Opaque",
 	}
 }
