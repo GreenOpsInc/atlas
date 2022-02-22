@@ -5,6 +5,7 @@ import com.greenops.util.datamodel.git.GitCredOpen;
 import com.greenops.util.datamodel.git.GitRepoSchema;
 import com.greenops.util.error.AtlasRetryableError;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -36,8 +37,9 @@ import static com.greenops.verificationtool.ingest.apiclient.util.ApiClientUtil.
 @Slf4j
 @Component
 public class WorkflowTriggerApiImpl implements WorkflowTriggerApi {
+    public static final String NIL = "nil";
     private final String UVN = "LATEST";
-    private final String authToken = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NDQ5MjQwMzAsImp0aSI6ImNmMjc0YTRlLTA3M2QtNGU3OC1hM2E3LWRiMjM4NTc4NjU5OSIsImlhdCI6MTY0NDgzNzYzMCwiaXNzIjoiYXJnb2NkIiwibmJmIjoxNjQ0ODM3NjMwLCJzdWIiOiJhZG1pbjpsb2dpbiJ9.sp7I3K9ufcDraV9kvRKvxlgSFrX-WEowgKzLu-BFsQU";
+    private final String authToken = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NDU1OTAwODMsImp0aSI6IjE4Y2UxNDZlLTg1MmYtNGU1OS1hN2Y0LWFjNGYwYjZkNWEwNSIsImlhdCI6MTY0NTUwMzY4MywiaXNzIjoiYXJnb2NkIiwibmJmIjoxNjQ1NTAzNjgzLCJzdWIiOiJhZG1pbjpsb2dpbiJ9.T0OG3cJqbO9dm04UOO725Oqd7jKP_g3TeOvLUBk-JDk";
     private final String pipelineRevisionHash = "ROOT_COMMIT";
     private final String serverWorkflowTriggerEndpoint;
     private final HttpClient httpClient;
@@ -157,6 +159,50 @@ public class WorkflowTriggerApiImpl implements WorkflowTriggerApi {
             return new String(response.getEntity().getContent().readAllBytes());
         } catch (IOException e) {
             log.error("HTTP get pipeline status request failed for pipeline: {}", pipelineName, e);
+            throw new AtlasRetryableError(e);
+        } finally {
+            request.releaseConnection();
+        }
+    }
+
+    @Override
+    public String readTeam(String orgName, String teamName) {
+        var url = String.format("%s/team/%s/%s", this.serverWorkflowTriggerEndpoint, orgName, teamName);
+        var request = new HttpGet(url);
+        try {
+            request.setHeader("Authorization", this.authToken);
+            var response = httpClient.execute(request);
+            log.info("GET read team name {} returned with status code {}", teamName, response.getStatusLine().getStatusCode());
+            if (response.getStatusLine().getStatusCode() == 400) {
+                return NIL;
+            } else {
+                checkResponseStatus(response);
+                return new String(response.getEntity().getContent().readAllBytes());
+            }
+        } catch (IOException e) {
+            log.error("HTTP get read team name request failed for pipeline: {}", teamName, e);
+            throw new AtlasRetryableError(e);
+        } finally {
+            request.releaseConnection();
+        }
+    }
+
+    @Override
+    public String getPipelineEndpoint(String orgName, String teamName, String pipelineName) {
+        var url = String.format("%s/pipeline/%s/%s/%s", this.serverWorkflowTriggerEndpoint, orgName, teamName, pipelineName);
+        var request = new HttpGet(url);
+        try {
+            request.setHeader("Authorization", this.authToken);
+            var response = httpClient.execute(request);
+            log.info("GET pipeline name {} returned with status code {}", pipelineName, response.getStatusLine().getStatusCode());
+            if (response.getStatusLine().getStatusCode() == 400) {
+                return NIL;
+            } else {
+                checkResponseStatus(response);
+                return new String(response.getEntity().getContent().readAllBytes());
+            }
+        } catch (IOException e) {
+            log.error("HTTP get pipeline name request failed for pipeline: {}", pipelineName, e);
             throw new AtlasRetryableError(e);
         } finally {
             request.releaseConnection();

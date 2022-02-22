@@ -2,6 +2,7 @@ package com.greenops.verificationtool.ingest.handling;
 
 import com.greenops.util.datamodel.event.*;
 import com.greenops.verificationtool.datamodel.verification.DAG;
+import com.greenops.verificationtool.datamodel.verification.Vertex;
 import com.greenops.verificationtool.ingest.kafka.KafkaClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,11 @@ import static com.greenops.verificationtool.datamodel.status.VerificationStatusI
 public class EventHandlerImpl implements EventHandler {
     private final String HEALTHY = "Healthy";
     private final String ATLAS_ROOT_DATA = "ATLAS_ROOT_DATA";
+    private final String PipelineCompletionEvent = "PipelineCompletionEvent";
+    private final String ApplicationInfraCompletionEvent = "ApplicationInfraCompletionEvent";
+    private final String ClientCompletionEvent = "ClientCompletionEvent";
+    private final String TestCompletionEvent = "TestCompletionEvent";
+    private final String FailureEvent = "FailureEvent";
     private final String verificationTopicName;
     private final KafkaClient kafkaClient;
     private final DagRegistry dagRegistry;
@@ -24,7 +30,6 @@ public class EventHandlerImpl implements EventHandler {
     private final RuleEngine ruleEngine;
     private final PipelineVerificationHandler pipelineVerificationHandler;
     private final StepVerificationHandler stepVerificationHandler;
-    private final EventVisitedRegistry eventVisitedRegistry;
 
     @Autowired
     EventHandlerImpl(KafkaClient kafkaClient,
@@ -33,7 +38,6 @@ public class EventHandlerImpl implements EventHandler {
                      RuleEngine ruleEngine,
                      PipelineVerificationHandler pipelineVerificationHandler,
                      StepVerificationHandler stepVerificationHandler,
-                     EventVisitedRegistry eventVisitedRegistry,
                      @Value("${spring.kafka.verification-topic}") String verificationTopicName) {
         this.kafkaClient = kafkaClient;
         this.dagRegistry = dagRegistry;
@@ -41,7 +45,6 @@ public class EventHandlerImpl implements EventHandler {
         this.ruleEngine = ruleEngine;
         this.pipelineVerificationHandler = pipelineVerificationHandler;
         this.stepVerificationHandler = stepVerificationHandler;
-        this.eventVisitedRegistry = eventVisitedRegistry;
         this.verificationTopicName = verificationTopicName;
     }
 
@@ -49,22 +52,20 @@ public class EventHandlerImpl implements EventHandler {
     public void handleEvent(Event event) throws InterruptedException {
         log.info("____________________________________");
         log.info("Handling event of type {}", event.getClass().getName());
-        var verificationStatus = this.verificationStatusRegistry.getVerificationStatus(event.getPipelineName() + "#" + event.getTeamName());
+        var verificationStatus = this.verificationStatusRegistry.getVerificationStatus(event.getPipelineName() + "-" + event.getTeamName());
+        var dag = dagRegistry.retrieveDagObj(event.getPipelineName() + "-" + event.getTeamName());
+        handleExpectedRules(event, dag);
+
         if (!(event instanceof PipelineCompletionEvent)) {
-            verificationStatus.markPipelineProgress();
-        }
-        if (this.eventVisitedRegistry.get(event) != null) {
-            var previousEvent = this.eventVisitedRegistry.get(event);
-            handleExpectedRules(previousEvent);
+            verificationStatus.markPipelineProgress(event);
         }
         if (isFailedEvent(event)) {
             return;
         }
 
-        if (dagRegistry.retriveDagObj(event.getPipelineName()) == null) {
+        if (dagRegistry.retrieveDagObj(event.getPipelineName() + "-" + event.getTeamName()) == null) {
             throw new RuntimeException("Pipeline Does not exists in Dag Registry");
         }
-        var dag = dagRegistry.retriveDagObj(event.getPipelineName());
         if (event instanceof PipelineTriggerEvent) {
             if (verifyEventOrder(event, dag)) {
                 log.info("Verification passed for {}-{}-{}", event.getTeamName(), event.getStepName(), event.getPipelineName());
@@ -90,23 +91,46 @@ public class EventHandlerImpl implements EventHandler {
         }
     }
 
-    private void handleExpectedRules(Event event) {
-        var verificationStatus = this.verificationStatusRegistry.getVerificationStatus(event.getPipelineName() + "#" + event.getTeamName());
-        var ruleData = this.ruleEngine.getRule(event);
+    private void handleExpectedRules(Event event, DAG dag) {
+        var verificationStatus = this.verificationStatusRegistry.getVerificationStatus(event.getPipelineName() + "-" + event.getTeamName());
+        String stepName, pipelineName, teamName, eventType = null;
+        stepName = event.getStepName();
+        pipelineName = event.getPipelineName();
+        teamName = event.getTeamName();
+        if (event instanceof PipelineCompletionEvent) {
+            eventType = ((PipelineCompletionEvent) event).getFailedEvent();
+        } else {
+            var parents = dag.getPreviousVertices(event);
+            if (parents != null) {
+                for (Vertex parent : parents) {
+                    if (parent.getStepName().equals(event.getStepName())) {
+                        eventType = parent.getEventType();
+                        if(parent.getEventType().equals(TestCompletionEvent)){
+                            eventType += parent.getTestNumber();
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        if (eventType == null) return;
+
+        var ruleData = this.ruleEngine.getRule(stepName, pipelineName, teamName, eventType);
         if (ruleData != null) {
             if (ruleData.getPipelineStatus() != null) {
                 if (this.pipelineVerificationHandler.verifyExpected(event, ruleData.getPipelineStatus())) {
-                    log.info("Expected Pipeline Status passed for {}-{}-{}", event.getTeamName(), event.getStepName(), event.getPipelineName());
+                    log.info("Expected Pipeline Status passed for {}-{}-{}", teamName, stepName, pipelineName);
                 } else {
-                    log.info("Expected Pipeline Status failed for {}-{}-{}", event.getTeamName(), event.getStepName(), event.getPipelineName());
+                    log.info("Expected Pipeline Status failed for {}-{}-{}", teamName, stepName, pipelineName);
                     verificationStatus.markPipelineFailed(event, EXPECTED_PIPELINE_STATUS_FAILED);
                 }
             }
             if (ruleData.getStepStatus() != null) {
-                if (this.stepVerificationHandler.verifyExpected(event, ruleData.getStepStatus())) {
-                    log.info("Expected Step Status passed for {}-{}-{}", event.getTeamName(), event.getStepName(), event.getPipelineName());
-                } else {
-                    log.info("Expected Step Status failed for {}-{}-{}", event.getTeamName(), event.getStepName(), event.getPipelineName());
+                var verdict = this.stepVerificationHandler.verifyExpected(event, ruleData.getStepStatus());
+                if (verdict == 1) {
+                    log.info("Expected Step Status passed for {}-{}-{}", teamName, stepName, pipelineName);
+                } else if (verdict == 0) {
+                    log.info("Expected Step Status failed for {}-{}-{}", teamName, stepName, pipelineName);
                     verificationStatus.markPipelineFailed(event, EXPECTED_STEP_STATUS_FAILED);
                 }
             }
@@ -114,7 +138,7 @@ public class EventHandlerImpl implements EventHandler {
     }
 
     private Boolean verifyEventOrder(Event event, DAG dag) {
-        var verificationStatus = this.verificationStatusRegistry.getVerificationStatus(event.getPipelineName() + "#" + event.getTeamName());
+        var verificationStatus = this.verificationStatusRegistry.getVerificationStatus(event.getPipelineName() + "-" + event.getTeamName());
         if (dag.checkEventOrderInDag(event)) {
             log.info("Event order verification passed for {}-{}-{}", event.getTeamName(), event.getStepName(), event.getPipelineName());
             return true;
@@ -126,7 +150,7 @@ public class EventHandlerImpl implements EventHandler {
     }
 
     private Boolean verifyPipelineStatus(Event event, DAG dag) {
-        var verificationStatus = this.verificationStatusRegistry.getVerificationStatus(event.getPipelineName() + "#" + event.getTeamName());
+        var verificationStatus = this.verificationStatusRegistry.getVerificationStatus(event.getPipelineName() + "-" + event.getTeamName());
         if (this.pipelineVerificationHandler.verify(event, dag)) {
             log.info("Pipeline status verification passed for {}-{}-{}", event.getTeamName(), event.getStepName(), event.getPipelineName());
             return true;
@@ -138,7 +162,7 @@ public class EventHandlerImpl implements EventHandler {
     }
 
     private Boolean verifyStepStatus(Event event, DAG dag) {
-        var verificationStatus = this.verificationStatusRegistry.getVerificationStatus(event.getPipelineName() + "#" + event.getTeamName());
+        var verificationStatus = this.verificationStatusRegistry.getVerificationStatus(event.getPipelineName() + "-" + event.getTeamName());
         if (this.stepVerificationHandler.verify(event, dag)) {
             log.info("Step status verification passed for {}-{}-{}", event.getTeamName(), event.getStepName(), event.getPipelineName());
             return true;
@@ -150,7 +174,7 @@ public class EventHandlerImpl implements EventHandler {
     }
 
     private Boolean isFailedEvent(Event event) throws InterruptedException {
-        var verificationStatus = this.verificationStatusRegistry.getVerificationStatus(event.getPipelineName() + "#" + event.getTeamName());
+        var verificationStatus = this.verificationStatusRegistry.getVerificationStatus(event.getPipelineName() + "-" + event.getTeamName());
         if ((event instanceof ApplicationInfraCompletionEvent && !((ApplicationInfraCompletionEvent) event).isSuccess()) ||
                 (event instanceof ClientCompletionEvent && !((ClientCompletionEvent) event).getHealthStatus().equals(this.HEALTHY)) ||
                 (event instanceof TestCompletionEvent && !((TestCompletionEvent) event).getSuccessful())) {
@@ -167,12 +191,23 @@ public class EventHandlerImpl implements EventHandler {
 
     private void sendCompletionEvent(Event event, String status) throws InterruptedException {
         TimeUnit.SECONDS.sleep(1);
+        var eventFailed = this.PipelineCompletionEvent;
+        if (!status.equals(COMPLETE)) {
+            if (event instanceof TestCompletionEvent) {
+                eventFailed = this.TestCompletionEvent + ((TestCompletionEvent) event).getTestNumber();
+            }
+            else if (event instanceof ClientCompletionEvent) eventFailed = this.ClientCompletionEvent;
+            else if (event instanceof ApplicationInfraCompletionEvent)
+                eventFailed = this.ApplicationInfraCompletionEvent;
+            else if (event instanceof FailureEvent) eventFailed = this.FailureEvent;
+        }
         PipelineCompletionEvent pipelineCompletionEvent = new PipelineCompletionEvent(event.getOrgName(),
                 event.getTeamName(),
                 event.getPipelineName(),
                 status.equals(COMPLETE) ? ATLAS_ROOT_DATA : event.getStepName(),
                 event.getPipelineUvn(),
-                status);
+                status,
+                eventFailed);
         this.kafkaClient.sendMessage(pipelineCompletionEvent, this.verificationTopicName);
     }
 }

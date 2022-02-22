@@ -19,6 +19,8 @@ public abstract class PipelineCompletionEventMixin {
     String status;
     @JsonProperty(value = "stepName")
     String stepName;
+    @JsonProperty(value = "failedEvent")
+    String failedEvent;
 
     @JsonCreator
     public PipelineCompletionEventMixin(@JsonProperty(value = "orgName") String orgName,
@@ -26,7 +28,8 @@ public abstract class PipelineCompletionEventMixin {
                                         @JsonProperty(value = "pipelineName") String pipelineName,
                                         @JsonProperty(value = "stepName") String stepName,
                                         @JsonProperty(value = "pipelineUvn") String uvn,
-                                        @JsonProperty(value = "status") String status) {
+                                        @JsonProperty(value = "status") String status,
+                                        @JsonProperty(value = "failedEvent") String failedEvent) {
     }
 
     @JsonIgnore

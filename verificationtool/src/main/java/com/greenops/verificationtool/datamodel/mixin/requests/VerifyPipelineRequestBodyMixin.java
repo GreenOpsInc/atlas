@@ -11,12 +11,12 @@ public abstract class VerifyPipelineRequestBodyMixin {
     String stepName;
     @JsonProperty(value = "gitRepoUrl")
     String gitRepoUrl;
-    @JsonProperty(value = "rules")
-    List<RuleData> rules;
+    @JsonProperty(value = "teamName")
+    String teamName;
 
     @JsonCreator
     public VerifyPipelineRequestBodyMixin(@JsonProperty("gitRepoUrl") String gitRepoUrl,
                                           @JsonProperty("stepName") String stepName,
-                                          @JsonProperty("rules") List<RuleData> rules) {
+                                          @JsonProperty("teamName") String teamName) {
     }
 }

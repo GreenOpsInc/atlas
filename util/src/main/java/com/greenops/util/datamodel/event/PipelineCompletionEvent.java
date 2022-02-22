@@ -13,8 +13,9 @@ public class PipelineCompletionEvent implements Event {
     private final String stepName;
     private final String revisionHash;
     private final String status;
+    private final String failedEvent;
 
-    public PipelineCompletionEvent(String orgName, String teamName, String pipelineName, String stepName, String pipelineUvn, String status) {
+    public PipelineCompletionEvent(String orgName, String teamName, String pipelineName, String stepName, String pipelineUvn, String status, String failedEvent) {
         this.orgName = orgName;
         this.teamName = teamName;
         this.pipelineName = pipelineName;
@@ -22,6 +23,7 @@ public class PipelineCompletionEvent implements Event {
         this.stepName = stepName;
         this.revisionHash = ROOT_COMMIT;
         this.status = status;
+        this.failedEvent = failedEvent;
     }
 
     @Override
@@ -55,5 +57,9 @@ public class PipelineCompletionEvent implements Event {
 
     public String getStatus() {
         return status;
+    }
+
+    public String getFailedEvent(){
+        return failedEvent;
     }
 }

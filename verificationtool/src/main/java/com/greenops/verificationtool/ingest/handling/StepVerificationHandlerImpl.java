@@ -111,13 +111,13 @@ public class StepVerificationHandlerImpl implements StepVerificationHandler {
     }
 
     @Override
-    public Boolean verifyExpected(Event event, List<Log> logs) {
+    public int verifyExpected(Event event, List<Log> logs) {
         var stepLevelStatus = getLogs(event.getOrgName(), event.getPipelineName(), event.getTeamName(), event.getStepName());
         if (logs == null && stepLevelStatus == null) {
-            return true;
+            return 1;
         }
         if ((stepLevelStatus == null && logs != null) || (stepLevelStatus != null && logs == null)) {
-            return false;
+            return 0;
         }
         if(logs.size() == stepLevelStatus.size()) {
             for(int i=0; i<logs.size(); i++) {
@@ -125,29 +125,30 @@ public class StepVerificationHandlerImpl implements StepVerificationHandler {
                 var expectedLog = logs.get(i);
                 if (!expectedLog.getPipelineUniqueVersionNumber().equals(log.getPipelineUniqueVersionNumber()) &&
                         (expectedLog.getPipelineUniqueVersionNumber().equals(this.POPULATED) && log.getPipelineUniqueVersionNumber().equals("")))
-                    return false;
+                    return 0;
                 if (!expectedLog.getStatus().equals(log.getStatus()) && !(expectedLog.getStatus().equals(this.POPULATED) && !log.getStatus().equals("")))
-                    return false;
+                    return 0;
                 if (log instanceof DeploymentLog && ((DeploymentLog) expectedLog).isDeploymentComplete() != ((DeploymentLog) expectedLog).isDeploymentComplete())
-                    return false;
+                    return 0;
                 if (log instanceof DeploymentLog && (!((DeploymentLog) expectedLog).getArgoApplicationName().equals(((DeploymentLog) log).getArgoApplicationName()) &&
                         !(((DeploymentLog) expectedLog).getArgoApplicationName().equals(this.POPULATED) && !((DeploymentLog) log).getArgoApplicationName().equals(""))))
-                    return false;
+                    return 0;
                 if (log instanceof DeploymentLog && (!((DeploymentLog) expectedLog).getArgoRevisionHash().equals(((DeploymentLog) log).getArgoRevisionHash()) &&
                         !(((DeploymentLog) expectedLog).getArgoRevisionHash().equals(this.POPULATED) && !((DeploymentLog) log).getArgoRevisionHash().equals("")))) {
-                    return false;
+                    return 0;
                 }
                 if (log instanceof DeploymentLog && (!((DeploymentLog) expectedLog).getBrokenTest().equals(((DeploymentLog) log).getBrokenTest()) &&
                         !(((DeploymentLog) expectedLog).getBrokenTest().equals(this.POPULATED) && !((DeploymentLog) log).getBrokenTest().equals("")))) {
-                    return false;
+                    return 0;
                 }
                 if (log instanceof DeploymentLog && (!((DeploymentLog) expectedLog).getBrokenTestLog().equals(((DeploymentLog) log).getBrokenTestLog()) &&
                         !(((DeploymentLog) expectedLog).getBrokenTestLog().equals(this.POPULATED) && !((DeploymentLog) log).getBrokenTestLog().equals("")))) {
-                    return false;
+                    return 0;
                 }
             }
+            return 1;
         }
-        return true;
+        return 2;
     }
 
     private Boolean verifyPipelineCompletion(Event event, List<Log> logs) {

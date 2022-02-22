@@ -18,14 +18,14 @@ public class DagRegistry {
         this.dagHashMap = new HashMap<String, DAG>();
     }
 
-    public void registerDAG(String pipelineName, DAG dagObj) {
-        this.dagHashMap.put(pipelineName, dagObj);
+    public void registerDAG(String pipelineIdentifier, DAG dagObj) {
+        this.dagHashMap.put(pipelineIdentifier, dagObj);
     }
 
-    public DAG retriveDagObj(String pipelineName) {
-        if (!this.dagHashMap.containsKey(pipelineName)) {
+    public DAG retrieveDagObj(String pipelineIdentifier) {
+        if (!this.dagHashMap.containsKey(pipelineIdentifier)) {
             return null;
         }
-        return this.dagHashMap.get(pipelineName);
+        return this.dagHashMap.get(pipelineIdentifier);
     }
 }

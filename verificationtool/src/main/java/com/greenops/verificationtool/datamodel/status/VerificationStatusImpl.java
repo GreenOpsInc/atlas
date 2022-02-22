@@ -31,13 +31,18 @@ public class VerificationStatusImpl implements VerificationStatus {
     }
 
     @Override
-    public void markPipelineProgress() {
+    public void markPipelineProgress(Event event) {
         this.status = PROGRESSING;
+        this.stepName = event.getStepName();
+        this.failedType = null;
+        this.log = null;
     }
 
     @Override
     public void markPipelineComplete() {
         this.status = COMPLETE;
+        this.failedType = null;
+        this.log = null;
     }
 
     @Override

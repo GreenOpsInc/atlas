@@ -6,18 +6,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class VerifyPipelineRequestBody {
-    private final List<RuleData> rules;
     private final String gitRepoUrl;
     private final String pathToRoot;
+    private final String teamName;
 
-    public VerifyPipelineRequestBody(String gitRepoUrl, String pathToRoot, List<RuleData> rules) {
-        this.rules = rules == null ? new ArrayList<>() : rules;
+    public VerifyPipelineRequestBody(String gitRepoUrl, String pathToRoot, String teamName) {
         this.gitRepoUrl = gitRepoUrl;
         this.pathToRoot = pathToRoot;
-    }
-
-    public List<RuleData> getRules() {
-        return rules;
+        this.teamName = teamName;
     }
 
     public String getGitRepoUrl() {
@@ -26,5 +22,9 @@ public class VerifyPipelineRequestBody {
 
     public String getPathToRoot() {
         return pathToRoot;
+    }
+
+    public String getTeamName() {
+        return teamName;
     }
 }

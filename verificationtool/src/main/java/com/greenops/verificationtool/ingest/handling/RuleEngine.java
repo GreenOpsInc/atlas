@@ -23,36 +23,15 @@ public class RuleEngine {
         this.rulesMapping = new HashMap<String, List<RuleData>>();
     }
 
-    public void registerRules(String pipelineName, List<RuleData> rules) {
-        rulesMapping.put(pipelineName, rules);
+    public void registerRules(String pipelineIdentifier, List<RuleData> rules) {
+        rulesMapping.put(pipelineIdentifier, rules);
     }
 
-    public RuleData getRule(Event event) {
-        var pipelineName = event.getPipelineName();
-        var stepName = event.getStepName();
-        String eventType = null;
-        if (event instanceof com.greenops.util.datamodel.event.PipelineTriggerEvent) {
-            eventType = this.PipelineTriggerEvent;
-        } else if (event instanceof com.greenops.util.datamodel.event.ClientCompletionEvent) {
-            eventType = this.ClientCompletionEvent;
-        } else if (event instanceof com.greenops.util.datamodel.event.TestCompletionEvent) {
-            eventType = this.TestCompletionEvent;
-        } else if (event instanceof com.greenops.util.datamodel.event.ApplicationInfraTriggerEvent) {
-            eventType = this.ApplicationInfraTriggerEvent;
-        } else if (event instanceof ApplicationInfraCompletionEvent) {
-            eventType = this.ApplicationInfraCompletionEvent;
-        } else if (event instanceof TriggerStepEvent) {
-            eventType = this.TriggerStepEvent;
-        } else if (event instanceof PipelineCompletionEvent) {
-            eventType = this.PipelineCompletionEvent;
-        } else if (event instanceof FailureEvent) {
-            eventType = this.FailureEvent;
-        }
-
-        if (this.rulesMapping.get(pipelineName) == null) {
+    public RuleData getRule(String stepName, String pipelineName, String teamName, String eventType) {
+        if (this.rulesMapping.get(pipelineName+ "-" + teamName) == null) {
             return null;
         }
-        var rules = this.rulesMapping.get(pipelineName);
+        var rules = this.rulesMapping.get(pipelineName+ "-" + teamName);
         for (RuleData rule : rules) {
             if (stepName.equals(rule.getStepName()) && eventType.equals(rule.getEventType())) {
                 return rule;

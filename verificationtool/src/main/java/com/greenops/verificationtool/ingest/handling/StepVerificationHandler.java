@@ -8,6 +8,5 @@ import java.util.List;
 
 public interface StepVerificationHandler {
     Boolean verify(Event event, DAG dag);
-
-    Boolean verifyExpected(Event event, List<Log> logs);
+    int verifyExpected(Event event, List<Log> logs);
 }

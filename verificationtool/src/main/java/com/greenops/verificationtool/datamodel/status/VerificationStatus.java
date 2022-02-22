@@ -3,7 +3,7 @@ package com.greenops.verificationtool.datamodel.status;
 import com.greenops.util.datamodel.event.Event;
 
 public interface VerificationStatus {
-    public void markPipelineProgress();
+    public void markPipelineProgress(Event event);
 
     public void markPipelineComplete();
 

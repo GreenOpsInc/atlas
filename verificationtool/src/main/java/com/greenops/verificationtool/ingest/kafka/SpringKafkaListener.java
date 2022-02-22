@@ -6,7 +6,6 @@ import com.greenops.util.datamodel.event.Event;
 import com.greenops.util.datamodel.event.PipelineCompletionEvent;
 import com.greenops.util.error.AtlasNonRetryableError;
 import com.greenops.verificationtool.ingest.handling.EventHandler;
-import com.greenops.verificationtool.ingest.handling.EventVisitedRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -28,15 +27,11 @@ public class SpringKafkaListener {
     @Autowired
     KafkaClient kafkaClient;
 
-    @Autowired
-    EventVisitedRegistry eventVisitedRegistry;
-
     @KafkaListener(topics = "${spring.kafka.verification-topic}", groupId = "${spring.kafka.consumer.group-id}")
     public void listen(String message, Acknowledgment ack) {
         try {
             var event = objectMapper.readValue(message, Event.class);
             eventHandler.handleEvent(event);
-            eventVisitedRegistry.put(event);
             ack.acknowledge();
             if (!(event instanceof PipelineCompletionEvent)){
                 kafkaClient.sendMessage(event);
