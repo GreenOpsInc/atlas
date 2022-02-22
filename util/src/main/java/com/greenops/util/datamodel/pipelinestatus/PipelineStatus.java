@@ -22,7 +22,27 @@ public class PipelineStatus {
         this.cancelled = false;
         this.failedSteps = new ArrayList<>();
     }
-    
+
+    public List<String> getProgressingSteps() {
+        return this.progressingSteps;
+    }
+
+    public boolean isStable() {
+        return this.stable;
+    }
+
+    public boolean isComplete() {
+        return this.complete;
+    }
+
+    public boolean isCancelled() {
+        return this.cancelled;
+    }
+
+    public List<FailedStep> getFailedSteps() {
+        return this.failedSteps;
+    }
+
     public void markCancelled() {
         this.cancelled = true;
         this.complete = false;

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"log"
+	"os"
 
 	"github.com/greenopsinc/util/tlsmanager"
 
@@ -21,7 +22,7 @@ type kafkaClient struct {
 }
 
 const (
-	kafkaTopic string = "greenops.eventing"
+	defaultKafkaTopic string = "greenops.eventing"
 )
 
 func New(address string, tm tlsmanager.Manager) (KafkaClient, error) {
@@ -59,6 +60,10 @@ func (k *kafkaClient) initWriter() error {
 }
 
 func (k *kafkaClient) configureWriter(tlsConf *tls.Config) (*kafka.Writer, error) {
+	kafkaTopic := os.Getenv("KAFKA_TOPIC")
+	if kafkaTopic == "" {
+		kafkaTopic = defaultKafkaTopic
+	}
 	if tlsConf == nil || tlsConf.InsecureSkipVerify {
 		return &kafka.Writer{
 			Addr:     kafka.TCP(k.address),

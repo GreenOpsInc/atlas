@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.greenops.util.datamodel.event.PipelineTriggerEvent.PIPELINE_TRIGGER_EVENT_CLASS_NAME;
-import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.ROOT_STEP_NAME;
+import static com.greenops.util.datamodel.event.PipelineTriggerEvent.ROOT_STEP_NAME;
 
 @Slf4j
 @Component

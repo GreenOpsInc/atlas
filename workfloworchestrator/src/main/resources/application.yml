@@ -22,5 +22,7 @@ application:
       bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-    topic: greenops.eventing
-    dlqtopic: greenops.eventing.dlq
+    topic: ${KAFKA_CONSUMER_TOPIC:greenops.eventing}
+    dlqtopic: ${KAFKA_CONSUMER_TOPIC:greenops.eventing}.dlq
+    # This is only for testing purposes.
+    producer-topic: ${KAFKA_PRODUCER_TOPIC:greenops.eventing}

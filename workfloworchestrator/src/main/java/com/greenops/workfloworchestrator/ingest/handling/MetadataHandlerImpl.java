@@ -5,9 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenops.util.datamodel.event.Event;
 import com.greenops.util.datamodel.git.ArgoRepoSchema;
 import com.greenops.util.datamodel.metadata.StepMetadata;
+import com.greenops.util.datamodel.pipelinedata.PipelineData;
 import com.greenops.util.dbclient.DbClient;
 import com.greenops.util.error.AtlasNonRetryableError;
-import com.greenops.workfloworchestrator.datamodel.pipelinedata.PipelineData;
 import com.greenops.workfloworchestrator.ingest.dbclient.DbKey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.ROOT_STEP_NAME;
+import static com.greenops.util.datamodel.pipelinedata.StepData.ROOT_STEP_NAME;
 
 @Slf4j
 @Component

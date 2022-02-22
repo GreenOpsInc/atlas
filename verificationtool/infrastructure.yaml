@@ -1,0 +1,416 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prom-admin
+rules:
+  # Small scope, feel free to change it
+  - apiGroups: ["networking.istio.io", "apps", "", "batch"]
+    resources: ["*"] #"pods", "nodes"
+    verbs: ["*"] #"get", "watch", "list"
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prom-rbac
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: prom-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+#Redis Service & Deployment
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: redisserver
+  name: redisserver
+spec:
+  ports:
+    - name: "6379"
+      port: 6379
+      targetPort: 6379
+  selector:
+    io.kompose.service: redisserver
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: redisserver
+  name: redisserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: redisserver
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.23.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: redisserver
+    spec:
+      containers:
+        - image: redis
+          name: redisserver
+          ports:
+            - containerPort: 6379
+          resources: {}
+      restartPolicy: Always
+status: {}
+---
+#WorkflowTrigger Service & Deployment
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: workflowtrigger
+  name: workflowtrigger
+spec:
+  ports:
+    - name: "8080"
+      port: 8080
+      targetPort: 8080
+  selector:
+    io.kompose.service: workflowtrigger
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: workflowtrigger
+  name: workflowtrigger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: workflowtrigger
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.23.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: workflowtrigger
+    spec:
+      containers:
+        - env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: LOCALHOSTDYNAMICADDRESS:29092
+            - name: ATLAS_DB_ADDRESS
+              value: redisserver.default.svc.cluster.local:6379
+            - name: REPO_SERVER_ENDPOINT
+              value: http://reposerver.default.svc.cluster.local:8080
+            - name: COMMAND_DELEGATOR_SERVER_ENDPOINT
+              value: https://commanddelegator.default.svc.cluster.local:8080
+            - name: KAFKA_TOPIC
+              value: verification.eventing
+          image: atlasworkflowtrigger
+          imagePullPolicy: Never
+          name: workflowtrigger
+          ports:
+            - containerPort: 8080
+          resources: {}
+      restartPolicy: Always
+status: {}
+---
+#PipelineRepoServer Service & Deployment
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: reposerver
+  name: reposerver
+spec:
+  ports:
+    - name: "8080"
+      port: 8080
+      targetPort: 8080
+  selector:
+    io.kompose.service: reposerver
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: reposerver
+  name: reposerver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: reposerver
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.23.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: reposerver
+    spec:
+      containers:
+        - env:
+            - name: REDIS_ENDPOINT
+              value: redisserver.default.svc.cluster.local:6379
+            - name: ORG_NAME
+              value: org
+          image: atlasreposerver
+          imagePullPolicy: Never
+          name: reposerver
+          ports:
+            - containerPort: 8080
+          resources: {}
+      restartPolicy: Always
+status: {}
+---
+#WorkflowOrchestrator Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: workfloworchestrator
+  name: workfloworchestrator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: workfloworchestrator
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.23.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: workfloworchestrator
+    spec:
+      containers:
+        - env:
+            - name: CLIENT_WRAPPER_ENDPOINT
+              value: https://atlasclientwrapper.default.svc.cluster.local:9091
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: LOCALHOSTDYNAMICADDRESS:29092
+            - name: REDIS_ENDPOINT
+              value: redisserver.default.svc.cluster.local:6379
+            - name: REPO_SERVER_ENDPOINT
+              value: http://reposerver.default.svc.cluster.local:8080
+            - name: KAFKA_CONSUMER_TOPIC
+              value: greenops.eventing
+            - name: KAFKA_PRODUCER_TOPIC
+              value: verification.eventing
+          image: atlasworkfloworchestrator
+          imagePullPolicy: Never
+          name: workfloworchestrator
+          resources: {}
+      restartPolicy: Always
+status: {}
+---
+#CommandDelegator Service & Deployment
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: commanddelegator
+  name: commanddelegator
+spec:
+  ports:
+    - name: "8080"
+      port: 8080
+      targetPort: 8080
+  selector:
+    io.kompose.service: commanddelegator
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.23.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: commanddelegator
+  name: commanddelegator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: commanddelegator
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.23.0 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: commanddelegator
+    spec:
+      containers:
+        - env:
+            - name: ATLAS_DB_ADDRESS
+              value: redisserver.default.svc.cluster.local:6379
+          image: atlascommanddelegator
+          imagePullPolicy: Never
+          name: commanddelegator
+          ports:
+            - containerPort: 8080
+          resources: {}
+      restartPolicy: Always
+status: {}
+---
+# ClientWrapper Service & Deployment
+apiVersion: v1
+kind: Service
+metadata:
+  name: atlasclientwrapper
+  labels:
+    app: atlasclientwrapper
+spec:
+  ports:
+    - port: 9091
+      targetPort: 9091
+  type: LoadBalancer
+  selector:
+    app: atlasclientwrapper
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atlasclientwrapper
+  labels:
+    app: atlasclientwrapper
+spec:
+  selector:
+    matchLabels:
+      app: atlasclientwrapper
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: atlasclientwrapper
+    spec:
+      containers:
+        - env:
+            - name: WORKFLOW_TRIGGER_SERVER_ADDR
+              value: https://workflowtrigger.default.svc.cluster.local:8080
+            - name: COMMAND_DELEGATOR_URL
+              value: https://commanddelegator.default.svc.cluster.local:8080
+          name: atlasclientwrapper
+          image: atlasclientwrapper
+          imagePullPolicy: Never
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
+          ports:
+            - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verificationtool
+  labels:
+    app: verificationtool
+spec:
+  selector:
+    matchLabels:
+      app: verificationtool
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: verificationtool
+    spec:
+      containers:
+        - env:
+            - name: CLIENT_WRAPPER_ENDPOINT
+              value: https://atlasclientwrapper.default.svc.cluster.local:9091
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: LOCALHOSTDYNAMICADDRESS:29092
+            - name: REDIS_ENDPOINT
+              value: redisserver.default.svc.cluster.local:6379
+            - name: REPO_SERVER_ENDPOINT
+              value: http://reposerver.default.svc.cluster.local:8080
+            - name: WORKFLOWTRIGGER_ENDPOINT
+              value: https://workflowtrigger.default.svc.cluster.local:8080
+            - name: KAFKA_GREENOPS_TOPIC
+              value: greenops.eventing
+            - name: KAFKA_VERIFICATIONTOOL_TOPIC
+              value: verification.eventing
+          image: verificationtool
+          imagePullPolicy: Never
+          name: verificationtool
+          ports:
+              - containerPort: 8080
+          resources: {}
+      restartPolicy: Always
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: verificationtool
+  labels:
+    app: verificationtool
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: verificationtool
