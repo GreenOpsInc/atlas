@@ -2,21 +2,15 @@ package com.greenops.workfloworchestrator.datamodel.pipelinedata;
 
 import com.greenops.util.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.datamodel.requests.KubernetesCreationRequest;
-import com.greenops.workfloworchestrator.ingest.handling.testautomation.CommandBuilder;
-import lombok.NonNull;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import static com.greenops.workfloworchestrator.ingest.handling.ClientKey.makeTestKey;
 import static com.greenops.workfloworchestrator.ingest.handling.EventHandlerImpl.WATCH_TEST_KEY;
-import static com.greenops.workfloworchestrator.ingest.handling.util.deployment.SchemaHandlingUtil.escapeFile;
 import static com.greenops.workfloworchestrator.ingest.handling.util.deployment.SchemaHandlingUtil.getFileName;
 
 public class InjectScriptTest implements Test {
-
-    private static String DEFAULT_NAMESPACE = "default";
 
     private String path;
     private String image;
