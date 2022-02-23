@@ -4,14 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"time"
-
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	"github.com/argoproj/argo-cd/v2/util/errors"
 	"github.com/argoproj/argo-cd/v2/util/localconfig"
 	"github.com/spf13/cobra"
+	"io"
+	"net/http"
 )
 
 // pipelineUpdateCmd represents the pipelineUpdate command
@@ -58,7 +56,7 @@ Example usage:
 		context, _ := config.ResolveContext(apiclient.ClientOptions{}.Context)
 
 		var req *http.Request
-		client := &http.Client{Timeout: 20 * time.Second}
+		client := getHttpClient()
 		url := "https://" + atlasURL + "/pipeline/" + orgName + "/" + teamName + "/" + pipelineName
 
 		if !tokenFlagSet && !usernameFlagSet {
