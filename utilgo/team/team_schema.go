@@ -1,7 +1,6 @@
 package team
 
 import (
-	"log"
 	"encoding/json"
 
 	"gitlab.com/c0b/go-ordered-json"
@@ -104,9 +103,7 @@ func UnmarshallTeamSchema(m map[string]interface{}) TeamSchema {
 
 func UnmarshallTeamSchemaString(str string) TeamSchema {
 	var m map[string]interface{}
-	log.Printf("%s", str)
 	_ = json.Unmarshal([]byte(str), &m)
-	log.Printf("after json unmarshall %s", m)
 	return UnmarshallTeamSchema(m)
 }
 
