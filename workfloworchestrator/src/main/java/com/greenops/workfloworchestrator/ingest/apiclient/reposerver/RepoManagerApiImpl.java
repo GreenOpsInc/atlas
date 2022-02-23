@@ -41,17 +41,14 @@ public class RepoManagerApiImpl implements RepoManagerApi {
     public RepoManagerApiImpl(
             @Value("${application.repo-server-url}") String serverEndpoint,
             @Qualifier("eventAndRequestObjectMapper") ObjectMapper objectMapper,
-            @Value("${application.repo-server-keystore-path}") String serverKeystorePath,
-            @Value("${application.repo-server-keystore-password}") String serverKeystorePassword,
-            @Value("${application.repo-server-cert-der-path}") String serverCertDerPath,
-            @Value("${application.jdk-ca-certs-path}") String caCertsPath,
-            @Value("${application.jdk-ca-certs-password}") String caCertsKeystorePassword
+            @Value("${application.repo-server-cert-path}") String serverCertPath,
+            @Value("${application.repo-server-key-path}") String serverKeyPath
     ) {
         this.serverRepoEndpoint = serverEndpoint.endsWith("/") ? serverEndpoint + ROOT_REPO_EXTENSION : serverEndpoint + "/" + ROOT_REPO_EXTENSION;
         this.serverDataEndpoint = serverEndpoint.endsWith("/") ? serverEndpoint + ROOT_DATA_EXTENSION : serverEndpoint + "/" + ROOT_DATA_EXTENSION;
         this.objectMapper = objectMapper;
         try {
-            this.httpClient = Builder.create().withCustomTls(serverKeystorePath, serverKeystorePassword, serverCertDerPath, caCertsPath, caCertsKeystorePassword).build();
+            this.httpClient = Builder.create().withCustomTls(serverCertPath, serverKeyPath).build();
         } catch (Exception e) {
             log.error("Failed to create RepoServer HTTP client", e);
             throw new AtlasNonRetryableError(e);

@@ -26,7 +26,7 @@ func main() {
 	api.InitRepoEndpoints(r)
 	api.InitFileEndpoints(r)
 
-	httpserver.CreateAndWatchServer(tlsmanager.ClientArgoCDRepoServer, tlsManager, r)
+	httpserver.CreateAndWatchServer(tlsmanager.ClientRepoServer, tlsManager, r)
 }
 
 func Middleware(next http.Handler) http.Handler {

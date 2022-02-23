@@ -43,7 +43,10 @@ func getPipelineConfig(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Couldn't find contents", http.StatusNotFound)
 			return
 		}
-		w.WriteHeader(http.StatusOK)
+		_, err = w.Write([]byte(fileContents))
+		if err != nil {
+			http.Error(w, "error occurred when trying to write the filecontents", http.StatusInternalServerError)
+		}
 		return
 	}
 	http.Error(w, "org name did not match or repo is not contained by manager", http.StatusBadRequest)

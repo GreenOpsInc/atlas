@@ -1,26 +1,23 @@
 package com.greenops.util.httpclient;
 
 import lombok.extern.slf4j.Slf4j;
+import nl.altindag.ssl.SSLFactory;
+import nl.altindag.ssl.util.PemUtils;
 import org.apache.http.client.HttpClient;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.ssl.SSLContextBuilder;
-import org.apache.http.ssl.SSLContexts;
 import org.springframework.stereotype.Component;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
+import javax.net.ssl.*;
 import java.io.File;
+import java.nio.file.Paths;
 import java.security.SecureRandom;
 
 @Slf4j
 @Component
 public class Builder {
     private static final String KEYSTORE_CERT_ALIAS = "reposerver.atlas.svc.cluster.local";
-    private SSLConnectionSocketFactory sslConSocFactory;
+    private SSLContext sslCon;
     private HttpClientBuilder builder;
 
     private Builder() {
@@ -31,34 +28,35 @@ public class Builder {
         return new Builder();
     }
 
-    public Builder withCustomTls(String keystorePath, String keystorePassword, String derCertPath, String caCertsPath, String caCertsKeystorePassword) throws Exception {
-        if (keystorePath.equals("") || derCertPath.equals("") || caCertsPath.equals("")) {
+    public Builder withCustomTls(String certPemPath, String keyPemPath) {
+        if (certPemPath.equals("") || keyPemPath.equals("")) {
             return this;
         }
-        File keystoreFile = new File(keystorePath);
-        File derCertFile = new File(derCertPath);
-        File caCertsFile = new File(caCertsPath);
-        if (!keystoreFile.exists() || !derCertFile.exists() || !caCertsFile.exists()) {
+        File certPemFile = new File(certPemPath);
+        File keyPemFile = new File(keyPemPath);
+        if (!certPemFile.exists() || !keyPemFile.exists()) {
+            log.info("Paths are not valid or files do not exist, not adding custom TLS");
             return this;
         }
 
-        SSLContextBuilder SSLBuilder = SSLContexts.custom();
-        File file = new File(keystorePath);
-        SSLBuilder = SSLBuilder.loadTrustMaterial(file, keystorePassword.toCharArray());
-        SSLContext sslcontext = SSLBuilder.build();
-        this.sslConSocFactory = new SSLConnectionSocketFactory(sslcontext, new NoopHostnameVerifier());
-        this.addCertToJDK(derCertPath, caCertsPath, caCertsKeystorePassword);
+        X509ExtendedKeyManager keyManager = PemUtils.loadIdentityMaterial(Paths.get(certPemPath), Paths.get(keyPemPath));
+        X509ExtendedTrustManager trustManager = PemUtils.loadTrustMaterial(Paths.get(certPemPath));
+        var sslFactory = SSLFactory.builder()
+                .withIdentityMaterial(keyManager)
+                .withTrustMaterial(trustManager)
+                .build();
+        this.sslCon = sslFactory.getSslContext();
         return this;
     }
 
     public HttpClient build() throws Exception {
-        if (this.sslConSocFactory == null) {
+        if (this.sslCon == null) {
             SSLContext context = SSLContext.getInstance("TLS");
             context.init(null, trustAllCerts, new SecureRandom());
             this.builder.setSSLHostnameVerifier((s1, s2) -> true);
             return this.builder.setSSLContext(context).build();
         }
-        return this.builder.setSSLSocketFactory(sslConSocFactory).build();
+        return this.builder.setSSLContext(this.sslCon).build();
     }
 
     private static final TrustManager[] trustAllCerts = new TrustManager[]{
@@ -76,13 +74,4 @@ public class Builder {
                 }
             }
     };
-
-    private void addCertToJDK(String derCertPath, String caCertsPath, String caCertsKeystorePassword) throws Exception {
-        String cmd = "keytool -trustcacerts -import -alias " + KEYSTORE_CERT_ALIAS + " -keystore " + caCertsPath + " -file " + derCertPath + " -storepass " + caCertsKeystorePassword + " -noprompt";
-        System.out.println("Running command to add der cert to ca certs: " + cmd);
-        Runtime run = Runtime.getRuntime();
-        Process pr = run.exec(cmd);
-        pr.waitFor();
-    }
-
 }
