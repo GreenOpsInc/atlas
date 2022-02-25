@@ -2,6 +2,9 @@ package com.greenops.verificationtool.datamodel.status;
 
 import com.greenops.util.datamodel.event.Event;
 import com.greenops.util.datamodel.event.FailureEvent;
+import com.greenops.util.datamodel.event.PipelineCompletionEvent;
+
+import java.util.HashMap;
 
 public class VerificationStatusImpl implements VerificationStatus {
     public static String IDLE = "IDLE";
@@ -21,6 +24,7 @@ public class VerificationStatusImpl implements VerificationStatus {
     private String stepName;
     private String failedType;
     private String log;
+    private HashMap<String, String> expectedDiff;
 
     public VerificationStatusImpl() {
         this.status = IDLE;
@@ -28,10 +32,14 @@ public class VerificationStatusImpl implements VerificationStatus {
         this.stepName = null;
         this.failedType = null;
         this.log = null;
+        this.expectedDiff = new HashMap<>();
     }
 
     @Override
     public void markPipelineProgress(Event event) {
+        if (this.failedType != null){
+            return;
+        }
         this.status = PROGRESSING;
         this.stepName = event.getStepName();
         this.failedType = null;
@@ -40,8 +48,11 @@ public class VerificationStatusImpl implements VerificationStatus {
 
     @Override
     public void markPipelineComplete() {
+        if (this.failedType != null){
+            return;
+        }
         this.status = COMPLETE;
-        this.failedType = null;
+        this.stepName = null;
         this.log = null;
     }
 
@@ -55,5 +66,14 @@ public class VerificationStatusImpl implements VerificationStatus {
         if (event instanceof FailureEvent) {
             this.log = ((FailureEvent) event).getError();
         }
+    }
+
+    @Override
+    public void markExpectedFailed(Event event, String failedType, HashMap<String, String> diff){
+        this.status = FAILURE;
+        this.eventFailed = ((PipelineCompletionEvent) event).getFailedEvent() != null ? ((PipelineCompletionEvent) event).getFailedEvent() : event.getClass().getName();
+        this.failedType = failedType;
+        this.stepName = event.getStepName();
+        this.expectedDiff = diff;
     }
 }

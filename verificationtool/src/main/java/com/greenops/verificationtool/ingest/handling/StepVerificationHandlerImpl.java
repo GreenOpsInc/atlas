@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
 import java.util.List;
 
 import static com.greenops.verificationtool.datamodel.status.VerificationStatusImpl.COMPLETE;
@@ -111,13 +112,15 @@ public class StepVerificationHandlerImpl implements StepVerificationHandler {
     }
 
     @Override
-    public int verifyExpected(Event event, List<Log> logs) {
+    public HashMap<String, String> verifyExpected(Event event, List<Log> logs) throws JsonProcessingException {
         var stepLevelStatus = getLogs(event.getOrgName(), event.getPipelineName(), event.getTeamName(), event.getStepName());
+        var stepLevelStatusStr = objectMapper.writeValueAsString(stepLevelStatus);
+        var expectedLogs = objectMapper.writeValueAsString(logs);
         if (logs == null && stepLevelStatus == null) {
-            return 1;
+            return null;
         }
         if ((stepLevelStatus == null && logs != null) || (stepLevelStatus != null && logs == null)) {
-            return 0;
+            return makeExpectedDiffPayload(expectedLogs, stepLevelStatusStr);
         }
         if(logs.size() == stepLevelStatus.size()) {
             for(int i=0; i<logs.size(); i++) {
@@ -125,30 +128,30 @@ public class StepVerificationHandlerImpl implements StepVerificationHandler {
                 var expectedLog = logs.get(i);
                 if (!expectedLog.getPipelineUniqueVersionNumber().equals(log.getPipelineUniqueVersionNumber()) &&
                         (expectedLog.getPipelineUniqueVersionNumber().equals(this.POPULATED) && log.getPipelineUniqueVersionNumber().equals("")))
-                    return 0;
+                    return makeExpectedDiffPayload(expectedLogs, stepLevelStatusStr);
                 if (!expectedLog.getStatus().equals(log.getStatus()) && !(expectedLog.getStatus().equals(this.POPULATED) && !log.getStatus().equals("")))
-                    return 0;
+                    return makeExpectedDiffPayload(expectedLogs, stepLevelStatusStr);
                 if (log instanceof DeploymentLog && ((DeploymentLog) expectedLog).isDeploymentComplete() != ((DeploymentLog) expectedLog).isDeploymentComplete())
-                    return 0;
+                    return makeExpectedDiffPayload(expectedLogs, stepLevelStatusStr);
                 if (log instanceof DeploymentLog && (!((DeploymentLog) expectedLog).getArgoApplicationName().equals(((DeploymentLog) log).getArgoApplicationName()) &&
                         !(((DeploymentLog) expectedLog).getArgoApplicationName().equals(this.POPULATED) && !((DeploymentLog) log).getArgoApplicationName().equals(""))))
-                    return 0;
+                    return makeExpectedDiffPayload(expectedLogs, stepLevelStatusStr);
                 if (log instanceof DeploymentLog && (!((DeploymentLog) expectedLog).getArgoRevisionHash().equals(((DeploymentLog) log).getArgoRevisionHash()) &&
                         !(((DeploymentLog) expectedLog).getArgoRevisionHash().equals(this.POPULATED) && !((DeploymentLog) log).getArgoRevisionHash().equals("")))) {
-                    return 0;
+                    return makeExpectedDiffPayload(expectedLogs, stepLevelStatusStr);
                 }
                 if (log instanceof DeploymentLog && (!((DeploymentLog) expectedLog).getBrokenTest().equals(((DeploymentLog) log).getBrokenTest()) &&
                         !(((DeploymentLog) expectedLog).getBrokenTest().equals(this.POPULATED) && !((DeploymentLog) log).getBrokenTest().equals("")))) {
-                    return 0;
+                    return makeExpectedDiffPayload(expectedLogs, stepLevelStatusStr);
                 }
                 if (log instanceof DeploymentLog && (!((DeploymentLog) expectedLog).getBrokenTestLog().equals(((DeploymentLog) log).getBrokenTestLog()) &&
                         !(((DeploymentLog) expectedLog).getBrokenTestLog().equals(this.POPULATED) && !((DeploymentLog) log).getBrokenTestLog().equals("")))) {
-                    return 0;
+                    return makeExpectedDiffPayload(expectedLogs, stepLevelStatusStr);
                 }
             }
-            return 1;
+            return null;
         }
-        return 2;
+        return null;
     }
 
     private Boolean verifyPipelineCompletion(Event event, List<Log> logs) {
@@ -162,5 +165,12 @@ public class StepVerificationHandlerImpl implements StepVerificationHandler {
                     || (((DeploymentLog) log).isDeploymentComplete()) && !((DeploymentLog) log).getArgoApplicationName().equals("") && !((DeploymentLog) log).getArgoRevisionHash().equals("")));
         }
         return false;
+    }
+
+    private HashMap<String, String> makeExpectedDiffPayload(String expected, String got){
+        return new HashMap<String, String>() {{
+            put("expected", expected);
+            put("got", got);
+        }};
     }
 }

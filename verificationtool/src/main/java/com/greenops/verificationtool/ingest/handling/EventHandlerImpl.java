@@ -1,5 +1,6 @@
 package com.greenops.verificationtool.ingest.handling;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.greenops.util.datamodel.event.*;
 import com.greenops.verificationtool.datamodel.verification.DAG;
 import com.greenops.verificationtool.datamodel.verification.Vertex;
@@ -54,7 +55,11 @@ public class EventHandlerImpl implements EventHandler {
         log.info("Handling event of type {}", event.getClass().getName());
         var verificationStatus = this.verificationStatusRegistry.getVerificationStatus(event.getPipelineName() + "-" + event.getTeamName());
         var dag = dagRegistry.retrieveDagObj(event.getPipelineName() + "-" + event.getTeamName());
-        handleExpectedRules(event, dag);
+        try {
+            handleExpectedRules(event, dag);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Unable to serialize status object into status string " + e);
+        }
 
         if (!(event instanceof PipelineCompletionEvent)) {
             verificationStatus.markPipelineProgress(event);
@@ -91,7 +96,7 @@ public class EventHandlerImpl implements EventHandler {
         }
     }
 
-    private void handleExpectedRules(Event event, DAG dag) {
+    private void handleExpectedRules(Event event, DAG dag) throws JsonProcessingException {
         var verificationStatus = this.verificationStatusRegistry.getVerificationStatus(event.getPipelineName() + "-" + event.getTeamName());
         String stepName, pipelineName, teamName, eventType = null;
         stepName = event.getStepName();
@@ -118,20 +123,21 @@ public class EventHandlerImpl implements EventHandler {
         var ruleData = this.ruleEngine.getRule(stepName, pipelineName, teamName, eventType);
         if (ruleData != null) {
             if (ruleData.getPipelineStatus() != null) {
-                if (this.pipelineVerificationHandler.verifyExpected(event, ruleData.getPipelineStatus())) {
+                var expectedDiff = this.pipelineVerificationHandler.verifyExpected(event, ruleData.getPipelineStatus());
+                if (expectedDiff == null) {
                     log.info("Expected Pipeline Status passed for {}-{}-{}", teamName, stepName, pipelineName);
                 } else {
                     log.info("Expected Pipeline Status failed for {}-{}-{}", teamName, stepName, pipelineName);
-                    verificationStatus.markPipelineFailed(event, EXPECTED_PIPELINE_STATUS_FAILED);
+                    verificationStatus.markExpectedFailed(event, EXPECTED_PIPELINE_STATUS_FAILED, expectedDiff);
                 }
             }
             if (ruleData.getStepStatus() != null) {
-                var verdict = this.stepVerificationHandler.verifyExpected(event, ruleData.getStepStatus());
-                if (verdict == 1) {
+                var expectedDiff = this.stepVerificationHandler.verifyExpected(event, ruleData.getStepStatus());
+                if (expectedDiff == null) {
                     log.info("Expected Step Status passed for {}-{}-{}", teamName, stepName, pipelineName);
-                } else if (verdict == 0) {
+                } else {
                     log.info("Expected Step Status failed for {}-{}-{}", teamName, stepName, pipelineName);
-                    verificationStatus.markPipelineFailed(event, EXPECTED_STEP_STATUS_FAILED);
+                    verificationStatus.markExpectedFailed(event, EXPECTED_STEP_STATUS_FAILED, expectedDiff);
                 }
             }
         }

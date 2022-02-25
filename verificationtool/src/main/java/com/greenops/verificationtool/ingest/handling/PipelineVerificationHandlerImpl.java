@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
+
+import java.util.HashMap;
 import java.util.List;
 import static com.greenops.verificationtool.datamodel.status.VerificationStatusImpl.EVENT_COMPLETION_FAILED;
 import static com.greenops.verificationtool.datamodel.status.VerificationStatusImpl.FAILURE_EVENT_RECEIVED;
@@ -65,39 +67,42 @@ public class PipelineVerificationHandlerImpl implements PipelineVerificationHand
     }
 
     @Override
-    public Boolean verifyExpected(Event event, PipelineStatus expectedPipelineStatus) {
+    public HashMap<String, String> verifyExpected(Event event, PipelineStatus expectedPipelineStatus) throws JsonProcessingException {
         var pipelineStatus = getPipelineStatus(event);
+        var expectedPipelineStatusStr = objectMapper.writeValueAsString(expectedPipelineStatus);
+        var pipelineStatusStr =  objectMapper.writeValueAsString(pipelineStatus);
+
         for (String step : pipelineStatus.getProgressingSteps()) {
             if (!expectedPipelineStatus.getProgressingSteps().contains(step)) {
-                return false;
+                return makeExpectedDiffPayload(expectedPipelineStatusStr, pipelineStatusStr);
             }
         }
-        if (expectedPipelineStatus.isStable() != pipelineStatus.isStable()) return false;
-        if (expectedPipelineStatus.isCancelled() != pipelineStatus.isCancelled()) return false;
-        if (expectedPipelineStatus.getFailedSteps().isEmpty() && !pipelineStatus.getFailedSteps().isEmpty()) return false;
-        if (!expectedPipelineStatus.getFailedSteps().isEmpty() && pipelineStatus.getFailedSteps().isEmpty()) return false;
-        if (expectedPipelineStatus.getFailedSteps().isEmpty() && pipelineStatus.getFailedSteps().isEmpty()) return true;
+        if (expectedPipelineStatus.isStable() != pipelineStatus.isStable()) return makeExpectedDiffPayload(expectedPipelineStatusStr, pipelineStatusStr);
+        if (expectedPipelineStatus.isCancelled() != pipelineStatus.isCancelled()) return makeExpectedDiffPayload(expectedPipelineStatusStr, pipelineStatusStr);
+        if (expectedPipelineStatus.getFailedSteps().isEmpty() && !pipelineStatus.getFailedSteps().isEmpty()) return makeExpectedDiffPayload(expectedPipelineStatusStr, pipelineStatusStr);
+        if (!expectedPipelineStatus.getFailedSteps().isEmpty() && pipelineStatus.getFailedSteps().isEmpty()) return makeExpectedDiffPayload(expectedPipelineStatusStr, pipelineStatusStr);
+        if (expectedPipelineStatus.getFailedSteps().isEmpty() && pipelineStatus.getFailedSteps().isEmpty()) return null;
         for (FailedStep failedStep : pipelineStatus.getFailedSteps()) {
             if (getFailedStep(failedStep.getStep(), expectedPipelineStatus.getFailedSteps()) == null) {
-                return false;
+                return makeExpectedDiffPayload(expectedPipelineStatusStr, pipelineStatusStr);
             }
             FailedStep expectedFailedStep = getFailedStep(failedStep.getStep(), expectedPipelineStatus.getFailedSteps());
             if (expectedFailedStep == null) {
-                return false;
+                return makeExpectedDiffPayload(expectedPipelineStatusStr, pipelineStatusStr);
             }
             if (expectedFailedStep.isDeploymentFailed() != failedStep.isDeploymentFailed()) {
-                return false;
+                return makeExpectedDiffPayload(expectedPipelineStatusStr, pipelineStatusStr);
             }
             if (!expectedFailedStep.getBrokenTest().equals(failedStep.getBrokenTest()) &&
                     !(expectedFailedStep.getBrokenTest().equals(this.POPULATED) && !failedStep.getBrokenTest().equals(""))) {
-                return false;
+                return makeExpectedDiffPayload(expectedPipelineStatusStr, pipelineStatusStr);
             }
             if (!expectedFailedStep.getBrokenTestLog().equals(failedStep.getBrokenTestLog()) &&
                     !(expectedFailedStep.getBrokenTestLog().equals(this.POPULATED) && !failedStep.getBrokenTestLog().equals(""))) {
-                return false;
+                return makeExpectedDiffPayload(expectedPipelineStatusStr, pipelineStatusStr);
             }
         }
-        return true;
+        return null;
     }
 
     private Boolean verifyPipelineCompletion(Event event, PipelineStatus pipelineStatus){
@@ -125,6 +130,13 @@ public class PipelineVerificationHandlerImpl implements PipelineVerificationHand
                 !pipelineStatus.isCancelled() &&
                 pipelineStatus.getFailedSteps().isEmpty() &&
                 pipelineStatus.getProgressingSteps().isEmpty());
+    }
+
+    private HashMap<String, String> makeExpectedDiffPayload(String expected, String got){
+        return new HashMap<String, String>() {{
+            put("expected", expected);
+            put("got", got);
+        }};
     }
 
     private FailedStep getFailedStep(String stepName, List<FailedStep> failedSteps) {
