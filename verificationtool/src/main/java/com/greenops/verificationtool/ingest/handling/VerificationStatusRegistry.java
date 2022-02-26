@@ -16,6 +16,10 @@ public class VerificationStatusRegistry {
         this.verificationStatusHashMap = new HashMap<>();
     }
 
+    public HashMap<String, VerificationStatus> getVerificationStatusHashMap(){
+        return verificationStatusHashMap;
+    }
+
     public VerificationStatus getVerificationStatus(String pipelineName) {
         if (this.verificationStatusHashMap.containsKey(pipelineName)) {
             return this.verificationStatusHashMap.get(pipelineName);

@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
 import static com.greenops.verificationtool.datamodel.status.VerificationStatusImpl.*;
@@ -104,6 +105,8 @@ public class EventHandlerImpl implements EventHandler {
         teamName = event.getTeamName();
         if (event instanceof PipelineCompletionEvent) {
             eventType = ((PipelineCompletionEvent) event).getFailedEvent();
+        } else if (event instanceof FailureEvent){
+            return;
         } else {
             var parents = dag.getPreviousVertices(event);
             if (parents != null) {

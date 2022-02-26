@@ -123,7 +123,7 @@ public class VerificationApi {
 
     @GetMapping(value = "/status/all")
     public ResponseEntity<String> getPipelineStatus() {
-        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(schemaToResponsePayload(this.verificationStatusRegistry));
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(schemaToResponsePayload(this.verificationStatusRegistry.getVerificationStatusHashMap()));
     }
 
     private List<RuleData> getRules(String gitRepoUrl, String pathToRoot) throws IOException {

@@ -74,6 +74,6 @@ public class VerificationStatusImpl implements VerificationStatus {
         this.eventFailed = ((PipelineCompletionEvent) event).getFailedEvent() != null ? ((PipelineCompletionEvent) event).getFailedEvent() : event.getClass().getName();
         this.failedType = failedType;
         this.stepName = event.getStepName();
-        this.expectedDiff = diff;
+        this.expectedDiff = diff == null ? new HashMap<>() : diff;
     }
 }
