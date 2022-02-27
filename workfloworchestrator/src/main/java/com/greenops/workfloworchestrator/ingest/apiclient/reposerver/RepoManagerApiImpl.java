@@ -6,12 +6,13 @@ import com.greenops.util.datamodel.git.GitRepoSchemaInfo;
 import com.greenops.util.datamodel.request.GetFileRequest;
 import com.greenops.util.error.AtlasNonRetryableError;
 import com.greenops.util.error.AtlasRetryableError;
+import com.greenops.util.httpclient.Builder;
+import com.greenops.util.kubernetesclient.KubernetesClient;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.HttpClientBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,11 +38,21 @@ public class RepoManagerApiImpl implements RepoManagerApi {
     private final HttpClient httpClient;
 
     @Autowired
-    public RepoManagerApiImpl(@Value("${application.repo-server-url}") String serverEndpoint, @Qualifier("eventAndRequestObjectMapper") ObjectMapper objectMapper) {
+    public RepoManagerApiImpl(
+            @Value("${application.repo-server-url}") String serverEndpoint,
+            @Qualifier("eventAndRequestObjectMapper") ObjectMapper objectMapper,
+            @Value("${application.repo-server-cert-path}") String serverCertPath,
+            @Value("${application.repo-server-key-path}") String serverKeyPath
+    ) {
         this.serverRepoEndpoint = serverEndpoint.endsWith("/") ? serverEndpoint + ROOT_REPO_EXTENSION : serverEndpoint + "/" + ROOT_REPO_EXTENSION;
         this.serverDataEndpoint = serverEndpoint.endsWith("/") ? serverEndpoint + ROOT_DATA_EXTENSION : serverEndpoint + "/" + ROOT_DATA_EXTENSION;
-        httpClient = HttpClientBuilder.create().build();
         this.objectMapper = objectMapper;
+        try {
+            this.httpClient = Builder.create().withCustomTls(serverCertPath, serverKeyPath).build();
+        } catch (Exception e) {
+            log.error("Failed to create RepoServer HTTP client", e);
+            throw new AtlasNonRetryableError(e);
+        }
     }
 
     @Override

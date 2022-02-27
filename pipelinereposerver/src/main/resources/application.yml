@@ -1,4 +1,0 @@
-server.port: 8080
-application:
-  redis-url: ${REDIS_ENDPOINT:localhost:6379}
-  org-name: ${ORG_NAME:org}

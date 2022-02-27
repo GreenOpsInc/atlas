@@ -4,9 +4,12 @@
 /test_config/.idea/
 /workflowtrigger/.gradle/
 /workflowtrigger/build/
+/workflowtrigger/workflowtrigger
 /commanddelegator/.idea/
 /commanddelegator/.gradle/
 /commanddelegator/build/
+/commanddelegator/command_delegator_api
+/clientwrapper/atlas_operator
 /util/.idea/
 /util/.gradle/
 /util/build/

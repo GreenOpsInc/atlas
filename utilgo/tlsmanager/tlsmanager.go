@@ -339,11 +339,17 @@ func (m *tlsManager) getTLSClientConf(clientName ClientName) (*tls.Config, error
 	if secret == nil || len(secret.Data) == 0 {
 		return &tls.Config{InsecureSkipVerify: true}, nil
 	}
-
+	c, err := tls.X509KeyPair(secret.Data[TLSSecretCrtName], secret.Data[TLSSecretKeyName])
+	if err != nil {
+		return nil, err
+	}
 	rootCA := m.BestEffortSystemCertPool()
 	rootCA.AppendCertsFromPEM(secret.Data[TLSSecretCrtName])
 	m.tlsClientCertPEM[clientName] = secret.Data[TLSSecretCrtName]
-	return &tls.Config{RootCAs: rootCA}, nil
+	return &tls.Config{
+		Certificates: []tls.Certificate{c},
+		RootCAs:      rootCA,
+	}, nil
 }
 
 func (m *tlsManager) getSelfSignedTLSConf(serverName ClientName) (*tls.Config, error) {
@@ -378,18 +384,20 @@ func (m *tlsManager) getTLSConfFromSecrets(serverName ClientName) (*tls.Config, 
 	return conf, nil
 }
 
+//This method should only ever be used for server side generation.
 func (m *tlsManager) generateTLSConfFromKeyPair(certPEM []byte, keyPEM []byte) (*tls.Config, error) {
 	c, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
 		return nil, err
 	}
-	rootCAs := m.BestEffortSystemCertPool()
-	rootCAs.AppendCertsFromPEM(certPEM)
+	clientCAs := m.BestEffortSystemCertPool()
+	clientCAs.AppendCertsFromPEM(certPEM)
 	return &tls.Config{
 		Certificates:             []tls.Certificate{c},
-		MinVersion:               tls.VersionTLS13,
+		MinVersion:               tls.VersionTLS12,
 		PreferServerCipherSuites: true,
-		RootCAs:                  rootCAs,
+		//ClientAuth: tls.RequireAndVerifyClientCert,
+		ClientCAs:  clientCAs,
 	}, nil
 }
 

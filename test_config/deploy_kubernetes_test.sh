@@ -22,10 +22,11 @@ cd ../clientwrapper
 env GOOS=linux go build -v ./atlasoperator/atlas_operator.go
 docker build -f test/Dockerfile -t atlasclientwrapper .
 minikube image load atlasclientwrapper
-cd ../PipelineRepoServer/
-./gradlew jibDockerBuild --image=atlasreposerver
+cd ../pipelinereposervergo/
+env GOOS=linux go build -v .
+docker build -f test/Dockerfile -t atlasreposerver .
 minikube image load atlasreposerver
-cd ../WorkflowOrchestrator/
+cd ../workfloworchestrator/
 ./gradlew jibDockerBuild --image=atlasworkfloworchestrator
 minikube image load atlasworkfloworchestrator
 cd ../test_config

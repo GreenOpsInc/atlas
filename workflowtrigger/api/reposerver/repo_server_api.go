@@ -21,23 +21,12 @@ const (
 	getFileExtension string = "file"
 )
 
-type GitRepoSchemaInfo struct {
-	GitRepoUrl string `json:"gitRepoUrl"`
-	PathToRoot string `json:"pathToRoot"`
-}
-
-type GetFileRequest struct {
-	GitRepoSchemaInfo GitRepoSchemaInfo `json:"gitRepoSchemaInfo"`
-	Filename          string            `json:"filename"`
-	GitCommitHash     string            `json:"gitCommitHash"`
-}
-
 type RepoManagerApi interface {
 	CloneRepo(orgName string, gitRepoSchema git.GitRepoSchema) bool
 	DeleteRepo(gitRepoSchema git.GitRepoSchema) bool
 	UpdateRepo(orgName string, oldGitRepoSchema git.GitRepoSchema, newGitRepoSchema git.GitRepoSchema) bool
 	SyncRepo(gitRepoSchema git.GitRepoSchema) string
-	GetFileFromRepo(getFileRequest GetFileRequest, orgName string, teamName string) string
+	GetFileFromRepo(getFileRequest git.GetFileRequest, orgName string, teamName string) string
 }
 
 type RepoManagerApiImpl struct {
@@ -74,7 +63,9 @@ func (r *RepoManagerApiImpl) CloneRepo(orgName string, gitRepoSchema git.GitRepo
 		panic(err)
 	}
 	defer resp.Body.Close()
-	log.Printf("Clone repo request returned status code %d", resp.StatusCode)
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(resp.Body)
+	log.Printf("Clone repo request returned status code %d - %s", resp.StatusCode, buf.String())
 	return resp.StatusCode == 200
 }
 
@@ -93,7 +84,9 @@ func (r *RepoManagerApiImpl) DeleteRepo(gitRepoSchema git.GitRepoSchema) bool {
 		panic(err)
 	}
 	defer resp.Body.Close()
-	log.Printf("Delete repo request returned status code %d", resp.StatusCode)
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(resp.Body)
+	log.Printf("Delete repo request returned status code %d - %s", resp.StatusCode, buf.String())
 	return resp.StatusCode == 200
 }
 
@@ -131,7 +124,7 @@ func (r *RepoManagerApiImpl) SyncRepo(gitRepoSchema git.GitRepoSchema) string {
 	}
 }
 
-func (r *RepoManagerApiImpl) GetFileFromRepo(getFileRequest GetFileRequest, orgName string, teamName string) string {
+func (r *RepoManagerApiImpl) GetFileFromRepo(getFileRequest git.GetFileRequest, orgName string, teamName string) string {
 	var err error
 	var payload []byte
 	var request *http.Request

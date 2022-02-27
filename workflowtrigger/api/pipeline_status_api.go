@@ -5,6 +5,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/greenopsinc/util/auditlog"
 	"github.com/greenopsinc/util/db"
+	"github.com/greenopsinc/util/git"
 	"greenops.io/workflowtrigger/api/argo"
 	"greenops.io/workflowtrigger/api/reposerver"
 	"greenops.io/workflowtrigger/pipelinestatus"
@@ -31,7 +32,7 @@ func getStepLogs(w http.ResponseWriter, r *http.Request) {
 
 	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
 	gitRepo := pipelineSchema.GetGitRepoSchema()
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit,
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, git.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit,
 		string(argo.GetAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
@@ -69,7 +70,7 @@ func getPipelineUvns(w http.ResponseWriter, r *http.Request) {
 
 	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
 	gitRepo := pipelineSchema.GetGitRepoSchema()
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit,
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, git.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit,
 		string(argo.GetAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
@@ -110,7 +111,7 @@ func getPipelineStatus(w http.ResponseWriter, r *http.Request) {
 
 	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
 	gitRepo := pipelineSchema.GetGitRepoSchema()
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit,
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, git.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit,
 		string(argo.GetAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
@@ -260,7 +261,7 @@ func cancelLatestPipeline(w http.ResponseWriter, r *http.Request) {
 
 	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
 	gitRepo := pipelineSchema.GetGitRepoSchema()
-	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, reposerver.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit,
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, git.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit,
 		string(argo.SyncAction), string(argo.ApplicationResource)) {
 		http.Error(w, "Not enough permissions", http.StatusForbidden)
 		return
