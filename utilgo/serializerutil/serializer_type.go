@@ -18,6 +18,9 @@ const (
 	ClientRollbackAndWatchRequestType            string = "rollback"
 	ClientSelectiveSyncRequestType               string = "sel_sync_watch"
 	ClientMarkNoDeployRequestType                string = "mark_no_deploy"
+	ClientLabelRequestType                       string = "label"
+	ClientAggregateRequestType                   string = "aggregate"
+	ClientDeleteByLabelRequestType               string = "del_label"
 	//Git cred subtypes
 	GitCredOpenType        string = "open"
 	GitCredMachineUserType string = "machineuser"

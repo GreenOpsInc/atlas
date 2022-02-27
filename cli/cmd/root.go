@@ -61,6 +61,26 @@ type NoDeployInfo struct {
 	Namespace string `json:"namespace"`
 }
 
+type ClusterNamespaceGroup struct {
+	ClusterName string `json:"clusterName"`
+	Namespace   string `json:"namespace"`
+}
+
+type ClusterNamespaceGroups struct {
+	Groups []ClusterNamespaceGroup `json:"groups"`
+}
+
+type AggregateResult struct {
+	Cluster      string     `json:"cluster"`
+	ResourceList []Resource `json:"resourceList"`
+}
+type Resource struct {
+	Kind         string     `json:"kind"`
+	Name         string     `json:"name"`
+	Version      string     `json:"version"`
+	ResourceList []Resource `json:"resource_list"`
+}
+
 var cfgFile string
 var atlasURL string
 var orgName string

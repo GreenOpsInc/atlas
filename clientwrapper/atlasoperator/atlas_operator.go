@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -169,6 +170,37 @@ func deployTaskOrTest(stringReqBody *string) (clientrequest.DeployResponse, erro
 //		},
 //	)
 //}
+func aggregateResources(request interface{}) (interface{}, error) {
+	strongTypeRequest := request.(*clientrequest.ClientAggregateRequest)
+	atlasGroup, err := drivers.k8sDriver.Aggregate(strongTypeRequest.ClusterName, strongTypeRequest.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	return atlasGroup, nil
+}
+
+func getAuditLabel(teamName string, pipelineName string) string {
+	label := fmt.Sprintf("%s-%s-stale", teamName, pipelineName)
+	return label
+}
+
+func labelResources(request interface{}) (interface{}, error) {
+	strongTypeRequest := request.(*clientrequest.ClientLabelRequest)
+	err := drivers.k8sDriver.Label(strongTypeRequest.GvkResourceList, getAuditLabel(strongTypeRequest.TeamName, strongTypeRequest.PipelineName))
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func deleteByLabel(request interface{}) (interface{}, error) {
+	strongTypeRequest := request.(*clientrequest.ClientDeleteByLabelRequest)
+	err := drivers.k8sDriver.DeleteByLabel(getAuditLabel(strongTypeRequest.TeamName, strongTypeRequest.PipelineName), strongTypeRequest.Namespace)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
 
 func selectiveSyncArgoApp(request *clientrequest.ClientSelectiveSyncRequest) error {
 	resourceName, appNamespace, _, err := drivers.argoDriver.SelectiveSync(request.AppName, request.RevisionHash, request.GvkResourceList)
@@ -484,6 +516,21 @@ func handleRequests() {
 				var request *clientrequest.ClientMarkNoDeployRequest
 				request = command.(*clientrequest.ClientMarkNoDeployRequest)
 				handleNotificationRequest(request.RequestId, markNoDeploy, request)
+				continue
+			} else if command.GetEvent() == serializerutil.ClientAggregateRequestType {
+				var request *clientrequest.ClientAggregateRequest
+				request = command.(*clientrequest.ClientAggregateRequest)
+				handleNotificationRequest(request.RequestId, aggregateResources, request)
+				continue
+			} else if command.GetEvent() == serializerutil.ClientLabelRequestType {
+				var request *clientrequest.ClientLabelRequest
+				request = command.(*clientrequest.ClientLabelRequest)
+				handleNotificationRequest(request.RequestId, labelResources, request)
+				continue
+			} else if command.GetEvent() == serializerutil.ClientDeleteByLabelRequestType {
+				var request *clientrequest.ClientDeleteByLabelRequest
+				request = command.(*clientrequest.ClientDeleteByLabelRequest)
+				handleNotificationRequest(request.RequestId, deleteByLabel, request)
 				continue
 			}
 			requestPostProcessing(command, err)
