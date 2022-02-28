@@ -272,6 +272,18 @@ func UnmarshalMapRequestEvent(m map[string]interface{}) ClientRequestEvent {
 		var request ClientMarkNoDeployRequest
 		_ = json.Unmarshal(logBytes, &request)
 		return &request
+	} else if m["type"] == serializerutil.ClientLabelRequestType {
+		var request ClientLabelRequest
+		_ = json.Unmarshal(logBytes, &request)
+		return &request
+	} else if m["type"] == serializerutil.ClientAggregateRequestType {
+		var request ClientAggregateRequest
+		_ = json.Unmarshal(logBytes, &request)
+		return &request
+	} else if m["type"] == serializerutil.ClientDeleteByLabelRequestType {
+		var request ClientDeleteByLabelRequest
+		_ = json.Unmarshal(logBytes, &request)
+		return &request
 	} else {
 		panic("Request event type did not match any supported type")
 	}
@@ -340,6 +352,109 @@ func (r *ClientMarkNoDeployRequest) GetRequestId() string {
 }
 
 func (r *ClientMarkNoDeployRequest) SetRequestId(id string) {
+	r.RequestId = id
+}
+
+// ClientLabelRequest -----
+type ClientLabelRequest struct {
+	ClientNotificationEventMetadata
+	GvkResourceList GvkGroupRequest `json:"resourcesGvkRequest"`
+	RequestId       string          `json:"requestId"`
+}
+
+func (r *ClientLabelRequest) GetEvent() string {
+	return serializerutil.ClientLabelRequestType
+}
+
+func (r *ClientLabelRequest) GetClientMetadata() ClientRequestEventMetadata {
+	return r.ClientNotificationEventMetadata.ClientRequestEventMetadata
+}
+
+func (r *ClientLabelRequest) GetPipelineUvn() string {
+	return r.PipelineUvn
+}
+
+func (r *ClientLabelRequest) IsFinalTry() bool {
+	return r.FinalTry
+}
+func (r *ClientLabelRequest) SetFinalTry(finalTry bool) {
+	r.FinalTry = finalTry
+}
+
+func (r *ClientLabelRequest) GetRequestId() string {
+	return r.RequestId
+}
+
+func (r *ClientLabelRequest) SetRequestId(id string) {
+	r.RequestId = id
+}
+
+// ClientAggregateRequest -----
+type ClientAggregateRequest struct {
+	ClientNotificationEventMetadata
+	ClusterName string `json:"clusterName"`
+	Namespace   string `json:"namespace"`
+	RequestId   string `json:"requestId"`
+}
+
+func (r *ClientAggregateRequest) GetEvent() string {
+	return serializerutil.ClientAggregateRequestType
+}
+
+func (r *ClientAggregateRequest) GetClientMetadata() ClientRequestEventMetadata {
+	return r.ClientNotificationEventMetadata.ClientRequestEventMetadata
+}
+
+func (r *ClientAggregateRequest) GetPipelineUvn() string {
+	return r.PipelineUvn
+}
+
+func (r *ClientAggregateRequest) IsFinalTry() bool {
+	return r.FinalTry
+}
+func (r *ClientAggregateRequest) SetFinalTry(finalTry bool) {
+	r.FinalTry = finalTry
+}
+
+func (r *ClientAggregateRequest) GetRequestId() string {
+	return r.RequestId
+}
+
+func (r *ClientAggregateRequest) SetRequestId(id string) {
+	r.RequestId = id
+}
+
+// ClientDeleteByLabelRequest -----
+type ClientDeleteByLabelRequest struct {
+	ClientNotificationEventMetadata
+	Namespace string `json:"namespace"`
+	RequestId string `json:"requestId"`
+}
+
+func (r *ClientDeleteByLabelRequest) GetEvent() string {
+	return serializerutil.ClientDeleteByLabelRequestType
+}
+
+func (r *ClientDeleteByLabelRequest) GetClientMetadata() ClientRequestEventMetadata {
+	return r.ClientNotificationEventMetadata.ClientRequestEventMetadata
+}
+
+func (r *ClientDeleteByLabelRequest) GetPipelineUvn() string {
+	return r.PipelineUvn
+}
+
+func (r *ClientDeleteByLabelRequest) IsFinalTry() bool {
+	return r.FinalTry
+}
+func (r *ClientDeleteByLabelRequest) SetFinalTry(finalTry bool) {
+	r.FinalTry = finalTry
+}
+
+func (r *ClientDeleteByLabelRequest) GetRequestId() string {
+	return r.RequestId
+}
+
+func (r *ClientDeleteByLabelRequest) SetRequestId(id string) {
 	r.RequestId = id
 }
 

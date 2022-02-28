@@ -246,25 +246,21 @@ spec:
             - name: REPO_SERVER_ENDPOINT
               value: https://reposerver.atlas.svc.cluster.local:8080
               # uncomment those to use custom tls certificate for repo server
-#            - name: REPO_SERVER_CERT_PATH
-#              value: /tls/examplecert.pem
-#            - name: REPO_SERVER_KEY_PATH
-#              value: /tls/examplekey.pem
+            # - name: REPO_SERVER_CERT_PATH
+            #   value: /tls/examplecert.pem
+            # - name: REPO_SERVER_KEY_PATH
+            #   value: /tls/examplekey.pem
           image: atlasworkfloworchestrator
           imagePullPolicy: Never
           name: workfloworchestrator
-#          volumeMounts:
-#            - name: config
-#              mountPath: /tls/examplecert.pem
-#              subPath: examplecert.pem
-#            - name: config
-#              mountPath: /tls/examplekey.pem
-#              subPath: examplekey.pem
+          # volumeMounts:
+          #   - name: config
+          #     mountPath: /tls
           resources: {}
-#      volumes:
-#        - name: config
-#          configMap:
-#            name: config
+      # volumes:
+      #   - name: config
+      #     configMap:
+      #       name: config
       restartPolicy: Always
 status: {}
 ---

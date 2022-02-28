@@ -83,7 +83,7 @@ public class MetadataHandlerImpl implements MetadataHandler {
         var precedingSteps = findAllPrecedingSteps(pipelineData, currentStepName);
         for (var stepName : precedingSteps) {
             var dependentArgoRepoSchema = getCurrentArgoRepoMetadata(event, stepName);
-            if (dependentArgoRepoSchema.equals(argoRepoSchema)) {
+            if (argoRepoSchema.equals(dependentArgoRepoSchema)) {
                 var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
                 var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
                 return deploymentLog.getArgoRevisionHash();

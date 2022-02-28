@@ -14,6 +14,8 @@ import java.util.Map;
         }
 )
 public interface Test {
+    static String DEFAULT_NAMESPACE = "default";
+
     static final String INJECT_TASK = "inject";
     static final String CUSTOM_TASK = "custom";
     static final String ARGO_WORKFLOW_TASK = "ArgoWorkflowTask";
