@@ -116,8 +116,15 @@ func (r *RepoManagerImpl) GetYamlFileContents(filename string, gitRepoSchema git
 		log.Printf("Repo does not exist in manager")
 		return ""
 	}
-	truncatedFilePath := strip(filename, "/")
-	dat, err := os.ReadFile(strings.Join([]string{r.orgName, directory, commandbuilder.GetFolderName(gitRepoSchema.GetGitRepo()), gitRepoSchema.GetPathToRoot(), truncatedFilePath}, "/"))
+	truncatedFilePath := strings.Trim(filename, "/")
+	pathToRoot := strings.Trim(gitRepoSchema.GetPathToRoot(), "/")
+	var fullPath string
+	if pathToRoot == "" {
+		fullPath = strings.Join([]string{r.orgName, directory, commandbuilder.GetFolderName(gitRepoSchema.GetGitRepo()), truncatedFilePath}, "/")
+	} else {
+		fullPath = strings.Join([]string{r.orgName, directory, commandbuilder.GetFolderName(gitRepoSchema.GetGitRepo()), pathToRoot, truncatedFilePath}, "/")
+	}
+	dat, err := os.ReadFile(fullPath)
 	if err != nil {
 		log.Printf("Error reading file: %s", err)
 		return ""
@@ -200,7 +207,7 @@ func strip(str string, delimiter string) string {
 	for beg < len(str) && str[beg:beg+1] == delimiter {
 		beg++
 	}
-	for end >= 0 && str[beg:beg+1] == delimiter {
+	for end >= 0 && str[end:end+1] == delimiter {
 		end--
 	}
 	if end < beg {

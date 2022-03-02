@@ -22,7 +22,7 @@ cd ../clientwrapper
 env GOOS=linux go build -v ./atlasoperator/atlas_operator.go
 docker build -f test/Dockerfile -t atlasclientwrapper .
 minikube image load atlasclientwrapper
-cd ../pipelinereposervergo/
+cd ../pipelinereposerver/
 env GOOS=linux go build -v .
 docker build -f test/Dockerfile -t atlasreposerver .
 minikube image load atlasreposerver

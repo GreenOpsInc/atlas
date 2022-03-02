@@ -3,7 +3,7 @@ package com.greenops.workfloworchestrator.datamodel.pipelinedata;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
-import java.util.Map;
+import java.util.List;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(
@@ -22,7 +22,7 @@ public interface Test {
 
     public String getPath();
     public boolean shouldExecuteBefore();
-    public Map<String, String> getVariables();
+    public List<Object> getVariables();
     //The expectation is that getPayload will return either a String or a KubernetesCreationRequest
     public Object getPayload(int testNumber, String testConfig);
     public String getWatchKey();

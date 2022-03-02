@@ -1,7 +1,6 @@
 package com.greenops.workfloworchestrator.datamodel.requests;
 
 import java.util.List;
-import java.util.Map;
 
 public class KubernetesCreationRequest {
 
@@ -15,18 +14,18 @@ public class KubernetesCreationRequest {
     private final String configPayload;
     private final String volumeFilename;
     private final String volumePayload;
-    private final Map<String, String> variables;
+    private final List<Object> variables;
 
-    public KubernetesCreationRequest(String type, String configPayload, Map<String, String> variables) {
+    public KubernetesCreationRequest(String type, String configPayload, List<Object> variables) {
         this(type, null, null, null, null, null, null, configPayload, null, null, variables);
     }
 
-    public KubernetesCreationRequest(String type, String kind, String objectName, String namespace, String imageName, List<String> command, List<String> args, String volumeFilename, String volumePayload, Map<String, String> variables) {
+    public KubernetesCreationRequest(String type, String kind, String objectName, String namespace, String imageName, List<String> command, List<String> args, String volumeFilename, String volumePayload, List<Object> variables) {
         this(type, kind, objectName, namespace, imageName, command, args, null, volumeFilename, volumePayload, variables);
     }
 
     //Mainly for the Mixin
-    public KubernetesCreationRequest(String type, String kind, String objectName, String namespace, String imageName, List<String> command, List<String> args, String configPayload, String volumeFilename, String volumePayload, Map<String, String> variables) {
+    public KubernetesCreationRequest(String type, String kind, String objectName, String namespace, String imageName, List<String> command, List<String> args, String configPayload, String volumeFilename, String volumePayload, List<Object> variables) {
         this.type = type;
         this.kind = kind;
         this.objectName = objectName;

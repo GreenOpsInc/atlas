@@ -441,7 +441,7 @@ func (a *ArgoClientDriver) GetOperationSuccess(applicationName string) (bool, bo
 		return false, false, "", err
 	}
 
-	if app.Status.OperationState == nil || app.Status.OperationState.SyncResult == nil {
+	if app.Status.OperationState == nil || app.Status.OperationState.SyncResult == nil || app.Status.OperationState.SyncResult.Revision == "" {
 		return false, false, "", errors.New("couldn't get status information")
 	}
 	return app.Status.OperationState.Phase.Completed(),
