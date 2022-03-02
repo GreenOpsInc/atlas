@@ -39,7 +39,7 @@ public abstract class KubernetesCreationRequestMixin {
     String volumePayload;
 
     @JsonProperty(value = "variables")
-    Map<String, String> variables;
+    List<Object> variables;
 
     @JsonCreator
     public KubernetesCreationRequestMixin(@JsonProperty(value = "type") String type,
@@ -52,6 +52,6 @@ public abstract class KubernetesCreationRequestMixin {
                                           @JsonProperty(value = "configPayload") String configPayload,
                                           @JsonProperty(value = "volumeFilename") String volumeFilename,
                                           @JsonProperty(value = "volumePayload") String volumePayload,
-                                          @JsonProperty(value = "variables") Map<String, String> variables) {
+                                          @JsonProperty(value = "variables") List<Object> variables) {
     }
 }

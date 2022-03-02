@@ -2,6 +2,7 @@ package com.greenops.workfloworchestrator.datamodel.pipelinedata;
 
 import com.greenops.workfloworchestrator.datamodel.requests.KubernetesCreationRequest;
 
+import java.util.List;
 import java.util.Map;
 
 import static com.greenops.workfloworchestrator.ingest.handling.EventHandlerImpl.WATCH_TEST_KEY;
@@ -10,9 +11,9 @@ public class CustomJobTest implements Test {
 
     private String path;
     private boolean executeBeforeDeployment;
-    private Map<String, String> variables;
+    private List<Object> variables;
 
-    CustomJobTest(String path, boolean executeBeforeDeployment, Map<String, String> variables) {
+    CustomJobTest(String path, boolean executeBeforeDeployment, List<Object> variables) {
         this.path = path;
         this.executeBeforeDeployment = executeBeforeDeployment;
         this.variables = variables;
@@ -29,7 +30,7 @@ public class CustomJobTest implements Test {
     }
 
     @Override
-    public Map<String, String> getVariables() {
+    public List<Object> getVariables() {
         return variables;
     }
 

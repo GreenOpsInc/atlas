@@ -1,6 +1,9 @@
 package clientrequest
 
-import "k8s.io/apimachinery/pkg/runtime/schema"
+import (
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	corev1 "k8s.io/api/core/v1"
+)
 
 const (
 	DeployArgoRequest       string = "DeployArgoRequest"
@@ -26,17 +29,17 @@ type WatchRequest struct {
 }
 
 type KubernetesCreationRequest struct {
-	Type           string            `json:"type"`
-	Kind           string            `json:"kind"`
-	ObjectName     string            `json:"objectName"`
-	Namespace      string            `json:"namespace"`
-	ImageName      string            `json:"imageName"`
-	Command        []string          `json:"command"`
-	Args           []string          `json:"args"`
-	Config         string            `json:"configPayload"`
-	VolumeFilename string            `json:"volumeFilename"`
-	VolumeConfig   string            `json:"volumePayload"`
-	Variables      map[string]string `json:"variables"`
+	Type           string          `json:"type"`
+	Kind           string          `json:"kind"`
+	ObjectName     string          `json:"objectName"`
+	Namespace      string          `json:"namespace"`
+	ImageName      string          `json:"imageName"`
+	Command        []string        `json:"command"`
+	Args           []string        `json:"args"`
+	Config         string          `json:"configPayload"`
+	VolumeFilename string          `json:"volumeFilename"`
+	VolumeConfig   string          `json:"volumePayload"`
+	Variables      []corev1.EnvVar `json:"variables"`
 }
 
 type GvkGroupRequest struct {

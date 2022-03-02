@@ -31,7 +31,7 @@ public abstract class InjectScriptTestMixin {
     boolean executeBeforeDeployment;
 
     @JsonProperty(value = "variables")
-    Map<String, String> variables;
+    List<Object> variables;
 
 
     @JsonCreator
@@ -42,7 +42,7 @@ public abstract class InjectScriptTestMixin {
                                  @JsonProperty(value = "arguments") List<String> arguments,
                                  @JsonProperty(value = "in_application_pod") boolean executeInApplicationPod,
                                  @JsonProperty(value = "before") boolean executeBeforeDeployment,
-                                 @JsonProperty(value = "variables") Map<String, String> variables) {
+                                 @JsonProperty(value = "variables") List<Object> variables) {
     }
 
     @JsonIgnore
@@ -55,7 +55,7 @@ public abstract class InjectScriptTestMixin {
     abstract boolean shouldExecuteBefore();
 
     @JsonIgnore
-    abstract Map<String, String> getVariables();
+    abstract List<Object> getVariables();
 
     @JsonIgnore
     abstract String getImage();

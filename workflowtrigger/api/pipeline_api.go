@@ -187,8 +187,8 @@ func getPipelineEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	bytesObj, _ := json.Marshal(pipelineSchema)
-	w.Write(bytesObj)
 	w.Header().Set("Content-Type", "application/json")
+	w.Write(bytesObj)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -523,7 +523,7 @@ func deleteByLabel(w http.ResponseWriter, r *http.Request) {
 	defer dbClient.Close()
 
 	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
-	var repoInfo reposerver.GitRepoSchemaInfo
+	var repoInfo git.GitRepoSchemaInfo
 	repoInfo.GitRepoUrl = pipelineSchema.GetGitRepoSchema().GitRepo
 	repoInfo.PathToRoot = pipelineSchema.GetGitRepoSchema().PathToRoot
 
@@ -561,7 +561,7 @@ func getPipelineClusterNamespaceCombinations(w http.ResponseWriter, r *http.Requ
 	defer dbClient.Close()
 
 	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
-	var repoInfo reposerver.GitRepoSchemaInfo
+	var repoInfo git.GitRepoSchemaInfo
 	repoInfo.GitRepoUrl = pipelineSchema.GetGitRepoSchema().GitRepo
 	repoInfo.PathToRoot = pipelineSchema.GetGitRepoSchema().PathToRoot
 

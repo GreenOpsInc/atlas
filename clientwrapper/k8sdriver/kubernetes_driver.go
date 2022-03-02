@@ -64,6 +64,7 @@ type KubernetesClientGetRestricted interface {
 	GetJob(name string, namespace string) (batchv1.JobStatus, metav1.LabelSelector, int32)
 	Delete(resourceName string, resourceNamespace string, gvk schema.GroupVersionKind) error
 	GetLogs(podNamespace string, selector metav1.LabelSelector) (string, error)
+	GetConfigMapNameFromTask(taskName string) string
 }
 
 type KubernetesClientNamespaceSecretRestricted interface {
@@ -74,13 +75,14 @@ type KubernetesClientNamespaceSecretRestricted interface {
 type KubernetesClient interface {
 	//TODO: Add parameters for Deploy
 	Deploy(configPayload *string) (string, string, error)
-	CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, existingConfig string, volumeFilename string, volumeConfig string, variables map[string]string) (string, string, error)
+	CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, existingConfig string, volumeFilename string, volumeConfig string, variables []corev1.EnvVar) (string, string, error)
 	//TODO: Add parameters for Delete
 	Delete(resourceName string, resourceNamespace string, gvk schema.GroupVersionKind) error
 	DeleteBasedOnConfig(configPayload *string) error
 	CheckAndCreateNamespace(namespace string) (string, error)
 	GetLogs(podNamespace string, selector metav1.LabelSelector) (string, error)
 	GetJob(name string, namespace string) (batchv1.JobStatus, metav1.LabelSelector, int32)
+	GetConfigMapNameFromTask(taskName string) string
 	GetSecret(name string, namespace string) map[string][]byte
 	Label(gvkGroup clientrequest.GvkGroupRequest, resourcesLabel string) error
 	Aggregate(cluster string, namespace string) (AggregateResult, error)
@@ -207,9 +209,17 @@ func (k KubernetesClientDriver) Deploy(configPayload *string) (string, string, e
 	return resourceName, namespace, nil
 }
 
+func (k KubernetesClientDriver) GetVolumeNameFromTask(taskName string) string {
+	return taskName + "volume"
+}
+
+func (k KubernetesClientDriver) GetConfigMapNameFromTask(taskName string) string {
+	return taskName + "config-map"
+}
+
 //CreateAndDeploy should only be used for ephemeral runs ONLY. "Kind" should just be discerning between a chron job or a job.
 //They are both of type "batch/v1".
-func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, existingConfig string, volumeFilename string, volumeConfig string, variables map[string]string) (string, string, error) {
+func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, namespace string, imageName string, command []string, args []string, existingConfig string, volumeFilename string, volumeConfig string, variables []corev1.EnvVar) (string, string, error) {
 	if imageName == "" {
 		imageName = DefaultContainer
 	}
@@ -218,10 +228,6 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 	}
 	var configPayload string
 
-	envVars := make([]corev1.EnvVar, 0)
-	for key, value := range variables {
-		envVars = append(envVars, corev1.EnvVar{Name: key, Value: value})
-	}
 	if existingConfig != "" {
 		obj, _, err := getResourceObjectFromYAML(&existingConfig)
 		if err != nil {
@@ -231,8 +237,8 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 		case *batchv1.Job:
 			strongTypeObject := obj.(*batchv1.Job)
 			for idx, val := range strongTypeObject.Spec.Template.Spec.Containers {
-				for envidx, _ := range envVars {
-					strongTypeObject.Spec.Template.Spec.Containers[idx].Env = append(val.Env, envVars[envidx])
+				for envidx, _ := range variables {
+					strongTypeObject.Spec.Template.Spec.Containers[idx].Env = append(val.Env, variables[envidx])
 				}
 			}
 			var data []byte
@@ -247,8 +253,8 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 			return "", "", goerrors.New("generation only works with Jobs for now")
 		}
 	} else {
-		volumeName := objName + "volume"
-		configMapName := objName + "config-map"
+		volumeName := k.GetVolumeNameFromTask(objName)
+		configMapName := k.GetConfigMapNameFromTask(objName)
 		filename := volumeFilename
 
 		if volumeConfig != "" {
@@ -273,7 +279,7 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 			//WorkingDir: "",
 			Ports:   nil,
 			EnvFrom: nil,
-			Env:     envVars,
+			Env:     variables,
 		}
 		if volumeConfig != "" {
 			containerSpec.VolumeMounts = []corev1.VolumeMount{
@@ -300,7 +306,8 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 				TypeMeta:   metav1.TypeMeta{Kind: JobType, APIVersion: batchv1.SchemeGroupVersion.String()},
 				ObjectMeta: metav1.ObjectMeta{Name: objName, Namespace: namespace},
 				Spec: batchv1.JobSpec{
-					BackoffLimit: utilpointer.Int32Ptr(1),
+					Completions: utilpointer.Int32Ptr(1),
+					BackoffLimit: utilpointer.Int32Ptr(0),
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
 							Containers:    []corev1.Container{containerSpec},
@@ -308,7 +315,6 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 						},
 					},
 				},
-				Status: batchv1.JobStatus{},
 			}
 			if volumeConfig != "" {
 				jobSpec.Spec.Template.Spec.Volumes = []corev1.Volume{volumeSpec}

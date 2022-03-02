@@ -40,15 +40,18 @@ public class DataSerializationTest {
                 "  argo_application: guestbook\n" +
                 "  application_path: relative/to/root #not required; default is nil, will check ArgoCD for existing application\n" +
                 "  additional_deployments: relative/to/root #not required; for pieces like Istio\n" +
-                "  rollback: true #not required; default is false\n" +
+                "  rollback_limit: 1 #not required; default is false\n" +
                 "  tests: #not required; executed sequentially\n" +
                 "  - path: \"/relative/to/root\"\n" +
                 "    type: inject\n" +
                 "    in_application_pod: true\n" +
                 "    before: true\n" +
                 "    variables:\n" +
-                "      <variable_name>: xyz\n" +
-                "      <variable_name_2>: abc\n" +
+                "      - name: PASSWORD\n" +
+                "        valueFrom:\n" +
+                "          secretKeyRef:\n" +
+                "            name: my-secret\n" +
+                "            key: password\n" +
                 "  dependencies: #default is none, outlines steps that have to be completed before current step\n" +
                 "  - deploy_to_dev";
         var pipelineObject = objectMapper.readValue(objectMapper.writeValueAsString(yamlObjectMapper.readValue(pipelineData, Object.class)), PipelineData.class);
