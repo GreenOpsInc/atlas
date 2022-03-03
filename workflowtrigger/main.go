@@ -26,8 +26,13 @@ func main() {
 	var commandDelegatorApi commanddelegator.CommandDelegatorApi
 	var argoAuthenticatorApi argo.ArgoAuthenticatorApi
 	var schemaValidator schemavalidation.RequestSchemaValidator
+
 	kubernetesClient = kubernetesclient.New()
-	tlsManager = tlsmanager.New(kubernetesClient)
+	if starter.GetNoAuthClientConfig() {
+		tlsManager = tlsmanager.NoAuth()
+	} else {
+		tlsManager = tlsmanager.New(kubernetesClient)
+	}
 	dbOperator = db.New(starter.GetDbClientConfig())
 	kafkaClient, err := kafkaclient.New(starter.GetKafkaClientConfig(), tlsManager)
 	if err != nil {

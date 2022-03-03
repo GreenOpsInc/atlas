@@ -9,6 +9,7 @@ const (
 	kafkaAddress                  string = "KAFKA_BOOTSTRAP_SERVERS"
 	repoServerAddress             string = "REPO_SERVER_ENDPOINT"
 	commandDelegatorServerAddress string = "COMMAND_DELEGATOR_SERVER_ENDPOINT"
+	noAuth                        string = "NO_AUTH"
 
 	//Default Names
 	dbDefaultAddress                     string = "localhost:6379"
@@ -16,6 +17,7 @@ const (
 	kafkaDefaultAddress                  string = "localhost:29092"
 	repoServerDefaultAddress             string = "http://localhost:8081"
 	commandDelegatorServerDefaultAddress string = "http://localhost:8080"
+	noAuthDefaultValue                   string = "false"
 )
 
 func GetDbClientConfig() (string, string) {
@@ -52,4 +54,12 @@ func GetCommandDelegatorServerClientConfig() string {
 		address = val
 	}
 	return address
+}
+
+func GetNoAuthClientConfig() bool {
+	if val := os.Getenv(noAuth); val == "true" {
+		return true
+	}
+	return false
+
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/greenopsinc/util/clientrequest"
 	"github.com/greenopsinc/util/kubernetesclient"
 	"github.com/greenopsinc/util/serializerutil"
+	"github.com/greenopsinc/util/starter"
 	"github.com/greenopsinc/util/tlsmanager"
 	"greenops.io/client/api/generation"
 	"greenops.io/client/api/ingest"
@@ -619,8 +620,13 @@ func requestPostProcessing(command clientrequest.ClientRequestEvent, err error) 
 func main() {
 	var err error
 	kubernetesDriver := k8sdriver.New()
+	var tm tlsmanager.Manager
 	kubernetesClient := kubernetesclient.New()
-	tm := tlsmanager.New(kubernetesClient)
+	if starter.GetNoAuthClientConfig() {
+		tm = tlsmanager.NoAuth()
+	} else {
+		tm = tlsmanager.New(kubernetesClient)
+	}
 	argoDriver := argodriver.New(&kubernetesDriver, tm)
 	commandDelegatorApi, err = ingest.Create(argoDriver.(argodriver.ArgoAuthClient), tm)
 	if err != nil {
