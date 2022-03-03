@@ -23,6 +23,7 @@ const (
 type ArgoApi interface {
 	GetClusterApi() ArgoClusterApi
 	GetAuthenticatorApi() ArgoAuthenticatorApi
+	GetRepoApi() ArgoRepoApi
 }
 
 type ArgoApiImpl struct {
@@ -46,6 +47,10 @@ func (a *ArgoApiImpl) GetClusterApi() ArgoClusterApi {
 }
 
 func (a *ArgoApiImpl) GetAuthenticatorApi() ArgoAuthenticatorApi {
+	return a
+}
+
+func (a *ArgoApiImpl) GetRepoApi() ArgoRepoApi {
 	return a
 }
 

@@ -39,7 +39,7 @@ public class MetadataHandlerImpl implements MetadataHandler {
             var sourceJsonNode = objectMapper.readTree(argoAppPayload).get("spec").get("source");
             return new ArgoRepoSchema(
                     sourceJsonNode.get("repoURL").asText(null),
-                    sourceJsonNode.get("targetRevision").asText(null),
+                    sourceJsonNode.get("targetRevision").asText("main"),
                     sourceJsonNode.get("path").asText(null)
             );
         } catch (JsonProcessingException e) {
@@ -83,7 +83,7 @@ public class MetadataHandlerImpl implements MetadataHandler {
         var precedingSteps = findAllPrecedingSteps(pipelineData, currentStepName);
         for (var stepName : precedingSteps) {
             var dependentArgoRepoSchema = getCurrentArgoRepoMetadata(event, stepName);
-            if (argoRepoSchema.equals(dependentArgoRepoSchema)) {
+            if (argoRepoSchema != null && argoRepoSchema.equals(dependentArgoRepoSchema)) {
                 var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), stepName);
                 var deploymentLog = dbClient.fetchLatestDeploymentLog(logKey);
                 return deploymentLog.getArgoRevisionHash();
@@ -107,6 +107,7 @@ public class MetadataHandlerImpl implements MetadataHandler {
         if (stepsInScope.contains(currentStepName)) return stepsToReturn;
         stepsInScope.add(levelMarker);
         while (stepsInScope.size() > 0) {
+            var isEndOfLevel = false;
             var currentTraversalStep = stepsInScope.remove(0);
             if (currentTraversalStep.equals(levelMarker)) {
                 continue;
@@ -114,6 +115,7 @@ public class MetadataHandlerImpl implements MetadataHandler {
             stepsToReturn.add(currentTraversalStep);
             if (stepsInScope.size() > 0 && stepsInScope.get(0).equals(levelMarker)) {
                 stepsToReturn.add(stepsInScope.remove(0));
+                isEndOfLevel = true;
             }
 
             var childrenSteps = pipelineData.getChildrenSteps(currentTraversalStep);
@@ -125,6 +127,7 @@ public class MetadataHandlerImpl implements MetadataHandler {
                 return stepsToReturn.subList(0, lastLevelMarkerIdx).stream().filter(str -> !str.equals(levelMarker)).collect(Collectors.toList());
             } else {
                 stepsInScope.addAll(childrenSteps);
+                if (isEndOfLevel) stepsInScope.add(levelMarker);
             }
         }
         //Could not find preceding step. Should never be happening
