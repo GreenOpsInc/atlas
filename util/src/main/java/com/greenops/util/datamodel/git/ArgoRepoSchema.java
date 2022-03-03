@@ -26,6 +26,9 @@ public class ArgoRepoSchema {
 
     @Override
     public boolean equals(Object otherArgoRepoSchema) {
+        if (otherArgoRepoSchema == null) {
+            return false;
+        }
         assert otherArgoRepoSchema instanceof ArgoRepoSchema;
         return repoUrl.equals(((ArgoRepoSchema) otherArgoRepoSchema).repoUrl)
                 && targetRevision.equals(((ArgoRepoSchema) otherArgoRepoSchema).targetRevision)
