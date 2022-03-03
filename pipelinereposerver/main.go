@@ -14,10 +14,15 @@ import (
 
 func main() {
 	var dbOperator db.DbOperator
-	var kubernetesClient kubernetesclient.KubernetesClient
 	var tlsManager tlsmanager.Manager
-	kubernetesClient = kubernetesclient.New()
-	tlsManager = tlsmanager.New(kubernetesClient)
+	var kubernetesClient kubernetesclient.KubernetesClient
+	if starter.GetNoAuthClientConfig() == "True" {
+		kubernetesClient = nil
+		tlsManager = tlsmanager.NoAuth()
+	} else {
+		kubernetesClient = kubernetesclient.New()
+		tlsManager = tlsmanager.New(kubernetesClient)
+	}
 	dbOperator = db.New(starter.GetDbClientConfig())
 	r := mux.NewRouter()
 	api.InitClients(dbOperator, kubernetesClient)

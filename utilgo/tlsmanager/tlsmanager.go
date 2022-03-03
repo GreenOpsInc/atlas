@@ -92,6 +92,13 @@ func New(k kclient.KubernetesClient) Manager {
 	return m
 }
 
+func NoAuth() Manager {
+	m := &tlsManager{k: nil}
+	m.tlsClientConfigs = make(map[ClientName]*tls.Config)
+	m.tlsClientCertPEM = make(map[ClientName][]byte)
+	return m
+}
+
 func (m *tlsManager) BestEffortSystemCertPool() *x509.CertPool {
 	rootCAs, _ := x509.SystemCertPool()
 	if rootCAs == nil {
@@ -101,6 +108,9 @@ func (m *tlsManager) BestEffortSystemCertPool() *x509.CertPool {
 }
 
 func (m *tlsManager) GetServerTLSConf(serverName ClientName) (*tls.Config, error) {
+	if m.k == nil {
+		return &tls.Config{InsecureSkipVerify: true}, nil
+	}
 	conf, err := m.getTLSConf(serverName)
 	if err != nil {
 		return nil, err
@@ -110,6 +120,9 @@ func (m *tlsManager) GetServerTLSConf(serverName ClientName) (*tls.Config, error
 }
 
 func (m *tlsManager) GetClientTLSConf(clientName ClientName) (*tls.Config, error) {
+	if m.k == nil {
+		return &tls.Config{InsecureSkipVerify: true}, nil
+	}
 	conf, err := m.getTLSClientConf(clientName)
 	if err != nil {
 		return nil, err
@@ -137,6 +150,10 @@ func (m *tlsManager) GetClientCertPEM(clientName ClientName) ([]byte, error) {
 }
 
 func (m *tlsManager) GetKafkaTLSConf() (*tls.Config, error) {
+	if m.k == nil {
+		return &tls.Config{InsecureSkipVerify: true}, nil
+	}
+
 	if m.tlsClientConfigs[ClientKafka] != nil {
 		return m.tlsClientConfigs[ClientKafka], nil
 	}
@@ -397,7 +414,7 @@ func (m *tlsManager) generateTLSConfFromKeyPair(certPEM []byte, keyPEM []byte) (
 		MinVersion:               tls.VersionTLS12,
 		PreferServerCipherSuites: true,
 		//ClientAuth: tls.RequireAndVerifyClientCert,
-		ClientCAs:  clientCAs,
+		ClientCAs: clientCAs,
 	}, nil
 }
 

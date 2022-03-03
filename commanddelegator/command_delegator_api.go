@@ -175,8 +175,15 @@ func InitEndpoints(r *mux.Router) {
 
 func main() {
 	dbOperator = db.New(starter.GetDbClientConfig())
-	kclient := kubernetesclient.New()
-	tlsManager := tlsmanager.New(kclient)
+	var tlsManager tlsmanager.Manager
+	var kubernetesClient kubernetesclient.KubernetesClient
+	if starter.GetNoAuthClientConfig() == "True" {
+		kubernetesClient = nil
+		tlsManager = tlsmanager.NoAuth()
+	} else {
+		kubernetesClient = kubernetesclient.New()
+		tlsManager = tlsmanager.New(kubernetesClient)
+	}
 	r := mux.NewRouter()
 	InitEndpoints(r)
 	httpserver.CreateAndWatchServer(tlsmanager.ClientCommandDelegator, tlsManager, r)
