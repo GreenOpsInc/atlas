@@ -9,8 +9,6 @@ import org.apache.http.impl.client.HttpClients;
 import org.springframework.stereotype.Component;
 
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.X509ExtendedKeyManager;
-import javax.net.ssl.X509ExtendedTrustManager;
 import java.io.File;
 import java.nio.file.Paths;
 
@@ -40,8 +38,8 @@ public class Builder {
             return this;
         }
 
-        X509ExtendedKeyManager keyManager = PemUtils.loadIdentityMaterial(Paths.get(certPemPath), Paths.get(keyPemPath));
-        X509ExtendedTrustManager trustManager = PemUtils.loadTrustMaterial(Paths.get(certPemPath));
+        var keyManager = PemUtils.loadIdentityMaterial(Paths.get(certPemPath), Paths.get(keyPemPath));
+        var trustManager = PemUtils.loadTrustMaterial(Paths.get(certPemPath));
         var sslFactory = SSLFactory.builder()
                 .withIdentityMaterial(keyManager)
                 .withTrustMaterial(trustManager)
@@ -52,7 +50,7 @@ public class Builder {
 
     public HttpClient build() {
         if (this.sslCon == null) {
-            SSLFactory sslFactory = SSLFactory.builder()
+            var sslFactory = SSLFactory.builder()
                     .withUnsafeTrustMaterial()
                     .withUnsafeHostnameVerifier()
                     .build();
