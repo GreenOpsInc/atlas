@@ -56,11 +56,10 @@ func GetCommandDelegatorServerClientConfig() string {
 	return address
 }
 
-func GetNoAuthClientConfig() string {
-	noAuthStatus := noAuthDefaultValue
+func GetNoAuthClientConfig() bool {
 	if val := os.Getenv(noAuth); val != "" {
-		noAuthStatus = val
+		return true
 	}
-	return noAuthStatus
+	return false
 
 }

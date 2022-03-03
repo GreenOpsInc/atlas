@@ -621,12 +621,10 @@ func main() {
 	var err error
 	kubernetesDriver := k8sdriver.New()
 	var tm tlsmanager.Manager
-	var kubernetesClient kubernetesclient.KubernetesClient
-	if starter.GetNoAuthClientConfig() == "True" {
-		kubernetesClient = nil
+	kubernetesClient := kubernetesclient.New()
+	if starter.GetNoAuthClientConfig() {
 		tm = tlsmanager.NoAuth()
 	} else {
-		kubernetesClient = kubernetesclient.New()
 		tm = tlsmanager.New(kubernetesClient)
 	}
 	argoDriver := argodriver.New(&kubernetesDriver, tm)

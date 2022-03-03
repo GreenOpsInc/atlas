@@ -16,11 +16,11 @@ func main() {
 	var dbOperator db.DbOperator
 	var tlsManager tlsmanager.Manager
 	var kubernetesClient kubernetesclient.KubernetesClient
-	if starter.GetNoAuthClientConfig() == "True" {
-		kubernetesClient = nil
+	kubernetesClient = kubernetesclient.New()
+
+	if starter.GetNoAuthClientConfig() {
 		tlsManager = tlsmanager.NoAuth()
 	} else {
-		kubernetesClient = kubernetesclient.New()
 		tlsManager = tlsmanager.New(kubernetesClient)
 	}
 	dbOperator = db.New(starter.GetDbClientConfig())
