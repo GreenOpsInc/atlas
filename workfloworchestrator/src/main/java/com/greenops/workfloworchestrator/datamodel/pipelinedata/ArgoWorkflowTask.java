@@ -2,14 +2,14 @@ package com.greenops.workfloworchestrator.datamodel.pipelinedata;
 
 import com.greenops.workfloworchestrator.datamodel.requests.KubernetesCreationRequest;
 
-import java.util.Map;
+import java.util.List;
 
 public class ArgoWorkflowTask implements Test {
     private String path;
     private boolean executeBeforeDeployment;
-    private Map<String, String> variables;
+    private List<Object> variables;
 
-    ArgoWorkflowTask(String path, boolean executeBeforeDeployment, Map<String, String> variables) {
+    ArgoWorkflowTask(String path, boolean executeBeforeDeployment, List<Object> variables) {
         this.path = path;
         this.executeBeforeDeployment = executeBeforeDeployment;
         this.variables = variables;
@@ -26,7 +26,7 @@ public class ArgoWorkflowTask implements Test {
     }
 
     @Override
-    public Map<String, String> getVariables() {
+    public List<Object> getVariables() {
         return variables;
     }
 

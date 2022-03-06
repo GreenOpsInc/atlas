@@ -9,6 +9,8 @@ import (
 	"github.com/argoproj/argo-workflows/v3/pkg/apiclient/workflow"
 	wfv1 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	"github.com/argoproj/argo-workflows/v3/util/kubeconfig"
+	"greenops.io/client/progressionchecker/datamodel"
+	corev1 "k8s.io/api/core/v1"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"log"
@@ -87,14 +89,16 @@ func GetAuthString(kubeconfigPath string) string {
 	return authString
 }
 
-func (a *ArgoWfClientDriver) CreateAndDeploy(configPayload *string, variables map[string]string) (string, string, error) {
+func (a *ArgoWfClientDriver) CreateAndDeploy(configPayload *string, variables []corev1.EnvVar) (string, string, error) {
 	log.Printf("Deploying Argo Workflow...")
 	workflowPayload := makeWorkflow(configPayload)
-	for key, value := range variables {
-		workflowPayload.Spec.Arguments.Parameters = append(
-			workflowPayload.Spec.Arguments.Parameters,
-			wfv1.Parameter{Name: key, Value: wfv1.AnyStringPtr(value)},
-		)
+	for _, variable := range variables {
+		if variable.ValueFrom == nil {
+			workflowPayload.Spec.Arguments.Parameters = append(
+				workflowPayload.Spec.Arguments.Parameters,
+				wfv1.Parameter{Name: variable.Name, Value: wfv1.AnyStringPtr(variable.Value)},
+			)
+		}
 	}
 	client := a.client.NewWorkflowServiceClient()
 	namespace := workflowPayload.Namespace
@@ -116,6 +120,11 @@ func (a *ArgoWfClientDriver) CreateAndDeploy(configPayload *string, variables ma
 	//if errors.IsAlreadyExists(err) {
 	//	return
 	//}
+}
+
+func (a *ArgoWfClientDriver) Cleanup(watchKey datamodel.WatchKey) error {
+	//TODO: Add any components necessary
+	return nil
 }
 
 func (a *ArgoWfClientDriver) GetWorkflowStatus(name string, namespace string) (wfv1.WorkflowStatus, error) {

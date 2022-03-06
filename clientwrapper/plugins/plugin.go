@@ -4,6 +4,7 @@ import (
 	"errors"
 	"greenops.io/client/plugins/argoworkflows"
 	"greenops.io/client/progressionchecker/datamodel"
+	corev1 "k8s.io/api/core/v1"
 	"log"
 )
 
@@ -14,8 +15,9 @@ const (
 )
 
 type PluginInt interface {
-	CreateAndDeploy(configPayload *string, variables map[string]string) (string, string, error)
+	CreateAndDeploy(configPayload *string, variables []corev1.EnvVar) (string, string, error)
 	CheckStatus(watchKey datamodel.WatchKey) datamodel.EventInfo
+	Cleanup(watchKey datamodel.WatchKey) error
 }
 
 type Plugin struct {

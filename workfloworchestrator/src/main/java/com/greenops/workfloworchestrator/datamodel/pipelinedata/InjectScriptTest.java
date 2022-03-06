@@ -2,21 +2,14 @@ package com.greenops.workfloworchestrator.datamodel.pipelinedata;
 
 import com.greenops.util.error.AtlasNonRetryableError;
 import com.greenops.workfloworchestrator.datamodel.requests.KubernetesCreationRequest;
-import com.greenops.workfloworchestrator.ingest.handling.testautomation.CommandBuilder;
-import lombok.NonNull;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import static com.greenops.workfloworchestrator.ingest.handling.ClientKey.makeTestKey;
 import static com.greenops.workfloworchestrator.ingest.handling.EventHandlerImpl.WATCH_TEST_KEY;
-import static com.greenops.workfloworchestrator.ingest.handling.util.deployment.SchemaHandlingUtil.escapeFile;
 import static com.greenops.workfloworchestrator.ingest.handling.util.deployment.SchemaHandlingUtil.getFileName;
 
 public class InjectScriptTest implements Test {
-
-    private static String DEFAULT_NAMESPACE = "default";
 
     private String path;
     private String image;
@@ -25,10 +18,10 @@ public class InjectScriptTest implements Test {
     private List<String> arguments;
     private boolean executeInApplicationPod;
     private boolean executeBeforeDeployment;
-    private Map<String, String> variables;
+    private List<Object> variables;
 
 
-    InjectScriptTest(String path, String image, String namespace, List<String> commands, List<String> arguments, boolean executeInApplicationPod, boolean executeBeforeDeployment, Map<String, String> variables) {
+    InjectScriptTest(String path, String image, String namespace, List<String> commands, List<String> arguments, boolean executeInApplicationPod, boolean executeBeforeDeployment, List<Object> variables) {
         this.path = path;
         this.image = image;
         this.namespace = namespace;
@@ -58,7 +51,7 @@ public class InjectScriptTest implements Test {
     }
 
     @Override
-    public Map<String, String> getVariables() {
+    public List<Object> getVariables() {
         return variables;
     }
 

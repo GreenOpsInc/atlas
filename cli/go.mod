@@ -3,6 +3,7 @@ module atlas
 go 1.16
 
 require (
+	github.com/AlecAivazis/survey/v2 v2.3.2
 	github.com/argoproj/argo-cd v1.8.7
 	github.com/argoproj/argo-cd/v2 v2.1.7
 	github.com/coreos/go-oidc v2.1.0+incompatible
@@ -15,6 +16,7 @@ require (
 	github.com/spf13/viper v1.8.1
 	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914
 	gopkg.in/yaml.v2 v2.4.0
+	k8s.io/apimachinery v0.21.0
 	k8s.io/client-go v11.0.1-0.20190816222228-6d55c1b1f1ca+incompatible
 )
 

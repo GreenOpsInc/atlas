@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 import static com.greenops.workfloworchestrator.datamodel.pipelinedata.StepData.ROOT_STEP_NAME;
+import static com.greenops.workfloworchestrator.datamodel.pipelinedata.Test.DEFAULT_NAMESPACE;
 import static com.greenops.workfloworchestrator.ingest.handling.EventHandlerImpl.WATCH_ARGO_APPLICATION_KEY;
 
 @Slf4j
@@ -180,6 +181,10 @@ public class DeploymentHandlerImpl implements DeploymentHandler {
     public static String getStepNamespace(Event event, RepoManagerApi repoManagerApi, ObjectMapper yamlObjectMapper, String argoApplicationPath, GitRepoSchemaInfo gitRepoSchemaInfo, String gitCommitHash) {
         if (event.getStepName().isEmpty() || event.getStepName().equals(ROOT_STEP_NAME)) {
             throw new AtlasNonRetryableError("Could not find a namespace associated with the event");
+        }
+
+        if (argoApplicationPath == null || argoApplicationPath.isEmpty()) {
+            return DEFAULT_NAMESPACE;
         }
         var getFileRequest = new GetFileRequest(gitRepoSchemaInfo, argoApplicationPath, gitCommitHash);
         var argoAppPayload = repoManagerApi.getFileFromRepo(getFileRequest, event.getOrgName(), event.getTeamName());

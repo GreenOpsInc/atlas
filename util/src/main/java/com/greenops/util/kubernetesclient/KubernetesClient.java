@@ -9,6 +9,6 @@ public interface KubernetesClient {
 
     GitCred fetchGitCred(String name);
 
-    V1Secret fetchSecretData(String name, String namespace);
+    V1Secret fetchSecretData(String namespace, String name);
 
 }

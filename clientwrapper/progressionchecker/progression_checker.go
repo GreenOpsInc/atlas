@@ -11,7 +11,6 @@ import (
 	"greenops.io/client/plugins"
 	"greenops.io/client/progressionchecker/datamodel"
 	"io"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"log"
 	"net/http"
 	"os"
@@ -130,12 +129,12 @@ func checkForCompletedApplications(watchedApplications map[string]datamodel.Watc
 						log.Printf("Generated Test Completion event for %s", watchKey.Name)
 						watchKey.GeneratedCompletionEvent = true
 						watchedApplications[mapKey] = watchKey
-						if kubernetesClient.Delete(watchKey.Name, watchKey.Namespace, schema.GroupVersionKind{Kind: k8sdriver.JobType}) != nil {
+						if TaskCleanup(watchKey, kubernetesClient) != nil {
 							continue
 						}
 						deleteKeys = append(deleteKeys, mapKey)
 						break
-					} else if kubernetesClient.Delete(watchKey.Name, watchKey.Namespace, schema.GroupVersionKind{Kind: k8sdriver.JobType}) == nil {
+					} else if TaskCleanup(watchKey, kubernetesClient) == nil {
 						deleteKeys = append(deleteKeys, mapKey)
 						break
 					}
@@ -155,10 +154,15 @@ func checkForCompletedApplications(watchedApplications map[string]datamodel.Watc
 						log.Printf("Generated Test Completion event for %s", watchKey.Name)
 						watchKey.GeneratedCompletionEvent = true
 						watchedApplications[mapKey] = watchKey
-						//TODO: Add option to clean up nodes after a Workflow is complete
+						if plugin.PluginObject.Cleanup(watchKey) != nil {
+							continue
+						}
 						deleteKeys = append(deleteKeys, mapKey)
 						break
-					}
+					} else if plugin.PluginObject.Cleanup(watchKey) == nil {
+                      	deleteKeys = append(deleteKeys, mapKey)
+                      	break
+                    }
 				}
 			}
 		}

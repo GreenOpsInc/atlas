@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Map;
+import java.util.List;
 
 public abstract class CustomJobTestMixin {
 
@@ -15,12 +15,12 @@ public abstract class CustomJobTestMixin {
     boolean executeBeforeDeployment;
 
     @JsonProperty(value = "variables")
-    Map<String, String> variables;
+    List<Object> variables;
 
     @JsonCreator
     public CustomJobTestMixin(@JsonProperty(value = "path") String path,
                               @JsonProperty(value = "before") boolean executeBeforeDeployment,
-                              @JsonProperty(value = "variables") Map<String, String> variables) {
+                              @JsonProperty(value = "variables") List<Object> variables) {
     }
 
     @JsonIgnore
@@ -30,5 +30,5 @@ public abstract class CustomJobTestMixin {
     abstract boolean shouldExecuteBefore();
 
     @JsonIgnore
-    abstract Map<String, String> getVariables();
+    abstract List<Object> getVariables();
 }

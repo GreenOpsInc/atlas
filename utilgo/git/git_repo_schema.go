@@ -12,6 +12,25 @@ const (
 	gitCredName string = "Git Cred"
 )
 
+type GetFileRequest struct {
+	GitRepoSchemaInfo GitRepoSchemaInfo `json:"gitRepoSchemaInfo"`
+	Filename          string            `json:"filename"`
+	GitCommitHash     string            `json:"gitCommitHash"`
+}
+
+type GitRepoSchemaInfo struct {
+	GitRepoUrl string `json:"gitRepoUrl"`
+	PathToRoot string `json:"pathToRoot"`
+}
+
+func (g *GitRepoSchemaInfo) GetGitRepo() string {
+	return g.GitRepoUrl
+}
+
+func (g *GitRepoSchemaInfo) GetPathToRoot() string {
+	return g.PathToRoot
+}
+
 type GitRepoSchema struct {
 	GitRepo    string  `json:"gitRepo"`
 	PathToRoot string  `json:"pathToRoot"`
@@ -50,6 +69,10 @@ func (g *GitRepoSchema) GetGitCred() GitCred {
 	return g.GitCred
 }
 
+func (g *GitRepoSchema) ContentsEqual(schema GitRepoSchema) bool {
+	return g.GetGitRepo() == schema.GetGitRepo() && g.GetPathToRoot() == schema.GetPathToRoot()
+}
+
 func UnmarshallGitRepoSchema(m map[string]interface{}) GitRepoSchema {
 	gitCred := UnmarshallGitCred(m["gitCred"].(map[string]interface{}))
 	return GitRepoSchema{
@@ -63,6 +86,19 @@ func UnmarshallGitRepoSchemaString(str string) GitRepoSchema {
 	var m map[string]interface{}
 	_ = json.Unmarshal([]byte(str), &m)
 	return UnmarshallGitRepoSchema(m)
+}
+
+func UnmarshallGitRepoSchemaInfo(m map[string]interface{}) GitRepoSchemaInfo {
+	return GitRepoSchemaInfo{
+		GitRepoUrl: m["gitRepoUrl"].(string),
+		PathToRoot: m["pathToRoot"].(string),
+	}
+}
+
+func UnmarshallGitRepoSchemaInfoString(str string) GitRepoSchemaInfo {
+	var m map[string]interface{}
+	_ = json.Unmarshal([]byte(str), &m)
+	return UnmarshallGitRepoSchemaInfo(m)
 }
 
 func MarshalGitRepoSchema(schema GitRepoSchema) *ordered.OrderedMap {

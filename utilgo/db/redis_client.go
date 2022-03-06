@@ -66,10 +66,11 @@ const (
 
 type DbOperator interface {
 	GetClient() DbClient
+	Close()
 }
 
 type RedisClientOperator struct {
-	pool              *redis.Pool
+	pool *redis.Pool
 }
 
 func New(address string, password string) DbOperator {
@@ -81,8 +82,8 @@ func New(address string, password string) DbOperator {
 			}
 			return conn, nil
 		},
-		MaxIdle:     3,
-		MaxActive:   5,
+		MaxIdle:   3,
+		MaxActive: 5,
 		//Wait:        true,
 		IdleTimeout: time.Duration(time.Minute),
 	}
@@ -97,6 +98,10 @@ func (r *RedisClientOperator) GetClient() DbClient {
 		panic(fmt.Sprintf("Db client could not be fetched, please try again %s", err))
 	}
 	return &RedisClientImpl{client: conn}
+}
+
+func (r *RedisClientOperator) Close() {
+	r.pool.Close()
 }
 
 type DbClient interface {

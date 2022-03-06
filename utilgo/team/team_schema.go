@@ -87,7 +87,7 @@ func (p *TeamSchema) UpdatePipeline(pipelineName string, schema git.GitRepoSchem
 
 func UnmarshallTeamSchema(m map[string]interface{}) TeamSchema {
 	var pipelineList []*pipeline.PipelineSchema
-	if pipelineStringList, ok := m["pipelines"]; ok {
+	if pipelineStringList, ok := m["pipelines"]; ok && pipelineStringList != nil {
 		for _, val := range pipelineStringList.([]interface{}) {
 			unmarshalledPipeline := pipeline.UnmarshallPipelineSchema(val.(map[string]interface{}))
 			pipelineList = append(pipelineList, &unmarshalledPipeline)

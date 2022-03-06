@@ -3,6 +3,7 @@ package progressionchecker
 import (
 	"greenops.io/client/k8sdriver"
 	"greenops.io/client/progressionchecker/datamodel"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"log"
 )
 
@@ -24,4 +25,18 @@ func CheckKubernetesStatus(watchKey datamodel.WatchKey, kubernetesClient k8sdriv
 		eventInfo = datamodel.MakeTestEvent(watchKey, jobStatus.Succeeded > 0, podLogs)
 	}
 	return eventInfo
+}
+
+func TaskCleanup(watchKey datamodel.WatchKey, kubernetesClient k8sdriver.KubernetesClientGetRestricted) error {
+	err := kubernetesClient.Delete(watchKey.Name, watchKey.Namespace, schema.GroupVersionKind{Kind: k8sdriver.JobType})
+	if err != nil {
+		log.Printf("Error occurred when trying to cleanup task: %s", err)
+		return err
+	}
+	err = kubernetesClient.Delete(kubernetesClient.GetConfigMapNameFromTask(watchKey.Name), watchKey.Namespace, schema.GroupVersionKind{Group: "", Version: "v1", Kind: k8sdriver.ConfigMapType})
+	if err != nil {
+		log.Printf("Error occurred when trying to cleanup task: %s", err)
+		return err
+	}
+	return nil
 }
