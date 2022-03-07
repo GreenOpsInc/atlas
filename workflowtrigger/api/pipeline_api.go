@@ -109,7 +109,6 @@ func deleteTeam(w http.ResponseWriter, r *http.Request) {
 
 	key := db.MakeDbTeamKey(orgName, teamName)
 	teamSchema := dbClient.FetchTeamSchema(key)
-
 	for _, val := range teamSchema.GetPipelineSchemas() {
 		if kubernetesClient.StoreGitCred(nil, db.MakeSecretName(orgName, teamName, val.GetPipelineName())) {
 			http.Error(w, "kubernetes secret deletion did not work", http.StatusInternalServerError)
