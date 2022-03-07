@@ -4,13 +4,13 @@ go 1.16
 
 require (
 	github.com/argoproj/argo-cd v1.8.7
+	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/greenopsinc/util v0.0.0-00010101000000-000000000000
 	gitlab.com/c0b/go-ordered-json v0.0.0-20201030195603-febf46534d5a
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/grpc v1.29.1
 	gopkg.in/yaml.v2 v2.4.0
 )
