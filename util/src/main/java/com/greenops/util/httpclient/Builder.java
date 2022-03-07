@@ -8,10 +8,9 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.springframework.stereotype.Component;
 
-import javax.net.ssl.*;
+import javax.net.ssl.SSLContext;
 import java.io.File;
 import java.nio.file.Paths;
-import java.security.SecureRandom;
 
 @Slf4j
 @Component
@@ -39,8 +38,8 @@ public class Builder {
             return this;
         }
 
-        X509ExtendedKeyManager keyManager = PemUtils.loadIdentityMaterial(Paths.get(certPemPath), Paths.get(keyPemPath));
-        X509ExtendedTrustManager trustManager = PemUtils.loadTrustMaterial(Paths.get(certPemPath));
+        var keyManager = PemUtils.loadIdentityMaterial(Paths.get(certPemPath), Paths.get(keyPemPath));
+        var trustManager = PemUtils.loadTrustMaterial(Paths.get(certPemPath));
         var sslFactory = SSLFactory.builder()
                 .withIdentityMaterial(keyManager)
                 .withTrustMaterial(trustManager)
@@ -49,29 +48,16 @@ public class Builder {
         return this;
     }
 
-    public HttpClient build() throws Exception {
+    public HttpClient build() {
         if (this.sslCon == null) {
-            SSLContext context = SSLContext.getInstance("TLS");
-            context.init(null, trustAllCerts, new SecureRandom());
-            this.builder.setSSLHostnameVerifier((s1, s2) -> true);
-            return this.builder.setSSLContext(context).build();
+            var sslFactory = SSLFactory.builder()
+                    .withUnsafeTrustMaterial()
+                    .withUnsafeHostnameVerifier()
+                    .build();
+            this.builder.setSSLHostnameVerifier(sslFactory.getHostnameVerifier());
+            return this.builder.setSSLContext(sslFactory.getSslContext()).build();
         }
         return this.builder.setSSLContext(this.sslCon).build();
     }
 
-    private static final TrustManager[] trustAllCerts = new TrustManager[]{
-            new X509TrustManager() {
-                public java.security.cert.X509Certificate[] getAcceptedIssuers() {
-                    return null;
-                }
-
-                public void checkClientTrusted(
-                        java.security.cert.X509Certificate[] certs, String authType) {
-                }
-
-                public void checkServerTrusted(
-                        java.security.cert.X509Certificate[] certs, String authType) {
-                }
-            }
-    };
 }
