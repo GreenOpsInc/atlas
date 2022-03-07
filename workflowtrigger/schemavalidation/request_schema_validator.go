@@ -63,10 +63,28 @@ func (r RequestSchemaValidator) GetStepApplicationPath(orgName string, teamName 
 	return ""
 }
 
-func (r RequestSchemaValidator) GetStepApplicationPayload(orgName string, teamName string, gitRepoSchemaInfo git.GitRepoSchemaInfo, gitCommitHash string, step string) (string, string) {
+func (r RequestSchemaValidator) hasStepApplicationPayload(pipelineData PipelineData, step string) bool {
+	var applicationPath string
+	for _, stepData := range pipelineData.Steps {
+		if stepData.Name == step {
+			applicationPath = stepData.ApplicationPath
+			break
+		}
+	}
+	if applicationPath == "" {
+		return false
+	}
+	return true
+}
+
+func (r RequestSchemaValidator) GetStepApplicationPayloadWithoutPipelineData(orgName string, teamName string, gitRepoSchemaInfo git.GitRepoSchemaInfo, gitCommitHash string, step string) (string, string) {
+	pipelineData := r.getPipelineData(orgName, teamName, gitRepoSchemaInfo, gitCommitHash)
+	return r.GetStepApplicationPayload(pipelineData, orgName, teamName, gitRepoSchemaInfo, step)
+}
+
+func (r RequestSchemaValidator) GetStepApplicationPayload(pipelineData PipelineData, orgName string, teamName string, gitRepoSchemaInfo git.GitRepoSchemaInfo, step string) (string, string) {
 	var applicationPath string
 	var clusterName string
-	pipelineData := r.getPipelineData(orgName, teamName, gitRepoSchemaInfo, gitCommitHash)
 	for _, stepData := range pipelineData.Steps {
 		if stepData.Name == step {
 			applicationPath = stepData.ApplicationPath
@@ -130,7 +148,10 @@ func (r RequestSchemaValidator) GetClusterNamespaceCombinations(orgName string, 
 	var groups ClusterNamespaceGroups
 
 	for _, step := range data.Steps {
-		payload, _ := r.GetStepApplicationPayload(orgName, teamName, gitRepoSchemaInfo, gitCommitHash, step.Name)
+		if !r.hasStepApplicationPayload(data, step.Name) {
+			continue
+		}
+		payload, _ := r.GetStepApplicationPayload(data, orgName, teamName, gitRepoSchemaInfo, step.Name)
 		stepNamespace := r.GetArgoApplicationNamespace(payload)
 		var namespace string
 		if stepNamespace == "" {

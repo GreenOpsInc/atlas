@@ -135,7 +135,7 @@ public class EventHandlerImpl implements EventHandler {
         var pipelineInfo = dbClient.fetchLatestPipelineInfo(pipelineInfoKey);
         var listOfSteps = pipelineInfo != null ? pipelineInfo.getStepList() : null;
         PipelineData currentPipelineData;
-        if (pipelineInfo != null && listOfSteps != null) {
+        if (pipelineInfo != null && listOfSteps != null && listOfSteps.size() > 0) {
             var latestUvn = pipelineInfo.getPipelineUvn();
             var progressing = false;
             var logKey = DbKey.makeDbStepKey(event.getOrgName(), event.getTeamName(), event.getPipelineName(), listOfSteps.get(0));

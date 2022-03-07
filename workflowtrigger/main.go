@@ -46,10 +46,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	argoAuthenticatorApi = argo.New(tlsManager).GetAuthenticatorApi()
+	coreArgoClient := argo.New(tlsManager)
+	argoAuthenticatorApi = coreArgoClient.GetAuthenticatorApi()
 	schemaValidator = schemavalidation.New(argoAuthenticatorApi, repoManagerApi)
 	r := mux.NewRouter()
-	api.InitClients(dbOperator, kafkaClient, kubernetesClient, repoManagerApi, argo.New(tlsManager).GetClusterApi(), commandDelegatorApi, schemaValidator)
+	api.InitClients(dbOperator, kafkaClient, kubernetesClient, repoManagerApi, coreArgoClient.GetClusterApi(), coreArgoClient.GetRepoApi(), commandDelegatorApi, schemaValidator)
 	r.Use(argoAuthenticatorApi.(*argo.ArgoApiImpl).Middleware)
 	log.Println("setup middleware...")
 	api.InitializeLocalCluster()

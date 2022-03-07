@@ -44,6 +44,7 @@ var kafkaClient kafkaclient.KafkaClient
 var kubernetesClient kubernetesclient.KubernetesClient
 var repoManagerApi reposerver.RepoManagerApi
 var argoClusterApi argo.ArgoClusterApi
+var argoRepoApi argo.ArgoRepoApi
 var commandDelegatorApi commanddelegator.CommandDelegatorApi
 var schemaValidator schemavalidation.RequestSchemaValidator
 
@@ -152,6 +153,12 @@ func createPipeline(w http.ResponseWriter, r *http.Request) {
 	}
 	if !repoManagerApi.CloneRepo(orgName, gitRepo) {
 		http.Error(w, "cloning repository failed", http.StatusInternalServerError)
+		return
+	}
+
+	err = argoRepoApi.CreateRepo(gitRepo.GetGitRepo(), gitRepo.GetGitCred())
+	if err != nil {
+		http.Error(w, fmt.Sprintf("cloning repository in argo failed: %s", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -413,7 +420,7 @@ func forceDeploy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	applicationPayload, clusterName := schemaValidator.GetStepApplicationPayload(orgName, teamName, git.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, pipelineRevisionHash, stepName)
+	applicationPayload, clusterName := schemaValidator.GetStepApplicationPayloadWithoutPipelineData(orgName, teamName, git.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, pipelineRevisionHash, stepName)
 
 	clusterSchema := dbClient.FetchClusterSchema(db.MakeDbClusterKey(orgName, clusterName))
 	emptyStruct := cluster.ClusterSchema{}
@@ -688,12 +695,13 @@ func InitPipelineTeamEndpoints(r *mux.Router) {
 	r.HandleFunc("/clean/{orgName}/{clusterName}/{teamName}/{pipelineName}/{namespace}", deleteByLabel).Methods("POST")
 }
 
-func InitClients(dbOperatorCopy db.DbOperator, kafkaClientCopy kafkaclient.KafkaClient, kubernetesClientCopy kubernetesclient.KubernetesClient, repoManagerApiCopy reposerver.RepoManagerApi, argoClusterApiCopy argo.ArgoClusterApi, commandDelegatorApiCopy commanddelegator.CommandDelegatorApi, schemaValidatorCopy schemavalidation.RequestSchemaValidator) {
+func InitClients(dbOperatorCopy db.DbOperator, kafkaClientCopy kafkaclient.KafkaClient, kubernetesClientCopy kubernetesclient.KubernetesClient, repoManagerApiCopy reposerver.RepoManagerApi, argoClusterApiCopy argo.ArgoClusterApi, argoRepoApiCopy argo.ArgoRepoApi, commandDelegatorApiCopy commanddelegator.CommandDelegatorApi, schemaValidatorCopy schemavalidation.RequestSchemaValidator) {
 	dbOperator = dbOperatorCopy
 	kafkaClient = kafkaClientCopy
 	kubernetesClient = kubernetesClientCopy
 	repoManagerApi = repoManagerApiCopy
 	argoClusterApi = argoClusterApiCopy
+	argoRepoApi = argoRepoApiCopy
 	commandDelegatorApi = commandDelegatorApiCopy
 	schemaValidator = schemaValidatorCopy
 }
