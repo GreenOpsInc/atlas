@@ -210,7 +210,7 @@ spec:
     spec:
       containers:
         - env:
-            - name: REDIS_ENDPOINT
+            - name: ATLAS_DB_ADDRESS
               value: redisserver.atlas.svc.cluster.local:6379
             - name: ORG_NAME
               value: org
@@ -255,16 +255,16 @@ spec:
           image: docker.io/greenopsinc/workfloworchestrator:v0.10.1-b
           name: workfloworchestrator
           imagePullPolicy: Always
-          volumeMounts:
-            - mountPath: /tls-cert
-              name: certs
+          # volumeMounts:
+          #   - mountPath: /tls-cert
+          #     name: certs
           resources: {}
       restartPolicy: Always
       serviceAccountName: workfloworchestrator
-      volumes:
-        - name: certs
-          hostPath:
-            path: /tls-cert
+      # volumes:
+      #   - name: certs
+      #     hostPath:
+      #       path: /tls-cert
 ---
 #CommandDelegator Service & Deployment
 apiVersion: v1
