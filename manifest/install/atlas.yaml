@@ -1,4 +1,4 @@
-v0.10.1-bapiVersion: v1
+apiVersion: v1
 kind: ServiceAccount
 metadata:
   labels:
