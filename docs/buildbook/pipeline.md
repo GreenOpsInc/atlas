@@ -50,7 +50,8 @@ An example of a fully filled out pipeline is shown below. Remember that all vari
         commands: [sh, -c, ./verifyendpoints.sh]
         before: false
         variables:
-          SERVICE_INTERNAL_URL: testapp.dev.svc.cluster.local
+          - name: SERVICE_INTERNAL_URL
+            value: testapp.dev.svc.cluster.local
     - name: deploy_to_int
       application_path: int/testapp.yml
       additional_deployments: int/istio_config.yml
@@ -61,6 +62,7 @@ An example of a fully filled out pipeline is shown below. Remember that all vari
         commands: [sh, -c, ./verifyendpoints.sh]
         before: false
         variables:
-          SERVICE_INTERNAL_URL: testapp.int.svc.cluster.local
+          - name: SERVICE_INTERNAL_URL
+            value: testapp.dev.svc.cluster.local
       dependencies:
       - deploy_to_dev
