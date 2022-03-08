@@ -162,10 +162,10 @@ spec:
             - name: ATLAS_DB_ADDRESS
               value: redisserver.atlas.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
-              value: http://reposerver.atlas.svc.cluster.local:8080
+              value: https://reposerver.atlas.svc.cluster.local:8080
             - name: COMMAND_DELEGATOR_SERVER_ENDPOINT
               value: https://commanddelegator.atlas.svc.cluster.local:8080
-          image: docker.io/greenopsinc/workflowtrigger:v0.10.0
+          image: docker.io/greenopsinc/workflowtrigger:v0.10.1-b
           name: workflowtrigger
           imagePullPolicy: Always
           ports:
@@ -210,11 +210,11 @@ spec:
     spec:
       containers:
         - env:
-            - name: REDIS_ENDPOINT
+            - name: ATLAS_DB_ADDRESS
               value: redisserver.atlas.svc.cluster.local:6379
             - name: ORG_NAME
               value: org
-          image: docker.io/greenopsinc/reposerver:v0.10.0
+          image: docker.io/greenopsinc/reposerver:v0.10.1-b
           name: reposerver
           imagePullPolicy: Always
           ports:
@@ -251,20 +251,20 @@ spec:
             - name: REDIS_ENDPOINT
               value: redisserver.atlas.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
-              value: http://reposerver.atlas.svc.cluster.local:8080
-          image: docker.io/greenopsinc/workfloworchestrator:v0.10.0
+              value: https://reposerver.atlas.svc.cluster.local:8080
+          image: docker.io/greenopsinc/workfloworchestrator:v0.10.1-b
           name: workfloworchestrator
           imagePullPolicy: Always
-          volumeMounts:
-            - mountPath: /tls-cert
-              name: certs
+          # volumeMounts:
+          #   - mountPath: /tls-cert
+          #     name: certs
           resources: {}
       restartPolicy: Always
       serviceAccountName: workfloworchestrator
-      volumes:
-        - name: certs
-          hostPath:
-            path: /tls-cert
+      # volumes:
+      #   - name: certs
+      #     hostPath:
+      #       path: /tls-cert
 ---
 #CommandDelegator Service & Deployment
 apiVersion: v1
@@ -304,7 +304,7 @@ spec:
         - env:
             - name: ATLAS_DB_ADDRESS
               value: redisserver.atlas.svc.cluster.local:6379
-          image: docker.io/greenopsinc/commanddelegator:v0.10.0
+          image: docker.io/greenopsinc/commanddelegator:v0.10.1-b
           name: commanddelegator
           imagePullPolicy: Always
           ports:
@@ -347,7 +347,7 @@ spec:
     spec:
       containers:
         - name: clientwrapper
-          image: docker.io/greenopsinc/clientwrapper:v0.10.0
+          image: docker.io/greenopsinc/clientwrapper:v0.10.1-b
           env:
           - name: WORKFLOW_TRIGGER_SERVER_ADDR
             value: https://workflowtrigger.atlas.svc.cluster.local:8080

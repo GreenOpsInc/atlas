@@ -75,11 +75,13 @@ An example of a fully filled out step is shown below. Remember that all variable
         commands: [python, verifyendpoints.py]
         before: false
         variables:
-          SERVICE_INTERNAL_URL: testapp.int.svc.cluster.local
+          - name: SERVICE_INTERNAL_URL
+            value: testapp.dev.svc.cluster.local
       - path: "tests/behavioral.yaml"
         type: custom
         before: false
         variables:
-          SERVICE_INTERNAL_URL: testapp.int.svc.cluster.local
+          - name: SERVICE_INTERNAL_URL
+            value: testapp.dev.svc.cluster.local
       dependencies:
       - deploy_to_dev
