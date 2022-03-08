@@ -65,6 +65,8 @@ type KubernetesClientGetRestricted interface {
 	Delete(resourceName string, resourceNamespace string, gvk schema.GroupVersionKind) error
 	GetLogs(podNamespace string, selector metav1.LabelSelector) (string, error)
 	GetConfigMapNameFromTask(taskName string) string
+	GetConfigMap(name string, namespace string) (map[string][]byte, error)
+	StoreConfigMap(name string, namespace string, data map[string][]byte) error
 }
 
 type KubernetesClientNamespaceSecretRestricted interface {
@@ -84,6 +86,7 @@ type KubernetesClient interface {
 	GetJob(name string, namespace string) (batchv1.JobStatus, metav1.LabelSelector, int32)
 	GetConfigMapNameFromTask(taskName string) string
 	GetSecret(name string, namespace string) map[string][]byte
+	GetConfigMap(name string, namespace string) (map[string][]byte, error)
 	Label(gvkGroup clientrequest.GvkGroupRequest, resourcesLabel string) error
 	Aggregate(cluster string, namespace string) (AggregateResult, error)
 	DeleteByLabel(label string, namespace string) error
@@ -306,7 +309,7 @@ func (k KubernetesClientDriver) CreateAndDeploy(kind string, objName string, nam
 				TypeMeta:   metav1.TypeMeta{Kind: JobType, APIVersion: batchv1.SchemeGroupVersion.String()},
 				ObjectMeta: metav1.ObjectMeta{Name: objName, Namespace: namespace},
 				Spec: batchv1.JobSpec{
-					Completions: utilpointer.Int32Ptr(1),
+					Completions:  utilpointer.Int32Ptr(1),
 					BackoffLimit: utilpointer.Int32Ptr(0),
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
@@ -495,6 +498,42 @@ func (k KubernetesClientDriver) GetSecret(name string, namespace string) map[str
 		return nil
 	}
 	return secret.Data
+}
+
+func (k KubernetesClientDriver) GetConfigMap(name string, namespace string) (map[string][]byte, error) {
+	configMap, err := k.client.CoreV1().ConfigMaps(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return make(map[string][]byte), nil
+		}
+		log.Printf("Error %s", err)
+		return nil, err
+	}
+	return configMap.BinaryData, nil
+}
+
+func (k KubernetesClientDriver) StoreConfigMap(name string, namespace string, data map[string][]byte) error {
+	configMap := corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       ConfigMapType,
+			APIVersion: corev1.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+		BinaryData: data,
+	}
+	_, err := k.client.CoreV1().ConfigMaps(namespace).Update(context.TODO(), &configMap, metav1.UpdateOptions{})
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			_, err = k.client.CoreV1().ConfigMaps(namespace).Create(context.TODO(), &configMap, metav1.CreateOptions{})
+			if err == nil {
+				return nil
+			}
+			return err
+		}
+		log.Printf("Error %s", err)
+		return err
+	}
+	return nil
 }
 
 func (k KubernetesClientDriver) Label(gvkGroup clientrequest.GvkGroupRequest, resourcesLabel string) error {
