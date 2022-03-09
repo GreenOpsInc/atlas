@@ -3,15 +3,16 @@ package api
 import (
 	"bytes"
 	"fmt"
-	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	rdb "github.com/greenopsinc/util/db"
 	"github.com/greenopsinc/util/git"
 	"github.com/greenopsinc/util/pipeline"
 	"github.com/greenopsinc/util/team"
+	"github.com/rafaeljusto/redigomock/v3"
 	"github.com/stretchr/testify/require"
 	"greenops.io/workflowtrigger/mocks/db"
 	"greenops.io/workflowtrigger/mocks/kubernetesclient"
+	"greenops.io/workflowtrigger/serializer"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -47,7 +48,7 @@ func TestCreateTeam(t *testing.T) {
 
 	testCases := []struct {
 		name          string
-		buildStubs    func(operator *db.MockDbOperator, ctrl *gomock.Controller)
+		buildStubs    func(conn *redigomock.Conn)
 		vars          map[string]string
 		checkResponse func(t *testing.T, recorder *httptest.ResponseRecorder)
 	}{
@@ -58,19 +59,23 @@ func TestCreateTeam(t *testing.T) {
 				"teamName":       "exampleTeam",
 				"parentTeamName": "na",
 			},
-			buildStubs: func(operator *db.MockDbOperator, ctrl *gomock.Controller) {
+			buildStubs: func(conn *redigomock.Conn) {
 				newTeam := team.New(sampleTeamSchema.TeamName, sampleTeamSchema.ParentTeamName, sampleTeamSchema.OrgName)
 				listOfTeams := make([]string, 0)
 
-				dbClient := db.NewMockDbClient(ctrl)
-				operator.EXPECT().GetClient().Times(1).Return(dbClient)
-				dbClient.EXPECT().FetchTeamSchema(key).Times(1).Return(team.TeamSchema{})
-				dbClient.EXPECT().FetchStringList(dbkey).Times(1).Return(listOfTeams)
-				dbClient.EXPECT().Close().Times(1).Return()
-				gomock.InOrder(
-					dbClient.EXPECT().StoreValue(key, newTeam).Times(1).Return(),
-					dbClient.EXPECT().StoreValue(dbkey, append(listOfTeams, sampleTeamSchema.TeamName)).Times(1).Return(),
-				)
+				conn.Command("UNWATCH")
+				conn.Command("WATCH", key)
+				conn.Command("EXISTS", key).Expect(int64(0))
+				conn.Command("MULTI")
+				conn.Command("SET", key, serializer.Serialize(newTeam))
+				conn.Command("EXEC").Expect(serializer.Serialize(newTeam))
+
+				conn.Command("UNWATCH")
+				conn.Command("WATCH", dbkey)
+				conn.Command("EXISTS", dbkey).Expect(int64(0))
+				conn.Command("MULTI")
+				conn.Command("SET", dbkey, serializer.Serialize(append(listOfTeams, sampleTeamSchema.TeamName)))
+				conn.Command("EXEC").Expect(serializer.Serialize(append(listOfTeams, sampleTeamSchema.TeamName)))
 			},
 			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusOK, recorder.Result().StatusCode)
@@ -83,11 +88,13 @@ func TestCreateTeam(t *testing.T) {
 				"teamName":       "exampleTeam",
 				"parentTeamName": "na",
 			},
-			buildStubs: func(operator *db.MockDbOperator, ctrl *gomock.Controller) {
-				dbClient := db.NewMockDbClient(ctrl)
-				operator.EXPECT().GetClient().Times(1).Return(dbClient)
-				dbClient.EXPECT().FetchTeamSchema(key).Times(1).Return(sampleTeamSchema)
-				dbClient.EXPECT().Close().Times(1).Return()
+			buildStubs: func(conn *redigomock.Conn) {
+				newTeam := team.New(sampleTeamSchema.TeamName, sampleTeamSchema.ParentTeamName, sampleTeamSchema.OrgName)
+
+				conn.Command("UNWATCH")
+				conn.Command("WATCH", key)
+				conn.Command("EXISTS", key).Expect(int64(1))
+				conn.Command("GET", key).Expect(serializer.Serialize(newTeam))
 			},
 			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusBadRequest, recorder.Result().StatusCode)
@@ -99,12 +106,10 @@ func TestCreateTeam(t *testing.T) {
 	for i := range testCases {
 		tc := testCases[i]
 		t.Run(tc.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
+			conn := redigomock.NewConn()
+			tc.buildStubs(conn)
 
-			operator := db.NewMockDbOperator(ctrl)
-			tc.buildStubs(operator, ctrl)
-
+			operator := db.New(conn)
 			InitClients(operator, nil, nil, nil, nil, nil, schemaValidator)
 			req := httptest.NewRequest(http.MethodPost, "/team/{orgName}/{parentTeamName}/{teamName}", nil)
 			req = mux.SetURLVars(req, tc.vars)
@@ -122,8 +127,7 @@ func TestDeleteTeam(t *testing.T) {
 
 	testCases := []struct {
 		name          string
-		buildDbStubs  func(operator *db.MockDbOperator, ctrl *gomock.Controller)
-		buildK8sStubs func(client *kubernetesclient.MockKubernetesClient)
+		buildDbStubs  func(conn *redigomock.Conn)
 		vars          map[string]string
 		checkResponse func(t *testing.T, recorder *httptest.ResponseRecorder)
 	}{
@@ -133,23 +137,24 @@ func TestDeleteTeam(t *testing.T) {
 				"orgName":  "org",
 				"teamName": "exampleTeam",
 			},
-			buildDbStubs: func(operator *db.MockDbOperator, ctrl *gomock.Controller) {
+			buildDbStubs: func(conn *redigomock.Conn) {
+				newTeam := team.New(sampleTeamSchema.TeamName, sampleTeamSchema.ParentTeamName, sampleTeamSchema.OrgName)
 				listOfTeams := make([]string, 0)
-				dbClient := db.NewMockDbClient(ctrl)
-				operator.EXPECT().GetClient().Times(1).Return(dbClient)
-				dbClient.EXPECT().FetchTeamSchema(key).Times(1).Return(sampleTeamSchema)
-				dbClient.EXPECT().FetchStringList(dbkey).Times(1).Return(listOfTeams)
-				dbClient.EXPECT().Close().Times(1).Return()
-				gomock.InOrder(
-					dbClient.EXPECT().StoreValue(key, nil).Times(1).Return(),
-					dbClient.EXPECT().StoreValue(dbkey, listOfTeams).Times(1).Return(),
-				)
-			},
-			buildK8sStubs: func(client *kubernetesclient.MockKubernetesClient) {
-				client.EXPECT().
-					StoreGitCred(nil, rdb.MakeSecretName(sampleTeamSchema.OrgName, sampleTeamSchema.TeamName, samplePipeline.GetPipelineName())).
-					Times(1).
-					Return(false)
+				conn.Command("UNWATCH")
+				conn.Command("WATCH", key)
+				conn.Command("EXISTS", key).Expect(int64(1))
+				conn.Command("GET", key).Expect(serializer.Serialize(newTeam))
+				conn.Command("MULTI")
+				conn.Command("DEL", key)
+				conn.Command("EXEC").Expect(serializer.Serialize(nil))
+
+				conn.Command("UNWATCH")
+				conn.Command("WATCH", dbkey)
+				conn.Command("EXISTS", dbkey).Expect(int64(1))
+				conn.Command("GET", dbkey).Expect(serializer.Serialize(append(listOfTeams, sampleTeamSchema.TeamName)))
+				conn.Command("MULTI")
+				conn.Command("SET", dbkey, serializer.Serialize(listOfTeams))
+				conn.Command("EXEC").Expect(serializer.Serialize(listOfTeams))
 			},
 			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusOK, recorder.Result().StatusCode)
@@ -161,17 +166,12 @@ func TestDeleteTeam(t *testing.T) {
 				"orgName":  "org",
 				"teamName": "exampleTeam",
 			},
-			buildDbStubs: func(operator *db.MockDbOperator, ctrl *gomock.Controller) {
-				dbClient := db.NewMockDbClient(ctrl)
-				operator.EXPECT().GetClient().Times(1).Return(dbClient)
-				dbClient.EXPECT().FetchTeamSchema(key).Times(1).Return(sampleTeamSchema)
-				dbClient.EXPECT().Close().Times(1).Return()
-			},
-			buildK8sStubs: func(client *kubernetesclient.MockKubernetesClient) {
-				client.EXPECT().
-					StoreGitCred(nil, rdb.MakeSecretName(sampleTeamSchema.OrgName, sampleTeamSchema.TeamName, samplePipeline.GetPipelineName())).
-					Times(1).
-					Return(true)
+			buildDbStubs: func(conn *redigomock.Conn) {
+				conn.Command("UNWATCH")
+				conn.Command("WATCH", key)
+				conn.Command("EXISTS", key).Expect(int64(1))
+				conn.Command("GET", key).Expect(serializer.Serialize(sampleTeamSchema))
+				conn.Command("MULTI")
 			},
 			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusInternalServerError, recorder.Result().StatusCode)
@@ -183,13 +183,11 @@ func TestDeleteTeam(t *testing.T) {
 	for i := range testCases {
 		tc := testCases[i]
 		t.Run(tc.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
+			k8sClient := kubernetesclient.New()
 
-			k8sClient := kubernetesclient.NewMockKubernetesClient(ctrl)
-			operator := db.NewMockDbOperator(ctrl)
-			tc.buildDbStubs(operator, ctrl)
-			tc.buildK8sStubs(k8sClient)
+			conn := redigomock.NewConn()
+			tc.buildDbStubs(conn)
+			operator := db.New(conn)
 
 			InitClients(operator, nil, k8sClient, nil, nil, nil, schemaValidator)
 			req := httptest.NewRequest(http.MethodPost, "/team/{orgName}/{teamName}", nil)
@@ -204,10 +202,11 @@ func TestDeleteTeam(t *testing.T) {
 
 func TestReadTeam(t *testing.T) {
 	key := rdb.MakeDbTeamKey(sampleTeamSchema.OrgName, sampleTeamSchema.TeamName)
+	newTeam := team.New(sampleTeamSchema.TeamName, sampleTeamSchema.ParentTeamName, sampleTeamSchema.OrgName)
 
 	testCases := []struct {
 		name          string
-		buildDbStubs  func(operator *db.MockDbOperator, ctrl *gomock.Controller)
+		buildDbStubs  func(conn *redigomock.Conn)
 		vars          map[string]string
 		checkResponse func(t *testing.T, recorder *httptest.ResponseRecorder)
 	}{
@@ -217,18 +216,18 @@ func TestReadTeam(t *testing.T) {
 				"orgName":  "org",
 				"teamName": "exampleTeam",
 			},
-			buildDbStubs: func(operator *db.MockDbOperator, ctrl *gomock.Controller) {
-				dbClient := db.NewMockDbClient(ctrl)
-				operator.EXPECT().GetClient().Times(1).Return(dbClient)
-				dbClient.EXPECT().FetchTeamSchema(key).Times(1).Return(sampleTeamSchema)
-				dbClient.EXPECT().Close().Times(1).Return()
+			buildDbStubs: func(conn *redigomock.Conn) {
+				conn.Command("UNWATCH")
+				conn.Command("WATCH", key)
+				conn.Command("EXISTS", key).Expect(int64(1))
+				conn.Command("GET", key).Expect(serializer.Serialize(newTeam))
 			},
 			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusOK, recorder.Result().StatusCode)
 				teamSchema := team.UnmarshallTeamSchemaString(getRecorderBody(t, recorder.Body))
-				require.Equal(t, teamSchema.TeamName, sampleTeamSchema.TeamName)
-				require.Equal(t, teamSchema.ParentTeamName, sampleTeamSchema.ParentTeamName)
-				require.Equal(t, teamSchema.OrgName, sampleTeamSchema.OrgName)
+				require.Equal(t, teamSchema.TeamName, newTeam.TeamName)
+				require.Equal(t, teamSchema.ParentTeamName, newTeam.ParentTeamName)
+				require.Equal(t, teamSchema.OrgName, newTeam.OrgName)
 			},
 		},
 		{
@@ -237,11 +236,11 @@ func TestReadTeam(t *testing.T) {
 				"orgName":  "org",
 				"teamName": "exampleTeam",
 			},
-			buildDbStubs: func(operator *db.MockDbOperator, ctrl *gomock.Controller) {
-				dbClient := db.NewMockDbClient(ctrl)
-				operator.EXPECT().GetClient().Times(1).Return(dbClient)
-				dbClient.EXPECT().FetchTeamSchema(key).Times(1).Return(team.TeamSchema{})
-				dbClient.EXPECT().Close().Times(1).Return()
+			buildDbStubs: func(conn *redigomock.Conn) {
+				conn.Command("UNWATCH")
+				conn.Command("WATCH", key)
+				conn.Command("EXISTS", key).Expect(int64(1))
+				conn.Command("GET", key).Expect(serializer.Serialize(team.TeamSchema{}))
 			},
 			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusBadRequest, recorder.Result().StatusCode)
@@ -253,11 +252,9 @@ func TestReadTeam(t *testing.T) {
 	for i := range testCases {
 		tc := testCases[i]
 		t.Run(tc.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			operator := db.NewMockDbOperator(ctrl)
-			tc.buildDbStubs(operator, ctrl)
+			conn := redigomock.NewConn()
+			tc.buildDbStubs(conn)
+			operator := db.New(conn)
 
 			InitClients(operator, nil, nil, nil, nil, nil, schemaValidator)
 			req := httptest.NewRequest(http.MethodPost, "/team/{orgName}/{teamName}", nil)
@@ -275,7 +272,7 @@ func TestListTeams(t *testing.T) {
 
 	testCases := []struct {
 		name          string
-		buildDbStubs  func(operator *db.MockDbOperator, ctrl *gomock.Controller)
+		buildDbStubs  func(conn *redigomock.Conn)
 		vars          map[string]string
 		checkResponse func(t *testing.T, recorder *httptest.ResponseRecorder)
 	}{
@@ -284,11 +281,11 @@ func TestListTeams(t *testing.T) {
 			vars: map[string]string{
 				"orgName": "org",
 			},
-			buildDbStubs: func(operator *db.MockDbOperator, ctrl *gomock.Controller) {
-				dbClient := db.NewMockDbClient(ctrl)
-				operator.EXPECT().GetClient().Times(1).Return(dbClient)
-				dbClient.EXPECT().FetchStringList(key).Times(1).Return(make([]string, 0))
-				dbClient.EXPECT().Close().Times(1).Return()
+			buildDbStubs: func(conn *redigomock.Conn) {
+				conn.Command("UNWATCH")
+				conn.Command("WATCH", key)
+				conn.Command("EXISTS", key).Expect(int64(1))
+				conn.Command("GET", key).Expect(serializer.Serialize(nil))
 			},
 			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusOK, recorder.Result().StatusCode)
@@ -300,11 +297,11 @@ func TestListTeams(t *testing.T) {
 			vars: map[string]string{
 				"orgName": "org",
 			},
-			buildDbStubs: func(operator *db.MockDbOperator, ctrl *gomock.Controller) {
-				dbClient := db.NewMockDbClient(ctrl)
-				operator.EXPECT().GetClient().Times(1).Return(dbClient)
-				dbClient.EXPECT().FetchStringList(key).Times(1).Return([]string{sampleTeamSchema.TeamName})
-				dbClient.EXPECT().Close().Times(1).Return()
+			buildDbStubs: func(conn *redigomock.Conn) {
+				conn.Command("UNWATCH")
+				conn.Command("WATCH", key)
+				conn.Command("EXISTS", key).Expect(int64(1))
+				conn.Command("GET", key).Expect(serializer.Serialize([]string{sampleTeamSchema.TeamName}))
 			},
 			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusOK, recorder.Result().StatusCode)
@@ -316,11 +313,9 @@ func TestListTeams(t *testing.T) {
 	for i := range testCases {
 		tc := testCases[i]
 		t.Run(tc.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			operator := db.NewMockDbOperator(ctrl)
-			tc.buildDbStubs(operator, ctrl)
+			conn := redigomock.NewConn()
+			tc.buildDbStubs(conn)
+			operator := db.New(conn)
 
 			InitClients(operator, nil, nil, nil, nil, nil, schemaValidator)
 			req := httptest.NewRequest(http.MethodPost, "/team/{orgName}/{teamName}", nil)
@@ -331,6 +326,10 @@ func TestListTeams(t *testing.T) {
 			tc.checkResponse(t, w)
 		})
 	}
+}
+
+func TestCreatePipeline(t *testing.T) {
+
 }
 
 func getRecorderBody(t *testing.T, body *bytes.Buffer) string {

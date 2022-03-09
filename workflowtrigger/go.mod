@@ -4,15 +4,21 @@ go 1.16
 
 require (
 	github.com/argoproj/argo-cd v1.8.7
-	github.com/golang/mock v1.6.0 // indirect
+	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/greenopsinc/util v0.0.0-00010101000000-000000000000
+	github.com/rafaeljusto/redigomock/v3 v3.0.1
+	github.com/stretchr/testify v1.6.1 // indirect
 	gitlab.com/c0b/go-ordered-json v0.0.0-20201030195603-febf46534d5a
 	google.golang.org/grpc v1.29.1
 	gopkg.in/yaml.v2 v2.4.0
+	k8s.io/api v0.19.6 // indirect
+	k8s.io/apimachinery v0.19.6 // indirect
+	k8s.io/client-go v11.0.1-0.20190816222228-6d55c1b1f1ca+incompatible // indirect
 )
 
 replace (
