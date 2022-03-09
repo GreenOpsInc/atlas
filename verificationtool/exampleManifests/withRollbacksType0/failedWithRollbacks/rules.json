@@ -1,0 +1,48 @@
+[
+    {
+        "stepName": "deploy_to_dev",
+        "eventType": "TestCompletionEvent0",
+        "pipelineStatus": {
+            "progressingSteps": [],
+            "stable": false,
+            "complete": false,
+            "cancelled": false,
+            "failedSteps": [
+                {
+                    "step": "deploy_to_dev",
+                    "deploymentFailed": false,
+                    "brokenTest": "POPULATED",
+                    "brokenTestLog": "POPULATED"
+                }
+            ]
+        },
+        "stepStatus": [
+            {
+                "type": "deployment",
+                "pipelineUniqueVersionNumber": "POPULATED",
+                "rollbackUniqueVersionNumber": "",
+                "uniqueVersionInstance": 0,
+                "status": "FAILURE",
+                "deploymentComplete": true,
+                "argoApplicationName": "atlastestapp-dev",
+                "argoRevisionHash": "POPULATED",
+                "gitCommitVersion": "POPULATED",
+                "brokenTest": "POPULATED",
+                "brokenTestLog": "POPULATED"
+            },
+            {
+                "type": "deployment",
+                "pipelineUniqueVersionNumber": "POPULATED",
+                "rollbackUniqueVersionNumber": "",
+                "uniqueVersionInstance": 0,
+                "status": "SUCCESS",
+                "deploymentComplete": true,
+                "argoApplicationName": "atlastestapp-dev",
+                "argoRevisionHash": "POPULATED",
+                "gitCommitVersion": "POPULATED",
+                "brokenTest": "",
+                "brokenTestLog": ""
+            }
+        ]
+    }
+]

@@ -1,0 +1,30 @@
+# here, rollback_limit = 1 and no syntax error
+name: demo_pipeline_11
+argo_version_lock: true
+cluster_name: in-cluster
+steps:
+- name: deploy_to_dev
+  #This is the path of the ArgoCD Application file
+  application_path: testapp_dev.yml
+  rollback_limit: 1
+  tests:
+  - path: verifyendpoints.sh
+    type: inject
+    image: curlimages/curl:latest
+    commands: [sh, -c, ./verifyendpoints.sh]
+    before: false
+    variables:
+      SERVICE_INTERNAL_URL: testapp.dev.svc.cluster.local
+- name: deploy_to_int
+  application_path: testapp_int.yml
+  tests:
+  - path: verifyendpoints.sh
+    type: inject
+    image: curlimages/curl:latest
+    commands: [sh, -c, ./verifyendpoints.sh]
+    before: false
+    variables:
+      SERVICE_INTERNAL_URL: testapp.int.svc.cluster.local
+  #The schema is DAG based, allowing both linear and complex pipelines
+  dependencies:
+  - deploy_to_dev

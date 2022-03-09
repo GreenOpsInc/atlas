@@ -1,0 +1,47 @@
+[
+    {
+        "stepName": "deploy_to_dev",
+        "eventType": "TriggerStepEvent",
+        "pipelineStatus": {
+            "progressingSteps": [
+                "deploy_to_dev"
+            ],
+            "stable": true,
+            "cancelled": false,
+            "failedSteps": []
+        },
+        "stepStatus": [
+            {
+                "type": "deployment",
+                "pipelineUniqueVersionNumber": "POPULATED",
+                "rollbackUniqueVersionNumber": "",
+                "uniqueVersionInstance": 0,
+                "status": "PROGRESSING",
+                "deploymentComplete": false,
+                "argoApplicationName": "",
+                "argoRevisionHash": "",
+                "gitCommitVersion": "POPULATED",
+                "brokenTest": "",
+                "brokenTestLog": ""
+            }
+        ]
+    },
+    {
+        "stepName": "deploy_to_int",
+        "eventType": "FailureEvent",
+        "pipelineStatus": {
+            "progressingSteps": [],
+            "stable": false,
+            "complete": false,
+            "cancelled": false,
+            "failedSteps": [
+                {
+                    "step": "deploy_to_int",
+                    "deploymentFailed": false,
+                    "brokenTest": "Processing Error",
+                    "brokenTestLog": "Listener method 'public void com.greenops.workfloworchestrator.ingest.kafka.SpringKafkaListener.listen(java.lang.String,org.springframework.kafka.support.Acknowledgment)' threw exception; nested exception is com.greenops.util.error.AtlasNonRetryableError: Returned with not found; nested exception is com.greenops.util.error.AtlasNonRetryableError: Returned with not found"
+                }
+            ]
+        }
+    }
+]

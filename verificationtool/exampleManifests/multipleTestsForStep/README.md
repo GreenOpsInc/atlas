@@ -1,0 +1,2 @@
+# multipleTestsForStep
+This manifests contains pipeline with two linear steps `deploy_to_dev` and `deploy_to_int`. In the `tests` of `deploy_to_dev`, we have more than one `tests` with `before: true` and `before: false`. This pipeline should pass all the order in the DAG, step status and pipeline status verification.

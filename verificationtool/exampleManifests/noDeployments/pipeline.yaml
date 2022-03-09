@@ -1,0 +1,25 @@
+# no deployment, only tasks
+name: demo_pipeline_10
+argo_version_lock: true
+cluster_name: in-cluster
+steps:
+- name: deploy_to_dev
+  #This is the path of the ArgoCD Application file
+  application_path: testapp_dev.yml
+  tests:
+  - path: verifyendpoints.sh
+    type: inject
+    image: curlimages/curl:latest
+    commands: [sh, -c, ./verifyendpoints.sh]
+    before: false
+- name: deploy_to_int
+  application_path: testapp_int.yml
+  tests:
+  - path: verifyendpoints.sh
+    type: inject
+    image: curlimages/curl:latest
+    commands: [sh, -c, ./verifyendpoints.sh]
+    before: false
+  #The schema is DAG based, allowing both linear and complex pipelines
+  dependencies:
+  - deploy_to_dev

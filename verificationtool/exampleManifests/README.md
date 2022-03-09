@@ -1,0 +1,1 @@
+# Sample pipeline manifests for testing Verificationtool

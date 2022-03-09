@@ -1,0 +1,10 @@
+autopep8==1.6.0
+certifi==2021.10.8
+charset-normalizer==2.0.12
+click==8.0.4
+idna==3.3
+pycodestyle==2.8.0
+python-dotenv==0.19.2
+requests==2.27.1
+toml==0.10.2
+urllib3==1.26.8

@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: testapp
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: testapp
+  template:
+    metadata:
+      labels:
+        app: testapp
+    spec:
+      containers:
+      - image: docker.io/1mihirpandya/testapp
+        name: testapp
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: testapp
+spec:
+  ports:
+  - port: 5000
+    targetPort: 5000
+  selector:
+    app: testapp

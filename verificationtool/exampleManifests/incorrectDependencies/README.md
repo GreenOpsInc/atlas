@@ -1,0 +1,2 @@
+# incorrectDependencies
+This manifests contains pipeline with two linear steps `deploy_to_dev` and `deploy_to_int`. In the dependencies list of `deploy_to_int`, the step name is wrong and because of this, events of `deploy_to_int` will not received. 
