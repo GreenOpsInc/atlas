@@ -7,7 +7,13 @@ const (
 	DeploymentLogType  string = "deployment"
 	RemediationLogType string = "stateremediation"
 	//Event subtypes
-	PipelineTriggerEventType string = "pipelinetrigger"
+	PipelineTriggerEventType            string = "pipelinetrigger"
+	ApplicationInfraCompletionEventType string = "applicationinfracompletion"
+	ApplicationInfraTriggerEventType    string = "applicationinfratrigger"
+	ClientCompletionEventType           string = "clientcompletion"
+	FailureEventType                    string = "failure"
+	TestCompletionEventType             string = "testcompletion"
+	TriggerStepEventType                string = "triggerstep"
 	//Client request subtypes
 	ClientDeployRequestType                      string = "deploy"
 	ClientDeleteByConfigRequestType              string = "del_config"
