@@ -2,8 +2,9 @@ package schemavalidation
 
 import (
 	"fmt"
-	"github.com/greenopsinc/util/git"
 
+	"github.com/greenopsinc/util/git"
+	pipelinedata "github.com/greenopsinc/util/pipeline/data"
 	"gopkg.in/yaml.v2"
 	"greenops.io/workflowtrigger/api/argo"
 	"greenops.io/workflowtrigger/api/reposerver"
@@ -13,17 +14,6 @@ const (
 	defaultProject string = "default"
 )
 
-type PipelineData struct {
-	ClusterName string `yaml:"cluster_name"`
-	Steps       []StepData
-}
-
-type StepData struct {
-	Name            string `yaml:"name"`
-	ClusterName     string `yaml:"cluster_name"`
-	ApplicationPath string `yaml:"application_path"`
-}
-
 type ClusterNamespaceGroup struct {
 	ClusterName string `json:"clusterName"`
 	Namespace   string `json:"namespace"`
@@ -31,14 +21,6 @@ type ClusterNamespaceGroup struct {
 
 type ClusterNamespaceGroups struct {
 	Groups []ClusterNamespaceGroup `json:"groups"`
-}
-
-func (p *PipelineData) initClusterNames() {
-	for idx, val := range p.Steps {
-		if val.ClusterName == "" {
-			p.Steps[idx].ClusterName = p.ClusterName
-		}
-	}
 }
 
 type RequestSchemaValidator struct {
@@ -57,17 +39,17 @@ func (r RequestSchemaValidator) GetStepApplicationPath(orgName string, teamName 
 	pipelineData := r.getPipelineData(orgName, teamName, gitRepoSchemaInfo, gitCommitHash)
 	for _, stepData := range pipelineData.Steps {
 		if stepData.Name == step {
-			return stepData.ApplicationPath
+			return stepData.ArgoApplicationPath
 		}
 	}
 	return ""
 }
 
-func (r RequestSchemaValidator) hasStepApplicationPayload(pipelineData PipelineData, step string) bool {
+func (r RequestSchemaValidator) hasStepApplicationPayload(pipelineData pipelinedata.PipelineData, step string) bool {
 	var applicationPath string
 	for _, stepData := range pipelineData.Steps {
 		if stepData.Name == step {
-			applicationPath = stepData.ApplicationPath
+			applicationPath = stepData.ArgoApplicationPath
 			break
 		}
 	}
@@ -82,12 +64,12 @@ func (r RequestSchemaValidator) GetStepApplicationPayloadWithoutPipelineData(org
 	return r.GetStepApplicationPayload(pipelineData, orgName, teamName, gitRepoSchemaInfo, step)
 }
 
-func (r RequestSchemaValidator) GetStepApplicationPayload(pipelineData PipelineData, orgName string, teamName string, gitRepoSchemaInfo git.GitRepoSchemaInfo, step string) (string, string) {
+func (r RequestSchemaValidator) GetStepApplicationPayload(pipelineData pipelinedata.PipelineData, orgName string, teamName string, gitRepoSchemaInfo git.GitRepoSchemaInfo, step string) (string, string) {
 	var applicationPath string
 	var clusterName string
 	for _, stepData := range pipelineData.Steps {
 		if stepData.Name == step {
-			applicationPath = stepData.ApplicationPath
+			applicationPath = stepData.ArgoApplicationPath
 			clusterName = stepData.ClusterName
 			break
 		}
@@ -114,8 +96,8 @@ func (r RequestSchemaValidator) ValidateSchemaAccess(orgName string, teamName st
 					return false
 				}
 			} else if argo.RbacResource(resource) == argo.ApplicationResource {
-				if step.ApplicationPath != "" {
-					applicationSubresource := r.getArgoApplicationProjectAndName(orgName, teamName, gitRepoSchemaInfo, gitCommitHash, step.ApplicationPath)
+				if step.ArgoApplicationPath != "" {
+					applicationSubresource := r.getArgoApplicationProjectAndName(orgName, teamName, gitRepoSchemaInfo, gitCommitHash, step.ArgoApplicationPath)
 					if !r.VerifyRbac(argo.RbacAction(action), argo.ApplicationResource, applicationSubresource) {
 						return false
 					}
@@ -130,15 +112,15 @@ func (r RequestSchemaValidator) VerifyRbac(action argo.RbacAction, resource argo
 	return r.argoAuthenticatorApi.CheckRbacPermissions(action, resource, subresource)
 }
 
-func (r RequestSchemaValidator) getPipelineData(orgName string, teamName string, gitRepoSchemaInfo git.GitRepoSchemaInfo, gitCommitHash string) PipelineData {
+func (r RequestSchemaValidator) getPipelineData(orgName string, teamName string, gitRepoSchemaInfo git.GitRepoSchemaInfo, gitCommitHash string) pipelinedata.PipelineData {
 	request := git.GetFileRequest{GitRepoSchemaInfo: gitRepoSchemaInfo, Filename: reposerver.PipelineFileName, GitCommitHash: gitCommitHash}
 	payload := r.repoManagerApi.GetFileFromRepo(request, orgName, teamName)
-	var pipelineData PipelineData
+	var pipelineData pipelinedata.PipelineData
 	err := yaml.Unmarshal([]byte(payload), &pipelineData)
 	if err != nil {
 		panic(err)
 	}
-	pipelineData.initClusterNames()
+	pipelineData.InitClusterNames()
 	return pipelineData
 }
 

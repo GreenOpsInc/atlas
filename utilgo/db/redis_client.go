@@ -73,30 +73,6 @@ type RedisClientOperator struct {
 	pool *redis.Pool
 }
 
-type StepMetadata struct {
-	ArgoRepoSchema *ArgoRepoSchema `json:"argoRepoSchema"`
-}
-
-type ArgoRepoSchema struct {
-	RepoURL        string `json:"repoURL"`
-	TargetRevision string `json:"targetRevision"`
-	Path           string `json:"path"`
-}
-
-func NewArgoRepoSchema(repoURL, targetRevision, path string) *ArgoRepoSchema {
-	if targetRevision == "" {
-		targetRevision = "main"
-	}
-	if path == "" {
-		path = "/"
-	}
-	return &ArgoRepoSchema{
-		RepoURL:        repoURL,
-		TargetRevision: targetRevision,
-		Path:           path,
-	}
-}
-
 func New(address string, password string) DbOperator {
 	pool := &redis.Pool{
 		Dial: func() (redis.Conn, error) {

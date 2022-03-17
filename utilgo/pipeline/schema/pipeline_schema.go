@@ -1,8 +1,8 @@
-package pipeline
+package schema
 
 import (
-	"gitlab.com/c0b/go-ordered-json"
 	"github.com/greenopsinc/util/git"
+	"gitlab.com/c0b/go-ordered-json"
 )
 
 type PipelineSchema struct {
