@@ -73,6 +73,30 @@ type RedisClientOperator struct {
 	pool *redis.Pool
 }
 
+type StepMetadata struct {
+	ArgoRepoSchema *ArgoRepoSchema `json:"argoRepoSchema"`
+}
+
+type ArgoRepoSchema struct {
+	RepoURL        string `json:"repoURL"`
+	TargetRevision string `json:"targetRevision"`
+	Path           string `json:"path"`
+}
+
+func NewArgoRepoSchema(repoURL, targetRevision, path string) *ArgoRepoSchema {
+	if targetRevision == "" {
+		targetRevision = "main"
+	}
+	if path == "" {
+		path = "/"
+	}
+	return &ArgoRepoSchema{
+		RepoURL:        repoURL,
+		TargetRevision: targetRevision,
+		Path:           path,
+	}
+}
+
 func New(address string, password string) DbOperator {
 	pool := &redis.Pool{
 		Dial: func() (redis.Conn, error) {
@@ -120,6 +144,10 @@ type DbClient interface {
 	FetchHeadInClientRequestList(key string) clientrequest.ClientRequestPacket
 	FetchLogList(key string, increment int) []auditlog.Log
 	FetchLatestLog(key string) auditlog.Log
+	FetchLatestDeploymentLog(key string) auditlog.Log
+	FetchLatestRemediationLog(key string) auditlog.Log
+	FetchMetadata(key string) *StepMetadata
+	FetchTransactionless(key string, objectType ObjectType) interface{}
 	FetchStringList(key string) []string
 	DeleteByPrefix(prefix string)
 }
@@ -365,6 +393,10 @@ func (r *RedisClientImpl) FetchTransactionless(key string, objectType ObjectType
 		return serializer.Deserialize(reply.(string), serializerutil.ClientPacketType)
 	}
 	panic(errors.New("objectType did not match type"))
+}
+
+func (r *RedisClientImpl) FetchMetadata(key string) *StepMetadata {
+	return r.fetch(key, metadata, -1).(*StepMetadata)
 }
 
 func (r *RedisClientImpl) DeleteByPrefix(prefix string) {

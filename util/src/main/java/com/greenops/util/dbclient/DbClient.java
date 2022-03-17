@@ -63,4 +63,3 @@ public interface DbClient {
 
     public void shutdown();
 }
-
