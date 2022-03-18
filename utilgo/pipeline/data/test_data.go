@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-
 	"github.com/greenopsinc/util/pipeline/request"
 )
 

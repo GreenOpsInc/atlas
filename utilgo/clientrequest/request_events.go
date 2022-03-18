@@ -110,8 +110,8 @@ func (r *ClientDeleteByConfigRequest) SetFinalTry(finalTry bool) {
 	r.FinalTry = finalTry
 }
 
-// ClientDeleteByGvkRequest -----
-type ClientDeleteByGvkRequest struct {
+// ClientDeleteByGVKRequest -----
+type ClientDeleteByGVKRequest struct {
 	ClientRequestEventMetadata
 	DeleteType        string `json:"deleteType"`
 	ResourceName      string `json:"resourceName"`
@@ -121,22 +121,22 @@ type ClientDeleteByGvkRequest struct {
 	Kind              string `json:"kind"`
 }
 
-func (r *ClientDeleteByGvkRequest) GetEvent() string {
+func (r *ClientDeleteByGVKRequest) GetEvent() string {
 	return serializerutil.ClientDeleteByGvkRequestType
 }
 
-func (r *ClientDeleteByGvkRequest) GetClientMetadata() ClientRequestEventMetadata {
+func (r *ClientDeleteByGVKRequest) GetClientMetadata() ClientRequestEventMetadata {
 	return r.ClientRequestEventMetadata
 }
 
-func (r *ClientDeleteByGvkRequest) GetPipelineUvn() string {
+func (r *ClientDeleteByGVKRequest) GetPipelineUvn() string {
 	return r.PipelineUvn
 }
 
-func (r *ClientDeleteByGvkRequest) IsFinalTry() bool {
+func (r *ClientDeleteByGVKRequest) IsFinalTry() bool {
 	return r.FinalTry
 }
-func (r *ClientDeleteByGvkRequest) SetFinalTry(finalTry bool) {
+func (r *ClientDeleteByGVKRequest) SetFinalTry(finalTry bool) {
 	r.FinalTry = finalTry
 }
 
@@ -193,6 +193,63 @@ func (r *ClientRollbackAndWatchRequest) IsFinalTry() bool {
 	return r.FinalTry
 }
 func (r *ClientRollbackAndWatchRequest) SetFinalTry(finalTry bool) {
+	r.FinalTry = finalTry
+}
+
+// ClientDeployNamedArgoApplicationRequest -----
+
+type ClientDeployNamedArgoApplicationRequest struct {
+	ClientRequestEventMetadata
+	DeployType string `json:"deployType"`
+	AppName    string `json:"appName"`
+}
+
+func (r *ClientDeployNamedArgoApplicationRequest) GetEvent() string {
+	return serializerutil.ClientRollbackAndWatchRequestType
+}
+
+func (r *ClientDeployNamedArgoApplicationRequest) GetClientMetadata() ClientRequestEventMetadata {
+	return r.ClientRequestEventMetadata
+}
+
+func (r *ClientDeployNamedArgoApplicationRequest) GetPipelineUvn() string {
+	return r.PipelineUvn
+}
+
+func (r *ClientDeployNamedArgoApplicationRequest) IsFinalTry() bool {
+	return r.FinalTry
+}
+
+func (r *ClientDeployNamedArgoApplicationRequest) SetFinalTry(finalTry bool) {
+	r.FinalTry = finalTry
+}
+
+// ClientDeployNamedArgoAppAndWatchRequest -----
+
+type ClientDeployNamedArgoAppAndWatchRequest struct {
+	ClientRequestEventMetadata
+	DeployType string `json:"deployType"`
+	AppName    string `json:"appName"`
+	WatchType  string `json:"watchType"`
+}
+
+func (r *ClientDeployNamedArgoAppAndWatchRequest) GetEvent() string {
+	return serializerutil.ClientRollbackAndWatchRequestType
+}
+
+func (r *ClientDeployNamedArgoAppAndWatchRequest) GetClientMetadata() ClientRequestEventMetadata {
+	return r.ClientRequestEventMetadata
+}
+
+func (r *ClientDeployNamedArgoAppAndWatchRequest) GetPipelineUvn() string {
+	return r.PipelineUvn
+}
+
+func (r *ClientDeployNamedArgoAppAndWatchRequest) IsFinalTry() bool {
+	return r.FinalTry
+}
+
+func (r *ClientDeployNamedArgoAppAndWatchRequest) SetFinalTry(finalTry bool) {
 	r.FinalTry = finalTry
 }
 
@@ -253,7 +310,7 @@ func UnmarshalMapRequestEvent(m map[string]interface{}) ClientRequestEvent {
 		_ = json.Unmarshal(logBytes, &request)
 		return &request
 	} else if m["type"] == serializerutil.ClientDeleteByGvkRequestType {
-		var request ClientDeleteByGvkRequest
+		var request ClientDeleteByGVKRequest
 		_ = json.Unmarshal(logBytes, &request)
 		return &request
 	} else if m["type"] == serializerutil.ClientDeployAndWatchRequestType {

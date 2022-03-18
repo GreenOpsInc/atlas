@@ -279,7 +279,7 @@ func deleteResourceFromConfig(request *clientrequest.ClientDeleteByConfigRequest
 	return nil
 }
 
-func deleteApplicationByGvk(request *clientrequest.ClientDeleteByGvkRequest) error {
+func deleteApplicationByGvk(request *clientrequest.ClientDeleteByGVKRequest) error {
 	groupVersionKind := schema.GroupVersionKind{
 		Group:   request.Group,
 		Version: request.Version,
@@ -502,8 +502,8 @@ func handleRequests() {
 				request = command.(*clientrequest.ClientRollbackAndWatchRequest)
 				err = rollbackAndWatch(request)
 			} else if command.GetEvent() == serializerutil.ClientDeleteByGvkRequestType {
-				var request *clientrequest.ClientDeleteByGvkRequest
-				request = command.(*clientrequest.ClientDeleteByGvkRequest)
+				var request *clientrequest.ClientDeleteByGVKRequest
+				request = command.(*clientrequest.ClientDeleteByGVKRequest)
 				err = deleteApplicationByGvk(request)
 			} else if command.GetEvent() == serializerutil.ClientDeleteByConfigRequestType {
 				var request *clientrequest.ClientDeleteByConfigRequest
