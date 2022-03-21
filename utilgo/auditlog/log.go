@@ -3,6 +3,8 @@ package auditlog
 import (
 	"encoding/json"
 
+	"github.com/greenopsinc/util/pipeline/data"
+
 	"github.com/greenopsinc/util/serializerutil"
 	"gitlab.com/c0b/go-ordered-json"
 )
@@ -22,9 +24,16 @@ type Log interface {
 	GetStatus() LogStatus
 	SetStatus(status LogStatus)
 	// TODO: add method to all structs
+	// TODO: sort
 	GetArgoRevisionHash() string
 	SetArgoApplicationName(name string)
 	SetArgoRevisionHash(hash string)
+	SetDeploymentComplete(complete bool)
+	GetBrokenTest() *data.TestData // maybe we should return string here
+	SetBrokenTest(test string)
+	SetBrokenTestLog(testLog string)
+	GetGitCommitVersion() string
+	GetRollbackUniqueVersionNumber() string
 }
 
 type DeploymentLog struct {

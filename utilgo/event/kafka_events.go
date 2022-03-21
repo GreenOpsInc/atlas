@@ -6,8 +6,9 @@ import (
 )
 
 const (
-	rootStepName string = "ATLAS_ROOT_DATA"
-	rootCommit   string = "ROOT_COMMIT"
+	rootStepName             string = "ATLAS_ROOT_DATA"
+	rootCommit               string = "ROOT_COMMIT"
+	PipelineTriggerEventName        = "com.greenops.utilgo.datamodel.kafka_events.PipelineTriggerEvent"
 )
 
 // TODO: add additional methods to all events after https://github.com/GreenOpsInc/atlas/pull/73 is merged
@@ -16,6 +17,7 @@ type Event interface {
 	GetOrgName() string
 	GetTeamName() string
 	GetPipelineName() string
+	GetStepName() string
 }
 
 type PipelineTriggerEvent struct {
