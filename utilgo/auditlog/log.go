@@ -21,6 +21,10 @@ type Log interface {
 	GetUniqueVersionInstance() int
 	GetStatus() LogStatus
 	SetStatus(status LogStatus)
+	// TODO: add method to all structs
+	GetArgoRevisionHash() string
+	SetArgoApplicationName(name string)
+	SetArgoRevisionHash(hash string)
 }
 
 type DeploymentLog struct {

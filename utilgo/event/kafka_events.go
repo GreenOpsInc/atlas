@@ -10,8 +10,12 @@ const (
 	rootCommit   string = "ROOT_COMMIT"
 )
 
+// TODO: add additional methods to all events after https://github.com/GreenOpsInc/atlas/pull/73 is merged
 type Event interface {
 	GetUvn() string
+	GetOrgName() string
+	GetTeamName() string
+	GetPipelineName() string
 }
 
 type PipelineTriggerEvent struct {

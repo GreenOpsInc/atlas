@@ -1,6 +1,6 @@
 package clientrequest
 
-type ResourceGvk struct {
+type ResourceGVK struct {
 	ResourceName      string `json:"resourceName"`
 	ResourceNamespace string `json:"resourceNamespace"`
 	Group             string `json:"group"`
