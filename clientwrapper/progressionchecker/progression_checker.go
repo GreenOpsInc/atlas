@@ -86,7 +86,9 @@ func checkForCompletedApplications(watchedApplications map[string]datamodel.Watc
 				doneReading = true
 			}
 			if doneReading {
-				break
+				if err := PersistWatchedKeys(kubernetesClient, watchedApplications); err == nil {
+					break
+				}
 			}
 		}
 		//Check health of watched applications
@@ -160,9 +162,9 @@ func checkForCompletedApplications(watchedApplications map[string]datamodel.Watc
 						deleteKeys = append(deleteKeys, mapKey)
 						break
 					} else if plugin.PluginObject.Cleanup(watchKey) == nil {
-                      	deleteKeys = append(deleteKeys, mapKey)
-                      	break
-                    }
+						deleteKeys = append(deleteKeys, mapKey)
+						break
+					}
 				}
 			}
 		}
@@ -224,9 +226,8 @@ func Start(kubernetesClient k8sdriver.KubernetesClientGetRestricted, argoClient 
 		metricsServerAddress = DefaultMetricsServerAddress
 	}
 	progressionCheckerChannel := make(chan string, ProgressionChannelBufferSize)
-	//TODO: Add initial cache creation
 	go listenForApplicationsToWatch(channel, progressionCheckerChannel)
-	watchedApplications := make(map[string]datamodel.WatchKey)
+	watchedApplications := RetrieveWatchedKeys(kubernetesClient)
 	for {
 		log.Printf("Progression checker starting...")
 		watchedApplications = checkForCompletedApplications(watchedApplications, kubernetesClient, argoClient, eventGenerationApi, pluginList, progressionCheckerChannel, metricsServerAddress)
