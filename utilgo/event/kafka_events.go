@@ -11,14 +11,12 @@ const (
 	PipelineTriggerEventName        = "com.greenops.utilgo.datamodel.kafka_events.PipelineTriggerEvent"
 )
 
-// TODO: add additional methods to all events after https://github.com/GreenOpsInc/atlas/pull/73 is merged
 type Event interface {
-	GetUvn() string
+	GetUVN() string
 	GetOrgName() string
 	GetTeamName() string
 	GetPipelineName() string
 	GetStepName() string
-	GetUVN() string
 }
 
 type PipelineTriggerEvent struct {
@@ -30,6 +28,26 @@ type PipelineTriggerEvent struct {
 	RevisionHash string `json:"revisionHash"`
 }
 
+func (e *PipelineTriggerEvent) GetUVN() string {
+	return e.UVN
+}
+
+func (e *PipelineTriggerEvent) GetOrgName() string {
+	return e.OrgName
+}
+
+func (e *PipelineTriggerEvent) GetTeamName() string {
+	return e.TeamName
+}
+
+func (e *PipelineTriggerEvent) GetPipelineName() string {
+	return e.PipelineName
+}
+
+func (e *PipelineTriggerEvent) GetStepName() string {
+	return e.StepName
+}
+
 type ApplicationInfraCompletionEvent struct {
 	OrgName      string `json:"orgName"`
 	TeamName     string `json:"teamName"`
@@ -39,12 +57,52 @@ type ApplicationInfraCompletionEvent struct {
 	Success      bool   `json:"success"`
 }
 
+func (e *ApplicationInfraCompletionEvent) GetUVN() string {
+	return e.UVN
+}
+
+func (e *ApplicationInfraCompletionEvent) GetOrgName() string {
+	return e.OrgName
+}
+
+func (e *ApplicationInfraCompletionEvent) GetTeamName() string {
+	return e.TeamName
+}
+
+func (e *ApplicationInfraCompletionEvent) GetPipelineName() string {
+	return e.PipelineName
+}
+
+func (e *ApplicationInfraCompletionEvent) GetStepName() string {
+	return e.StepName
+}
+
 type ApplicationInfraTriggerEvent struct {
 	OrgName      string `json:"orgName"`
 	TeamName     string `json:"teamName"`
 	PipelineName string `json:"pipelineName"`
 	UVN          string `json:"pipelineUvn"`
 	StepName     string `json:"stepName"`
+}
+
+func (e *ApplicationInfraTriggerEvent) GetUVN() string {
+	return e.UVN
+}
+
+func (e *ApplicationInfraTriggerEvent) GetOrgName() string {
+	return e.OrgName
+}
+
+func (e *ApplicationInfraTriggerEvent) GetTeamName() string {
+	return e.TeamName
+}
+
+func (e *ApplicationInfraTriggerEvent) GetPipelineName() string {
+	return e.PipelineName
+}
+
+func (e *ApplicationInfraTriggerEvent) GetStepName() string {
+	return e.StepName
 }
 
 type ClientCompletionEvent struct {
@@ -62,6 +120,26 @@ type ClientCompletionEvent struct {
 	Project          string            `json:"project"`
 	Repo             string            `json:"repo"`
 	RevisionHash     string            `json:"revisionHash"`
+}
+
+func (e *ClientCompletionEvent) GetUVN() string {
+	return e.UVN
+}
+
+func (e *ClientCompletionEvent) GetOrgName() string {
+	return e.OrgName
+}
+
+func (e *ClientCompletionEvent) GetTeamName() string {
+	return e.TeamName
+}
+
+func (e *ClientCompletionEvent) GetPipelineName() string {
+	return e.PipelineName
+}
+
+func (e *ClientCompletionEvent) GetStepName() string {
+	return e.StepName
 }
 
 type ResourceStatus struct {
@@ -85,6 +163,26 @@ type FailureEvent struct {
 	Error          string          `json:"error"`
 }
 
+func (e *FailureEvent) GetUVN() string {
+	return e.UVN
+}
+
+func (e *FailureEvent) GetOrgName() string {
+	return e.OrgName
+}
+
+func (e *FailureEvent) GetTeamName() string {
+	return e.TeamName
+}
+
+func (e *FailureEvent) GetPipelineName() string {
+	return e.PipelineName
+}
+
+func (e *FailureEvent) GetStepName() string {
+	return e.StepName
+}
+
 type DeployResponse struct {
 	Success              bool   `json:"success"`
 	ResourceName         string `json:"resourceName"`
@@ -104,6 +202,26 @@ type TestCompletionEvent struct {
 	TestNumber   int    `json:"testNumber"`
 }
 
+func (e *TestCompletionEvent) GetUVN() string {
+	return e.UVN
+}
+
+func (e *TestCompletionEvent) GetOrgName() string {
+	return e.OrgName
+}
+
+func (e *TestCompletionEvent) GetTeamName() string {
+	return e.TeamName
+}
+
+func (e *TestCompletionEvent) GetPipelineName() string {
+	return e.PipelineName
+}
+
+func (e *TestCompletionEvent) GetStepName() string {
+	return e.StepName
+}
+
 type TriggerStepEvent struct {
 	OrgName       string `json:"orgName"`
 	TeamName      string `json:"teamName"`
@@ -112,6 +230,26 @@ type TriggerStepEvent struct {
 	UVN           string `json:"pipelineUvn"`
 	GitCommitHash string `json:"gitCommitHash"`
 	Rollback      bool   `json:"rollback"`
+}
+
+func (e *TriggerStepEvent) GetUVN() string {
+	return e.UVN
+}
+
+func (e *TriggerStepEvent) GetOrgName() string {
+	return e.OrgName
+}
+
+func (e *TriggerStepEvent) GetTeamName() string {
+	return e.TeamName
+}
+
+func (e *TriggerStepEvent) GetPipelineName() string {
+	return e.PipelineName
+}
+
+func (e *TriggerStepEvent) GetStepName() string {
+	return e.StepName
 }
 
 func NewPipelineTriggerEventRaw(orgName string, teamName string, pipelineName string, pipelineUVN string) Event {
@@ -239,34 +377,6 @@ func NewTriggerStepEvent(orgName string, teamName string, pipelineName string, g
 		GitCommitHash: gitCommitHash,
 		Rollback:      rollback,
 	}
-}
-
-func (e *PipelineTriggerEvent) GetUVN() string {
-	return e.UVN
-}
-
-func (e *ApplicationInfraCompletionEvent) GetUVN() string {
-	return e.UVN
-}
-
-func (e *ApplicationInfraTriggerEvent) GetUVN() string {
-	return e.UVN
-}
-
-func (e *ClientCompletionEvent) GetUVN() string {
-	return e.UVN
-}
-
-func (e *FailureEvent) GetUVN() string {
-	return e.UVN
-}
-
-func (e *TestCompletionEvent) GetUVN() string {
-	return e.UVN
-}
-
-func (e *TriggerStepEvent) GetUVN() string {
-	return e.UVN
 }
 
 func MarshalEvent(event Event) map[string]interface{} {
