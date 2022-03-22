@@ -20,6 +20,10 @@ const (
 
 type TestData interface {
 	GetPayload(testNumber int, testConfig string) interface{}
+	// TODO: implement methods
+	ShouldExecuteBefore() bool
+	GetPath() string
+	GetWatchKey() string
 }
 
 type CustomJobTest struct {

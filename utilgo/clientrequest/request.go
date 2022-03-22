@@ -1,17 +1,19 @@
 package clientrequest
 
 import (
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 const (
-	DeployArgoRequest       string = "DeployArgoRequest"
-	DeployKubernetesRequest string = "DeployKubernetesRequest"
-	DeployTestRequest       string = "DeployTestRequest"
-	DeleteArgoRequest       string = "DeleteArgoRequest"
-	DeleteKubernetesRequest string = "DeleteKubernetesRequest"
-	DeleteTestRequest       string = "DeleteTestRequest"
+	DeployArgoRequest             = "DeployArgoRequest"
+	DeployKubernetesRequest       = "DeployKubernetesRequest"
+	DeployTestRequest             = "DeployTestRequest"
+	DeleteArgoRequest             = "DeleteArgoRequest"
+	DeleteKubernetesRequest       = "DeleteKubernetesRequest"
+	DeleteTestRequest             = "DeleteTestRequest"
+	ResponseEventApplicationInfra = "ApplicationInfraCompletionEvent"
+	LatestRevision                = "LATEST_REVISION"
 )
 
 type RollbackRequest struct {
