@@ -2,8 +2,7 @@ package auditlog
 
 import (
 	"encoding/json"
-
-	"github.com/greenopsinc/util/pipeline/data"
+	"log"
 
 	"github.com/greenopsinc/util/serializerutil"
 	"gitlab.com/c0b/go-ordered-json"
@@ -20,20 +19,25 @@ const (
 
 type Log interface {
 	GetPipelineUniqueVersionNumber() string
+	GetRollbackUniqueVersionNumber() string
 	GetUniqueVersionInstance() int
 	GetStatus() LogStatus
-	SetStatus(status LogStatus)
-	// TODO: add method to all structs
-	// TODO: sort
+	IsDeploymentComplete() bool
+	GetArgoApplicationName() string
 	GetArgoRevisionHash() string
+	GetGitCommitVersion() string
+	GetBrokenTest() string
+	GetBrokenTestLog() string
+	SetPipelineUniqueVersionNumber(number string)
+	SetRollbackUniqueVersionNumber(number string)
+	SetUniqueVersionInstance(version int)
+	SetStatus(status LogStatus)
+	SetDeploymentComplete(complete bool)
 	SetArgoApplicationName(name string)
 	SetArgoRevisionHash(hash string)
-	SetDeploymentComplete(complete bool)
-	GetBrokenTest() *data.TestData // maybe we should return string here
+	SetGitCommitVersion(version string)
 	SetBrokenTest(test string)
 	SetBrokenTestLog(testLog string)
-	GetGitCommitVersion() string
-	GetRollbackUniqueVersionNumber() string
 }
 
 type DeploymentLog struct {
@@ -49,6 +53,86 @@ type DeploymentLog struct {
 	BrokenTestLog               string    `json:"brokenTestLog"`
 }
 
+func (d *DeploymentLog) GetPipelineUniqueVersionNumber() string {
+	return d.PipelineUniqueVersionNumber
+}
+
+func (d *DeploymentLog) GetRollbackUniqueVersionNumber() string {
+	return d.RollbackUniqueVersionNumber
+}
+
+func (d *DeploymentLog) GetUniqueVersionInstance() int {
+	return d.UniqueVersionInstance
+}
+
+func (d *DeploymentLog) GetStatus() LogStatus {
+	return d.Status
+}
+
+func (d *DeploymentLog) IsDeploymentComplete() bool {
+	return d.DeploymentComplete
+}
+
+func (d *DeploymentLog) GetArgoApplicationName() string {
+	return d.ArgoApplicationName
+}
+
+func (d *DeploymentLog) GetArgoRevisionHash() string {
+	return d.ArgoRevisionHash
+}
+
+func (d *DeploymentLog) GetGitCommitVersion() string {
+	return d.GitCommitVersion
+}
+
+func (d *DeploymentLog) GetBrokenTest() string {
+	return d.BrokenTest
+}
+
+func (d *DeploymentLog) GetBrokenTestLog() string {
+	return d.BrokenTestLog
+}
+
+func (d *DeploymentLog) SetPipelineUniqueVersionNumber(number string) {
+	d.PipelineUniqueVersionNumber = number
+}
+
+func (d *DeploymentLog) SetRollbackUniqueVersionNumber(number string) {
+	d.RollbackUniqueVersionNumber = number
+}
+
+func (d *DeploymentLog) SetUniqueVersionInstance(version int) {
+	d.UniqueVersionInstance = version
+}
+
+func (d *DeploymentLog) SetStatus(status LogStatus) {
+	d.Status = status
+}
+
+func (d *DeploymentLog) SetDeploymentComplete(complete bool) {
+	d.DeploymentComplete = complete
+}
+
+func (d *DeploymentLog) SetArgoApplicationName(name string) {
+	d.ArgoApplicationName = name
+}
+
+func (d *DeploymentLog) SetArgoRevisionHash(hash string) {
+	d.ArgoRevisionHash = hash
+}
+
+func (d *DeploymentLog) SetGitCommitVersion(version string) {
+	d.GitCommitVersion = version
+}
+
+func (d *DeploymentLog) SetBrokenTest(test string) {
+	d.BrokenTest = test
+}
+
+func (d *DeploymentLog) SetBrokenTestLog(testLog string) {
+	d.BrokenTestLog = testLog
+}
+
 func InitBlankDeploymentLog(pipelineUniqueVersionNumber string, status LogStatus, deploymentComplete bool, argoRevisionHash string, gitCommitVersion string) Log {
 	d := DeploymentLog{}
 	d.PipelineUniqueVersionNumber = pipelineUniqueVersionNumber
@@ -62,19 +146,6 @@ func InitBlankDeploymentLog(pipelineUniqueVersionNumber string, status LogStatus
 	d.BrokenTest = ""
 	d.BrokenTestLog = ""
 	return &d
-}
-
-func (d *DeploymentLog) GetPipelineUniqueVersionNumber() string {
-	return d.PipelineUniqueVersionNumber
-}
-func (d *DeploymentLog) GetUniqueVersionInstance() int {
-	return d.UniqueVersionInstance
-}
-func (d *DeploymentLog) GetStatus() LogStatus {
-	return d.Status
-}
-func (d *DeploymentLog) SetStatus(status LogStatus) {
-	d.Status = status
 }
 
 type RemediationLog struct {
@@ -96,14 +167,96 @@ func InitBlankRemediationLog(pipelineUniqueVersionNumber string, uniqueVersionIn
 func (d *RemediationLog) GetPipelineUniqueVersionNumber() string {
 	return d.PipelineUniqueVersionNumber
 }
+
 func (d *RemediationLog) GetUniqueVersionInstance() int {
 	return d.UniqueVersionInstance
 }
+
 func (d *RemediationLog) GetStatus() LogStatus {
 	return d.RemediationStatus
 }
+
+func (d *RemediationLog) GetRollbackUniqueVersionNumber() string {
+	log.Println("RollbackUniqueVersionNumber field is missing in RemediationLog, returning empty string")
+	return ""
+}
+
+func (d *RemediationLog) IsDeploymentComplete() bool {
+	log.Println("DeploymentComplete field is missing in RemediationLog, returning false")
+	return false
+}
+
+func (d *RemediationLog) GetArgoApplicationName() string {
+	log.Println("ArgoApplicationName field is missing in RemediationLog, returning empty string")
+	return ""
+}
+
+func (d *RemediationLog) GetArgoRevisionHash() string {
+	log.Println("ArgoRevisionHash field is missing in RemediationLog, returning empty string")
+	return ""
+}
+
+func (d *RemediationLog) GetGitCommitVersion() string {
+	log.Println("GitCommitVersion field is missing in RemediationLog, returning empty string")
+	return ""
+}
+
+func (d *RemediationLog) GetBrokenTest() string {
+	log.Println("BrokenTest field is missing in RemediationLog, returning empty string")
+	return ""
+}
+
+func (d *RemediationLog) GetBrokenTestLog() string {
+	log.Println("BrokenTestLog field is missing in RemediationLog, returning empty string")
+	return ""
+}
+
+func (d *RemediationLog) GetUnhealthyResources() []string {
+	return d.UnhealthyResources
+}
+
+func (d *RemediationLog) SetPipelineUniqueVersionNumber(number string) {
+	d.PipelineUniqueVersionNumber = number
+}
+
+func (d *RemediationLog) SetRollbackUniqueVersionNumber(_ string) {
+	log.Println("RollbackUniqueVersionNumber field is missing in RemediationLog")
+}
+
+func (d *RemediationLog) SetUniqueVersionInstance(version int) {
+	d.UniqueVersionInstance = version
+}
+
 func (d *RemediationLog) SetStatus(status LogStatus) {
 	d.RemediationStatus = status
+}
+
+func (d *RemediationLog) SetDeploymentComplete(_ bool) {
+	log.Println("DeploymentComplete field is missing in RemediationLog")
+}
+
+func (d *RemediationLog) SetArgoApplicationName(_ string) {
+	log.Println("ArgoApplicationName field is missing in RemediationLog")
+}
+
+func (d *RemediationLog) SetArgoRevisionHash(_ string) {
+	log.Println("ArgoRevisionHash field is missing in RemediationLog")
+}
+
+func (d *RemediationLog) SetGitCommitVersion(_ string) {
+	log.Println("GitCommitVersion field is missing in RemediationLog")
+}
+
+func (d *RemediationLog) SetBrokenTest(_ string) {
+	log.Println("BrokenTest field is missing in RemediationLog")
+}
+
+func (d *RemediationLog) SetBrokenTestLog(_ string) {
+	log.Println("BrokenTestLog field is missing in RemediationLog")
+}
+
+func (d *RemediationLog) SetUnhealthyResources(resources []string) {
+	d.UnhealthyResources = resources
 }
 
 func Unmarshall(m map[string]interface{}) Log {

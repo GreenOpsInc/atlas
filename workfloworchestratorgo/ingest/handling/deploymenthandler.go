@@ -42,7 +42,7 @@ func (d *deploymentHandler) DeleteApplicationInfrastructure(e event.Event, gitRe
 	if stepData.OtherDeploymentsPath != "" {
 		getFileRequest := &git.GetFileRequest{
 			GitRepoSchemaInfo: *gitRepoSchemaInfo,
-			Filename:          event.GetOrgName(),
+			Filename:          e.GetOrgName(),
 			GitCommitHash:     gitCommitHash,
 		}
 		otherDeploymentsConfig, err := d.repoManagerAPI.GetFileFromRepo(getFileRequest, e.GetOrgName(), e.GetTeamName())
@@ -64,7 +64,7 @@ func (d *deploymentHandler) DeleteApplicationInfrastructure(e event.Event, gitRe
 			e.GetOrgName(),
 			e.GetTeamName(),
 			e.GetPipelineName(),
-			e.GetUvn(),
+			e.GetUVN(),
 			e.GetStepName(),
 			stepNS,
 			clientrequest.DeleteKubernetesRequest,
@@ -100,7 +100,7 @@ func (d *deploymentHandler) DeployApplicationInfrastructure(e event.Event, gitRe
 			e.GetOrgName(),
 			e.GetTeamName(),
 			e.GetPipelineName(),
-			e.GetUvn(),
+			e.GetUVN(),
 			stepData.Name,
 			stepNS,
 			clientrequest.ResponseEventApplicationInfra,
@@ -126,9 +126,11 @@ func (d *deploymentHandler) DeployArgoApplication(e event.Event, gitRepoSchemaIn
 		if err != nil {
 			return err
 		}
-		d.metadataHandler.AssertArgoRepoMetadataExists(e, stepData.Name, argoApplicationConfig)
+		if err = d.metadataHandler.AssertArgoRepoMetadataExists(e, stepData.Name, argoApplicationConfig); err != nil {
+			return err
+		}
 		pipelineLockRevisionHash := clientrequest.LatestRevision
-		if pipelineData.IsArgoVersionLock() {
+		if pipelineData.ArgoVersionLock {
 			pipelineLockRevisionHash = d.metadataHandler.GetPipelineLockRevisionHash(e, pipelineData, stepName)
 		}
 
@@ -141,7 +143,7 @@ func (d *deploymentHandler) DeployArgoApplication(e event.Event, gitRepoSchemaIn
 			e.GetOrgName(),
 			e.GetTeamName(),
 			e.GetPipelineName(),
-			e.GetUvn(),
+			e.GetUVN(),
 			stepData.Name,
 			stepNS,
 			clientrequest.DeployArgoRequest,
@@ -158,7 +160,7 @@ func (d *deploymentHandler) DeployArgoApplication(e event.Event, gitRepoSchemaIn
 }
 
 func (d *deploymentHandler) RollbackArgoApplication(e event.Event, gitRepoSchemaInfo *git.GitRepoSchemaInfo, stepData *data.StepData, argoApplicationName string, argoRevisionHash string) error {
-	stepNS, err := GetStepNamespace(e, d.repoManagerAPI, stepData.ArgoApplicationPath, gitRepoSchemaInfo, gitCommitHash)
+	stepNS, err := GetStepNamespace(e, d.repoManagerAPI, stepData.ArgoApplicationPath, gitRepoSchemaInfo, argoRevisionHash)
 	if err != nil {
 		return err
 	}
@@ -167,7 +169,7 @@ func (d *deploymentHandler) RollbackArgoApplication(e event.Event, gitRepoSchema
 		e.GetOrgName(),
 		e.GetTeamName(),
 		e.GetPipelineName(),
-		e.GetUvn(),
+		e.GetUVN(),
 		stepData.Name,
 		stepNS,
 		argoApplicationName,
@@ -181,7 +183,7 @@ func (d *deploymentHandler) TriggerStateRemediation(e event.Event, gitRepoSchema
 	syncRequestPayload := &clientrequest.ResourcesGVKRequest{
 		resourceStatuses,
 	}
-	stepNS, err := GetStepNamespace(e, d.repoManagerAPI, stepData.ArgoApplicationPath, gitRepoSchemaInfo, gitCommitHash)
+	stepNS, err := GetStepNamespace(e, d.repoManagerAPI, stepData.ArgoApplicationPath, gitRepoSchemaInfo, argoRevisionHash)
 	if err != nil {
 		return err
 	}
@@ -190,7 +192,7 @@ func (d *deploymentHandler) TriggerStateRemediation(e event.Event, gitRepoSchema
 		e.GetOrgName(),
 		e.GetTeamName(),
 		e.GetPipelineName(),
-		e.GetUvn(),
+		e.GetUVN(),
 		stepData.Name,
 		stepNS,
 		argoRevisionHash,

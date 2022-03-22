@@ -23,7 +23,7 @@ type DeploymentLogHandler interface {
 	MarkStateRemediationFailed(e event.Event, stepName string)
 	MarkStepFailedWithFailedDeployment(e event.Event, stepName string)
 	MarkStepFailedWithBrokenTest(e event.Event, stepName string, testName string, testLog string)
-	MarkStepFailedWithProcessingError(e event.FailureEvent, stepName string, error string)
+	MarkStepFailedWithProcessingError(e *event.FailureEvent, stepName string, error string)
 	AreParentStepsComplete(e event.Event, parentSteps []string) bool
 	GetStepStatus(e event.Event) string
 	MakeRollbackDeploymentLog(e event.Event, stepName string, rollbackLimit int, dryRun bool) (string, error)
@@ -32,7 +32,7 @@ type DeploymentLogHandler interface {
 	GetCurrentPipelineUvn(e event.Event, stepName string) string
 	GetLastSuccessfulStepGitCommitHash(e event.Event, stepName string) string
 	GetLastSuccessfulDeploymentGitCommitHash(e event.Event, stepName string) string
-	GetLatestDeploymentLog(e event.Event, stepName string) *auditlog.DeploymentLog
+	GetLatestDeploymentLog(e event.Event, stepName string) (*auditlog.DeploymentLog, error)
 }
 
 type deploymentLogHandler struct {
@@ -105,7 +105,7 @@ func (d *deploymentLogHandler) MarkStepSuccessful(e event.Event, stepName string
 	deploymentLog := d.dbClient.FetchLatestDeploymentLog(logKey)
 
 	// this check is largely redundant, should never be the case
-	if deploymentLog.GetBrokenTest() != nil {
+	if deploymentLog.GetBrokenTest() != "" {
 		return errors.New("this step has test failures, should not be marked successful")
 	}
 	deploymentLog.SetStatus(auditlog.Success)
@@ -154,7 +154,7 @@ func (d *deploymentLogHandler) MarkStepFailedWithBrokenTest(e event.Event, stepN
 	d.dbClient.UpdateHeadInList(logKey, deploymentLog)
 }
 
-func (d *deploymentLogHandler) MarkStepFailedWithProcessingError(e *FailureEvent, stepName string, error string) {
+func (d *deploymentLogHandler) MarkStepFailedWithProcessingError(e *event.FailureEvent, stepName string, error string) {
 	log.Println("marking step failed with processing error")
 	logKey := dbkey.MakeDbStepKey(e.GetOrgName(), e.GetTeamName(), e.GetPipelineName(), stepName)
 	log := d.dbClient.FetchLatestLog(logKey)
@@ -254,7 +254,7 @@ func (d *deploymentLogHandler) MakeRollbackDeploymentLog(e event.Event, stepName
 	}
 
 	for idx < len(logList) {
-		deploymentLog, ok := logList[idx].(*DeploymentLog)
+		deploymentLog, ok := logList[idx].(*auditlog.DeploymentLog)
 		if !ok {
 			idx++
 			continue
@@ -376,20 +376,24 @@ func (d *deploymentLogHandler) GetLastSuccessfulDeploymentGitCommitHash(e event.
 	return ""
 }
 
-func (d *deploymentLogHandler) GetLatestDeploymentLog(e event.Event, stepName string) *auditlog.DeploymentLog {
-	logKey := dbkey.MakeDbStepKey(e.GetOrgName(), e.GetTeamName(), e.GetPipelineName(), e.GetStepName())
-	return d.dbClient.FetchLatestDeploymentLog(logKey)
+func (d *deploymentLogHandler) GetLatestDeploymentLog(e event.Event, stepName string) (*auditlog.DeploymentLog, error) {
+	logKey := dbkey.MakeDbStepKey(e.GetOrgName(), e.GetTeamName(), e.GetPipelineName(), stepName)
+	deploymentLog, ok := d.dbClient.FetchLatestDeploymentLog(logKey).(*auditlog.DeploymentLog)
+	if !ok {
+		return nil, errors.New("og type is not DeploymentLog")
+	}
+	return deploymentLog, nil
 }
 
 // when the deployment log for a step doesn't exist, just mark the entire pipeline ambiguously and allow the user to determine the origin
-func (d *deploymentLogHandler) markPipelineFailedWithProcessingError(e *FailureEvent, error string) {
+func (d *deploymentLogHandler) markPipelineFailedWithProcessingError(e *event.FailureEvent, error string) {
 	log.Println("no step found for the error, adding in to the pipeline metadata")
 	key := dbkey.MakeDbPipelineInfoKey(e.GetOrgName(), e.GetTeamName(), e.GetPipelineName())
 	pipelineInfo := d.dbClient.FetchLatestPipelineInfo(key)
 
-	if event.GetStatusCode() == event.PipelineTriggerEventName || pipelineInfo == nil {
-		pipelineInfo = &auditlog.PipelineInfo{
-			PipelineUvn: event.GetPipelineUVN(),
+	if e.StatusCode == event.PipelineTriggerEventName {
+		pipelineInfo = auditlog.PipelineInfo{
+			PipelineUvn: e.GetUVN(),
 			Errors:      []string{error},
 			StepList:    []string{},
 		}

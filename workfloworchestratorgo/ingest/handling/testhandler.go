@@ -58,7 +58,7 @@ func (t *testHandler) CreateAndRunTest(clusterName string, stepData *data.StepDa
 		e.GetOrgName(),
 		e.GetTeamName(),
 		e.GetPipelineName(),
-		e.GetUvn(),
+		e.GetUVN(),
 		stepData.Name,
 		stepNS,
 		cw.DeployTestRequest,
