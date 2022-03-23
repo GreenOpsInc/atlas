@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/argoproj/argo-cd v1.8.7
+	github.com/coreos/go-etcd v2.0.0+incompatible // indirect
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
