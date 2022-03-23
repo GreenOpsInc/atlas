@@ -6,9 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/coreos/etcd/clientv3"
+	"github.com/google/uuid"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -17,6 +16,12 @@ var (
 	requestTimeout = 10 * time.Second
 	etcdEndpoint   = "127.0.0.1:2379"
 )
+
+/**
+IDEAS:
+	1. take workqueue package and enhance it: add persistence to etcd storage
+	2. store data in Add func and Delete it in Put func (in this case we should get all data from etcd on start and put it in queue)
+*/
 
 type WorkQueue interface {
 	Add(ctx context.Context, event *Event) error
