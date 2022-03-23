@@ -3,9 +3,9 @@ package team
 import (
 	"encoding/json"
 
-	"gitlab.com/c0b/go-ordered-json"
 	"github.com/greenopsinc/util/git"
-	"github.com/greenopsinc/util/pipeline"
+	pipeline "github.com/greenopsinc/util/pipeline/schema"
+	"gitlab.com/c0b/go-ordered-json"
 )
 
 type TeamSchema struct {

@@ -6,9 +6,18 @@ import (
 )
 
 const (
-	rootStepName             string = "ATLAS_ROOT_DATA"
-	rootCommit               string = "ROOT_COMMIT"
-	PipelineTriggerEventName        = "com.greenops.utilgo.datamodel.kafka_events.PipelineTriggerEvent"
+	rootStepName             = "ATLAS_ROOT_DATA"
+	rootCommit               = "ROOT_COMMIT"
+	PipelineTriggerEventName = "com.greenops.utilgo.datamodel.kafka_events.PipelineTriggerEvent"
+
+	HealthyStatus     = "Healthy"
+	ProgressingStatus = "Progressing"
+	UnknownStatus     = "Unknown"
+	DegradedStatus    = "Degraded"
+	SuspendedStatus   = "Suspended"
+	MissingStatus     = "Missing"
+	SyncedStatus      = "Synced"
+	OutOfSyncStatus   = "OutOfSync"
 )
 
 type Event interface {
@@ -417,6 +426,6 @@ func MarshalEvent(event Event) map[string]interface{} {
 		mapObj["type"] = serializerutil.TriggerStepEventType
 		return mapObj
 	default:
-		panic("Matching event type not found")
+		panic("matching event type not found")
 	}
 }

@@ -1,6 +1,6 @@
 module github.com/greenopsinc/util
 
-go 1.16
+go 1.18
 
 require (
 	github.com/argoproj/argo-cd v1.8.7

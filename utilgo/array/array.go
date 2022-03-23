@@ -8,3 +8,12 @@ func LastIndexOf(arr []string, val string) int {
 	}
 	return -1
 }
+
+func ContainElement(arr []string, val string) bool {
+	for _, el := range arr {
+		if el == val {
+			return true
+		}
+	}
+	return false
+}
