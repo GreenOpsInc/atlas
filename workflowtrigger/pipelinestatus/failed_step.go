@@ -2,6 +2,7 @@ package pipelinestatus
 
 import "gitlab.com/c0b/go-ordered-json"
 
+// TODO: should be replaced with PipelineSpec from CRD
 type FailedStep struct {
 	Step             string `json:"step"`
 	DeploymentFailed bool   `json:"deploymentFailed"`

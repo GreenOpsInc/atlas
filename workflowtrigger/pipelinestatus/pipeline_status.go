@@ -5,6 +5,7 @@ import (
 	"gitlab.com/c0b/go-ordered-json"
 )
 
+// TODO: should be replaced with PipelineSpec from CRD
 type PipelineStatus struct {
 	ProgressingSteps []string     `json:"progressingSteps"`
 	Stable           bool         `json:"stable"`

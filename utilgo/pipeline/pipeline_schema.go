@@ -1,10 +1,11 @@
 package pipeline
 
 import (
-	"gitlab.com/c0b/go-ordered-json"
 	"github.com/greenopsinc/util/git"
+	"gitlab.com/c0b/go-ordered-json"
 )
 
+// TODO: should be replaced with PipelineSpec from CRD
 type PipelineSchema struct {
 	PipelineName  string            `json:"pipelineName"`
 	GitRepoSchema git.GitRepoSchema `json:"gitRepoSchema"`
