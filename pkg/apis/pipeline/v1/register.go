@@ -26,7 +26,7 @@ var (
 
 // addKnownTypes adds the set of types defined in this package to the supplied scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
-	//scheme.AddKnownTypes(SchemeGroupVersion, &Pipeline{}, &PipelineList{})
+	scheme.AddKnownTypes(SchemeGroupVersion, &Pipeline{}, &PipelineList{})
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
 }
