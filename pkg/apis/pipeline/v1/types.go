@@ -18,6 +18,7 @@ import (
 // +genclient
 // TODO: check whether we need this
 // +genclient:noStatus
+// +groupName=pipeline
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:path=pipelines,shortName=pipeline;pipelines
 // +kubebuilder:printcolumn:name="Sync Status",type=string,JSONPath=`.status.sync.status`
