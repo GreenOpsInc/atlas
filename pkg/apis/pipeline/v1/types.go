@@ -8,11 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 )
 
-// TODO: find out how to generate code using
-//		1. https://github.com/kubernetes/code-generator
-//		2. https://github.com/kubernetes/gengo
-
-// TODO: find out how to generate pipeline.yaml file with CRD
+// TODO: fix error:  8352 deepcopy.go:890] Hit an unsupported type invalid type for invalid type, from greenopsinc.io/atlas/pkg/apis/pipeline/v1.Pipeline
 
 // Pipeline is a definition of Pipeline resource.
 // +genclient

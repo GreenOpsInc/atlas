@@ -1,4 +1,4 @@
-module github.com/greenopsinc
+module greenopsinc.io/atlas
 
 go 1.18
 
