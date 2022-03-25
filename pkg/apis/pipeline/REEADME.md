@@ -6,7 +6,7 @@
 4. Put `code-generator` directory in the same directory where `greenopsinc.io` is
 5. Run code generation script:
 ```shell
-  path-to-root-dir/code-generator/generate-groups.sh all \
+path-to-root-dir/code-generator/generate-groups.sh all \
     greenopsinc.io/atlas/pkg/client \
     greenopsinc.io/atlas/pkg/apis \
     "pipeline:v1" \ 

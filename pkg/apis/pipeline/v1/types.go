@@ -9,6 +9,7 @@ import (
 )
 
 // TODO: fix error:  8352 deepcopy.go:890] Hit an unsupported type invalid type for invalid type, from greenopsinc.io/atlas/pkg/apis/pipeline/v1.Pipeline
+// TODO: seems like we are having issues with deepcopy code generation, maybe it's better to create the code manually
 
 // Pipeline is a definition of Pipeline resource.
 // +genclient
