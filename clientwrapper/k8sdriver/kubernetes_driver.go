@@ -94,6 +94,7 @@ type KubernetesClient interface {
 	CheckHealthy() bool
 	//TODO: Update parameters for ExecInPod
 	ExecInPod() bool
+	StoreConfigMap(name string, namespace string, data map[string][]byte) error
 }
 
 type KubernetesClientDriver struct {

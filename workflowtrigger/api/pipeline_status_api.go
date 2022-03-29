@@ -6,6 +6,7 @@ import (
 	"github.com/greenopsinc/util/auditlog"
 	"github.com/greenopsinc/util/db"
 	"github.com/greenopsinc/util/git"
+	"gopkg.in/yaml.v2"
 	"greenops.io/workflowtrigger/api/argo"
 	"greenops.io/workflowtrigger/api/reposerver"
 	"greenops.io/workflowtrigger/pipelinestatus"
@@ -251,6 +252,117 @@ func getPipelineStatus(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(serializer.Serialize(status)))
 }
 
+type PipelineDataDag struct {
+	Steps       []StepDataDag
+}
+
+type StepDataDag struct {
+	Name         string   `yaml:"name"`
+	Dependencies []string `yaml:"dependencies"`
+}
+
+func getPipelineStructure(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	orgName := vars[orgNameField]
+	teamName := vars[teamNameField]
+	pipelineName := vars[pipelineNameField]
+	pipelineUvn := vars[pipelineUvnField]
+	dbClient := dbOperator.GetClient()
+	defer dbClient.Close()
+
+	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
+	gitRepo := pipelineSchema.GetGitRepoSchema()
+	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, git.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, reposerver.RootCommit,
+		string(argo.GetAction), string(argo.ApplicationResource)) {
+		http.Error(w, "Not enough permissions", http.StatusForbidden)
+		return
+	}
+
+	pipelineInfoKey := db.MakeDbPipelineInfoKey(orgName, teamName, pipelineName)
+	var pipelineInfo auditlog.PipelineInfo
+
+	if pipelineUvn == "LATEST" {
+		pipelineInfo = dbClient.FetchLatestPipelineInfo(pipelineInfoKey)
+		pipelineUvn = pipelineInfo.PipelineUvn
+	} else {
+		logIncrement := 0
+		pipelineInfoList := dbClient.FetchPipelineInfoList(pipelineInfoKey, logIncrement)
+		idx := 0
+		for idx < len(pipelineInfoList) {
+			if pipelineInfoList[idx].PipelineUvn == pipelineUvn {
+				pipelineInfo = pipelineInfoList[idx]
+				break
+			}
+			idx++
+			if idx == len(pipelineInfoList) {
+				logIncrement++
+				pipelineInfoList = dbClient.FetchPipelineInfoList(pipelineInfoKey, logIncrement)
+				idx = 0
+			}
+		}
+	}
+	if pipelineInfo.PipelineUvn == "" && len(pipelineInfo.Errors) == 0 {
+		http.Error(w, "No pipeline runs exist with the requested UVN", http.StatusBadRequest)
+		return
+	}
+
+	var log auditlog.Log
+	for _, step := range pipelineInfo.StepList {
+		logKey := db.MakeDbStepKey(orgName, teamName, pipelineName, step)
+
+		//TODO: This iteration is in enough places where it should be extracted as a dbClient method
+		//Get most recent log (deployment or remediation) with desired pipeline UVN
+		logIncrement := 0
+		logList := dbClient.FetchLogList(logKey, logIncrement)
+		idx := 0
+		for idx < len(logList) {
+			if logList[idx].GetPipelineUniqueVersionNumber() == pipelineUvn && logList[idx].GetUniqueVersionInstance() == 0 {
+				log = logList[idx]
+				break
+			}
+			idx++
+			if idx == len(logList) {
+				logIncrement++
+				logList = dbClient.FetchLogList(logKey, logIncrement)
+				idx = 0
+			}
+		}
+	}
+
+	if log == nil {
+		http.Error(w, "No pipeline runs exist with the requested UVN", http.StatusBadRequest)
+		return
+	}
+
+	var deploymentLog *auditlog.DeploymentLog
+	var ok bool
+	if deploymentLog, ok = log.(*auditlog.DeploymentLog); !ok {
+		http.Error(w, "No pipeline runs exist with the requested UVN", http.StatusBadRequest)
+		return
+	}
+
+	request := git.GetFileRequest{GitRepoSchemaInfo: git.GitRepoSchemaInfo{
+		GitRepoUrl: gitRepo.GetGitRepo(),
+		PathToRoot: gitRepo.GetPathToRoot(),
+	}, Filename: reposerver.PipelineFileName, GitCommitHash: deploymentLog.GitCommitVersion}
+	payload := repoManagerApi.GetFileFromRepo(request, orgName, teamName)
+	var pipelineData PipelineDataDag
+	err := yaml.Unmarshal([]byte(payload), &pipelineData)
+	if err != nil {
+		panic(err)
+	}
+	childMap := make(map[string][]string)
+	for _, step := range pipelineData.Steps {
+		for _, parent := range step.Dependencies {
+			if _, found := childMap[parent]; !found {
+				childMap[parent] = make([]string, 0)
+			}
+			childMap[parent] = append(childMap[parent], step.Name)
+		}
+	}
+	w.Write([]byte(serializer.Serialize(childMap)))
+}
+
 func cancelLatestPipeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
@@ -293,8 +405,9 @@ func cancelLatestPipeline(w http.ResponseWriter, r *http.Request) {
 }
 
 func InitStatusEndpoints(r *mux.Router) {
-	r.HandleFunc("/status/{orgName}/{teamName}/pipeline/{pipelineName}/history/{count}", getPipelineUvns).Methods("GET")
-	r.HandleFunc("/status/{orgName}/{teamName}/pipeline/{pipelineName}/step/{stepName}/{count}", getStepLogs).Methods("GET")
-	r.HandleFunc("/status/{orgName}/{teamName}/pipeline/{pipelineName}/{pipelineUvn}", getPipelineStatus).Methods("GET")
-	r.HandleFunc("/status/{orgName}/{teamName}/pipelineRun/{pipelineName}", cancelLatestPipeline).Methods("DELETE")
+	r.HandleFunc("/status/{orgName}/{teamName}/pipeline/{pipelineName}/history/{count}", getPipelineUvns).Methods("GET", "OPTIONS")
+	r.HandleFunc("/status/{orgName}/{teamName}/pipeline/{pipelineName}/step/{stepName}/{count}", getStepLogs).Methods("GET", "OPTIONS")
+	r.HandleFunc("/status/{orgName}/{teamName}/pipeline/{pipelineName}/{pipelineUvn}", getPipelineStatus).Methods("GET", "OPTIONS")
+	r.HandleFunc("/structure/{orgName}/{teamName}/pipeline/{pipelineName}/{pipelineUvn}", getPipelineStructure).Methods("GET", "OPTIONS")
+	r.HandleFunc("/status/{orgName}/{teamName}/pipelineRun/{pipelineName}", cancelLatestPipeline).Methods("DELETE", "OPTIONS")
 }

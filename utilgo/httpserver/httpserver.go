@@ -50,7 +50,7 @@ func createServer(tlsServerConf *tls.Config, handler http.Handler) *http.Server 
 	return &http.Server{
 		Handler:      handler,
 		Addr:         ":8080",
-		TLSConfig:    tlsServerConf,
+		//TLSConfig:    tlsServerConf,
 		WriteTimeout: 20 * time.Second,
 		ReadTimeout:  20 * time.Second,
 	}
@@ -58,7 +58,7 @@ func createServer(tlsServerConf *tls.Config, handler http.Handler) *http.Server 
 
 func listenAndServe(wg *sync.WaitGroup, srv *http.Server) {
 	defer wg.Done()
-	if err := srv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
 }

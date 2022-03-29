@@ -212,9 +212,9 @@ func InitializeLocalCluster() {
 }
 
 func InitClusterEndpoints(r *mux.Router) {
-	r.HandleFunc("/cluster/{orgName}", createCluster).Methods("POST")
-	r.HandleFunc("/cluster/{orgName}/{clusterName}", readCluster).Methods("GET")
-	r.HandleFunc("/cluster/{orgName}/{clusterName}", deleteCluster).Methods("DELETE")
-	r.HandleFunc("/cluster/{orgName}/{clusterName}/noDeploy/apply", markNoDeployCluster).Methods("POST")
-	r.HandleFunc("/cluster/{orgName}/{clusterName}/noDeploy/remove", removeNoDeployCluster).Methods("POST")
+	r.HandleFunc("/cluster/{orgName}", createCluster).Methods("POST", "OPTIONS")
+	r.HandleFunc("/cluster/{orgName}/{clusterName}", readCluster).Methods("GET", "OPTIONS")
+	r.HandleFunc("/cluster/{orgName}/{clusterName}", deleteCluster).Methods("DELETE", "OPTIONS")
+	r.HandleFunc("/cluster/{orgName}/{clusterName}/noDeploy/apply", markNoDeployCluster).Methods("POST", "OPTIONS")
+	r.HandleFunc("/cluster/{orgName}/{clusterName}/noDeploy/remove", removeNoDeployCluster).Methods("POST", "OPTIONS")
 }

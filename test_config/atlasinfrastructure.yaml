@@ -134,9 +134,9 @@ spec:
             - name: ATLAS_DB_ADDRESS
               value: redisserver.atlas.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
-              value: https://reposerver.atlas.svc.cluster.local:8080
+              value: http://reposerver.atlas.svc.cluster.local:8080
             - name: COMMAND_DELEGATOR_SERVER_ENDPOINT
-              value: https://commanddelegator.atlas.svc.cluster.local:8080
+              value: http://commanddelegator.atlas.svc.cluster.local:8080
           image: atlasworkflowtrigger
           imagePullPolicy: Never
           name: workflowtrigger
@@ -236,7 +236,7 @@ spec:
       containers:
         - env:
             - name: CLIENT_WRAPPER_ENDPOINT
-              value: https://atlasclientwrapper.atlas.svc.cluster.local:9091
+              value: http://atlasclientwrapper.atlas.svc.cluster.local:9091
             - name: KAFKA_BOOTSTRAP_SERVERS # docker-compose
               value: LOCALHOSTDYNAMICADDRESS:29092
 #            - name: KAFKA_BOOTSTRAP_SERVERS # strimzi
@@ -244,7 +244,7 @@ spec:
             - name: REDIS_ENDPOINT
               value: redisserver.atlas.svc.cluster.local:6379
             - name: REPO_SERVER_ENDPOINT
-              value: https://reposerver.atlas.svc.cluster.local:8080
+              value: http://reposerver.atlas.svc.cluster.local:8080
               # uncomment those to use custom tls certificate for repo server
             # - name: REPO_SERVER_CERT_PATH
             #   value: /tls/examplecert.pem
@@ -357,9 +357,9 @@ spec:
       containers:
         - env:
           - name: WORKFLOW_TRIGGER_SERVER_ADDR
-            value: https://workflowtrigger.atlas.svc.cluster.local:8080
+            value: http://workflowtrigger.atlas.svc.cluster.local:8080
           - name: COMMAND_DELEGATOR_URL
-            value: https://commanddelegator.atlas.svc.cluster.local:8080
+            value: http://commanddelegator.atlas.svc.cluster.local:8080
           name: atlasclientwrapper
           image: atlasclientwrapper
           imagePullPolicy: Never

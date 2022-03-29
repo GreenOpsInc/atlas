@@ -87,6 +87,7 @@ func readTeam(w http.ResponseWriter, r *http.Request) {
 }
 
 func listTeams(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	vars := mux.Vars(r)
 	orgName := vars[orgNameField]
 	dbClient := dbOperator.GetClient()
@@ -313,14 +314,16 @@ func syncPipeline(w http.ResponseWriter, r *http.Request) {
 	dbClient := dbOperator.GetClient()
 	defer dbClient.Close()
 
-	var gitRepo git.GitRepoSchema
-	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	gitRepo = git.UnmarshallGitRepoSchemaString(string(buf.Bytes()))
+	pipelineSchema := getPipeline(orgName, teamName, pipelineName, dbClient)
+	gitRepo := pipelineSchema.GetGitRepoSchema()
+	//var gitRepo git.GitRepoSchema
+	//buf := new(bytes.Buffer)
+	//_, err := buf.ReadFrom(r.Body)
+	//if err != nil {
+	//	http.Error(w, err.Error(), http.StatusBadRequest)
+	//	return
+	//}
+	//gitRepo = git.UnmarshallGitRepoSchemaString(string(buf.Bytes()))
 	currentRevisionHash := repoManagerApi.SyncRepo(gitRepo)
 	if currentRevisionHash == "" {
 		http.Error(w, "syncing repository failed", http.StatusBadRequest)
@@ -330,6 +333,8 @@ func syncPipeline(w http.ResponseWriter, r *http.Request) {
 	if revisionHash == reposerver.RootCommit {
 		revisionHash = currentRevisionHash
 	}
+
+	log.Printf("rev hash %s", revisionHash)
 
 	if !schemaValidator.ValidateSchemaAccess(orgName, teamName, git.GitRepoSchemaInfo{GitRepoUrl: gitRepo.GitRepo, PathToRoot: gitRepo.PathToRoot}, revisionHash,
 		string(argo.SyncAction), string(argo.ApplicationResource)) {
@@ -676,23 +681,23 @@ func getNotification(requestId string, dbClient db.DbClient) clientrequest.Notif
 }
 
 func InitPipelineTeamEndpoints(r *mux.Router) {
-	r.HandleFunc("/team/{orgName}", listTeams).Methods("GET")
-	r.HandleFunc("/team/{orgName}/{parentTeamName}/{teamName}", createTeam).Methods("POST")
-	r.HandleFunc("/team/{orgName}/{teamName}", readTeam).Methods("GET")
-	r.HandleFunc("/team/{orgName}/{teamName}", deleteTeam).Methods("DELETE")
-	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", createPipeline).Methods("POST")
-	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", updatePipeline).Methods("PUT")
-	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", getPipelineEndpoint).Methods("GET")
-	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", deletePipeline).Methods("DELETE")
-	r.HandleFunc("/sync/{orgName}/{teamName}/{pipelineName}/{revisionHash}", syncPipeline).Methods("POST")
-	r.HandleFunc("/sync/{orgName}/{teamName}/{pipelineName}/{revisionHash}/{stepName}", runSubPipeline).Methods("POST")
-	r.HandleFunc("/force/{orgName}/{teamName}/{pipelineName}/{revisionHash}/{stepName}/{argoRevisionHash}", forceDeploy).Methods("POST")
-	r.HandleFunc("/client/generateNotification/{requestId}", generateNotification).Methods("POST")
-	r.HandleFunc("/client/{orgName}/{clusterName}/generateEvent", generateEventEndpoint).Methods("POST")
-	r.HandleFunc("/combinations/{orgName}/{teamName}/{pipelineName}", getPipelineClusterNamespaceCombinations).Methods("GET")
-	r.HandleFunc("/aggregate/{orgName}/{clusterName}/{namespace}", aggregatePipeline).Methods("GET")
-	r.HandleFunc("/label/{orgName}/{clusterName}/{teamName}/{pipelineName}", labelPipeline).Methods("POST")
-	r.HandleFunc("/clean/{orgName}/{clusterName}/{teamName}/{pipelineName}/{namespace}", deleteByLabel).Methods("POST")
+	r.HandleFunc("/team/{orgName}", listTeams).Methods("GET", "OPTIONS")
+	r.HandleFunc("/team/{orgName}/{parentTeamName}/{teamName}", createTeam).Methods("POST", "OPTIONS")
+	r.HandleFunc("/team/{orgName}/{teamName}", readTeam).Methods("GET", "OPTIONS")
+	r.HandleFunc("/team/{orgName}/{teamName}", deleteTeam).Methods("DELETE", "OPTIONS")
+	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", createPipeline).Methods("POST", "OPTIONS")
+	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", updatePipeline).Methods("PUT", "OPTIONS")
+	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", getPipelineEndpoint).Methods("GET", "OPTIONS")
+	r.HandleFunc("/pipeline/{orgName}/{teamName}/{pipelineName}", deletePipeline).Methods("DELETE", "OPTIONS")
+	r.HandleFunc("/sync/{orgName}/{teamName}/{pipelineName}/{revisionHash}", syncPipeline).Methods("POST", "OPTIONS")
+	r.HandleFunc("/sync/{orgName}/{teamName}/{pipelineName}/{revisionHash}/{stepName}", runSubPipeline).Methods("POST", "OPTIONS")
+	r.HandleFunc("/force/{orgName}/{teamName}/{pipelineName}/{revisionHash}/{stepName}/{argoRevisionHash}", forceDeploy).Methods("POST", "OPTIONS")
+	r.HandleFunc("/client/generateNotification/{requestId}", generateNotification).Methods("POST", "OPTIONS")
+	r.HandleFunc("/client/{orgName}/{clusterName}/generateEvent", generateEventEndpoint).Methods("POST", "OPTIONS")
+	r.HandleFunc("/combinations/{orgName}/{teamName}/{pipelineName}", getPipelineClusterNamespaceCombinations).Methods("GET", "OPTIONS")
+	r.HandleFunc("/aggregate/{orgName}/{clusterName}/{namespace}", aggregatePipeline).Methods("GET", "OPTIONS")
+	r.HandleFunc("/label/{orgName}/{clusterName}/{teamName}/{pipelineName}", labelPipeline).Methods("POST", "OPTIONS")
+	r.HandleFunc("/clean/{orgName}/{clusterName}/{teamName}/{pipelineName}/{namespace}", deleteByLabel).Methods("POST", "OPTIONS")
 }
 
 func InitClients(dbOperatorCopy db.DbOperator, kafkaClientCopy kafkaclient.KafkaClient, kubernetesClientCopy kubernetesclient.KubernetesClient, repoManagerApiCopy reposerver.RepoManagerApi, argoClusterApiCopy argo.ArgoClusterApi, argoRepoApiCopy argo.ArgoRepoApi, commandDelegatorApiCopy commanddelegator.CommandDelegatorApi, schemaValidatorCopy schemavalidation.RequestSchemaValidator) {
