@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient"
 	"github.com/argoproj/argo-cd/v2/util/errors"
@@ -17,6 +19,47 @@ import (
 var (
 	history bool
 )
+
+type ServerPipelineStatus struct {
+	Type                        string `json:"type"`
+	PipelineUniqueVersionNumber string `json:"pipelineUniqueVersionNumber"`
+	RollbackUniqueVersionNumber string `json:"rollbackUniqueVersionNumber"`
+	UniqueVersionInstance       int    `json:"uniqueVersionInstance"`
+	Status                      string `json:"status"`
+	DeploymentComplete          bool   `json:"deploymentComplete"`
+	ArgoApplicationName         string `json:"argoApplicationName"`
+	ArgoRevisionHash            string `json:"argoRevisionHash"`
+	GitCommitVersion            string `json:"gitCommitVersion"`
+	BrokenTest                  string `json:"brokenTest"`
+	BrokenTestLog               string `json:"brokenTestLog"`
+}
+
+type PipelineStatus struct {
+	Type                        string  `json:"type"`
+	PipelineUniqueVersionNumber string  `json:"pipelineUniqueVersionNumber"`
+	RollbackUniqueVersionNumber string  `json:"rollbackUniqueVersionNumber"`
+	UniqueVersionInstance       int     `json:"uniqueVersionInstance"`
+	Status                      *Status `json:"status"`
+	DeploymentComplete          bool    `json:"deploymentComplete"`
+	ArgoApplicationName         string  `json:"argoApplicationName"`
+	ArgoRevisionHash            string  `json:"argoRevisionHash"`
+	GitCommitVersion            string  `json:"gitCommitVersion"`
+	BrokenTest                  string  `json:"brokenTest"`
+	BrokenTestLog               string  `json:"brokenTestLog"`
+}
+
+type Status struct {
+	ProgressingSteps interface{} `json:"progressingSteps"`
+	Stable           bool        `json:"stable"`
+	Complete         bool        `json:"complete"`
+	Cancelled        bool        `json:"cancelled"`
+	FailedSteps      []struct {
+		Step             string `json:"step"`
+		DeploymentFailed bool   `json:"deploymentFailed"`
+		BrokenTest       string `json:"brokenTest"`
+		BrokenTestLog    string `json:"brokenTestLog"`
+	} `json:"failedSteps"`
+}
 
 // statusCmd represents the status command
 var statusCmd = &cobra.Command{
@@ -98,6 +141,11 @@ Example usage:
 		}
 		body, err := ioutil.ReadAll(resp.Body)
 
+		var serverPipelineStatuses []*ServerPipelineStatus
+		if err := json.Unmarshal(body, &serverPipelineStatuses); err == nil {
+			body = marshalStepStatuses(serverPipelineStatuses)
+		}
+
 		statusCode := resp.StatusCode
 		if statusCode == 200 {
 			var prettyJSON bytes.Buffer
@@ -106,11 +154,57 @@ Example usage:
 				fmt.Println("Request failed, please try again.")
 				return
 			}
-			fmt.Println(string(prettyJSON.Bytes()))
+			fmt.Println(formatStatusOutput(string(prettyJSON.Bytes())))
 		} else {
 			fmt.Printf("Error: %d - %s", statusCode, string(body))
 		}
 	},
+}
+
+func marshalStepStatuses(serverPipelineStatuses []*ServerPipelineStatus) []byte {
+	var pipelineStatuses []*PipelineStatus
+	for _, s := range serverPipelineStatuses {
+		var status *Status
+		if err := json.Unmarshal([]byte(serverPipelineStatuses[0].Status), &status); err != nil {
+			log.Fatalf("failed to marshal status: %s", err.Error())
+		}
+		pipelineStatus := &PipelineStatus{
+			Type:                        s.Type,
+			PipelineUniqueVersionNumber: s.PipelineUniqueVersionNumber,
+			RollbackUniqueVersionNumber: s.RollbackUniqueVersionNumber,
+			UniqueVersionInstance:       s.UniqueVersionInstance,
+			Status:                      status,
+			DeploymentComplete:          s.DeploymentComplete,
+			ArgoApplicationName:         s.ArgoApplicationName,
+			ArgoRevisionHash:            s.ArgoRevisionHash,
+			GitCommitVersion:            s.GitCommitVersion,
+			BrokenTest:                  s.BrokenTest,
+			BrokenTestLog:               s.BrokenTestLog,
+		}
+		pipelineStatuses = append(pipelineStatuses, pipelineStatus)
+	}
+
+	res, err := json.Marshal(&pipelineStatuses)
+	if err != nil {
+		log.Fatalf("failed to marshal pipeline status: %s", err.Error())
+	}
+	return res
+}
+
+func formatStatusOutput(s string) string {
+	strs := strings.Split(s, "\\n")
+	var res string
+	for i, str := range strs {
+		if i == 0 {
+			res += fmt.Sprintf(`%s
+`, str)
+			continue
+		}
+		str = strings.ReplaceAll(str, "\\", "")
+		res += fmt.Sprintf(`%s%s
+`, "\t\t\t\t\t\t", str)
+	}
+	return res
 }
 
 func init() {
