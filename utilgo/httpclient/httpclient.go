@@ -50,7 +50,7 @@ func (c *client) configureClient(tlsConf *tls.Config) *http.Client {
 	return &http.Client{
 		Timeout: time.Second * 10,
 		Transport: &http.Transport{
-			//TLSClientConfig: tlsConf,
+			TLSClientConfig: tlsConf,
 		},
 	}
 }
